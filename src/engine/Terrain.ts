@@ -60,8 +60,9 @@ export class Terrain {
       const rowOffset = (cy0 + ly) * this.width + cx0;
       for (let lx = 0; lx < cw; lx++) {
         const px = lx * this.scale;
-        const alphaIdx = (py * stride + px) * 4 + 3;
-        this.solid[rowOffset + lx] = imgData[alphaIdx] > 45 ? 1 : 0;
+        const idx = (py * stride + px) * 4;
+        const a = imgData[idx + 3];
+        this.solid[rowOffset + lx] = a > 45 ? 1 : 0;
       }
     }
   }

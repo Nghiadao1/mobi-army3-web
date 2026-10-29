@@ -186,9 +186,9 @@ export class CharacterRenderer {
     poseIdx: number,
     facingLeft: boolean
   ): void {
-    // Các bộ giáp Marvel nguyên khối (body >= 220) dùng frame 0..5 (idle & walk), nên khi ngắm/bắn (pose >= 11) ánh xạ về pose 0/1 để khớp hoàn hảo đầu-thân-chân
+    // Các bộ giáp Marvel / Tướng đặc biệt (body >= 220 hoặc Ironman / Loki) dùng pose 0/1 để khớp hoàn hảo đầu-thân-chân
     let effectivePoseIdx = poseIdx;
-    if (eq.body >= 220 && poseIdx >= 11) {
+    if ((eq.body >= 220 || eq.hat === 294 || eq.hat === 198) && poseIdx >= 11) {
       effectivePoseIdx = poseIdx >= 23 ? 1 : 0;
     }
 
@@ -204,6 +204,10 @@ export class CharacterRenderer {
       this.drawPartSlot(ctx, eq.back, pose[5], facingLeft);
     }
     if (eq.hat !== -1) {
+      if (eq.hat === 198) {
+        // Loki: Mũ 198 là sừng vàng Asgard đội lên đầu chuẩn part 59
+        this.drawPartSlot(ctx, 59, pose[0], facingLeft);
+      }
       this.drawPartSlot(ctx, eq.hat, pose[0], facingLeft);
     } else if (eq.glass !== -1) {
       // Tướng đeo mặt nạ/mũ đặc biệt (Granos, Chicky, Apache) dùng đầu nền part 59 + slot 4.
@@ -256,12 +260,14 @@ export class CharacterRenderer {
 
       const lw = smallImg.width / 2;
       const lh = smallImg.height / 2;
-      const dy = poseDy + frame.dy;
+      const frameDx = partId === 198 ? -4 : frame.dx;
+      const frameDy = partId === 198 ? -6 : frame.dy;
+      const dy = poseDy + frameDy;
       if (!facingLeft) {
-        const dx = poseDx + frame.dx;
+        const dx = poseDx + frameDx;
         ctx.drawImage(smallImg, 0, 0, smallImg.width, smallImg.height, dx, dy, lw, lh);
       } else {
-        const anchorRightX = -poseDx - frame.dx;
+        const anchorRightX = -poseDx - frameDx;
         ctx.save();
         ctx.translate(anchorRightX, dy);
         ctx.scale(-1, 1);
@@ -319,14 +325,25 @@ export class CharacterRenderer {
   private drawUfoBoss(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
     const entry = this.assets.manifest.bosses.ufo;
     const img = this.assets.getImage(entry.url);
-    const bob = Math.sin(state.animTick * 0.08) * 4;
+    const bob = Math.sin(state.animTick * 0.05) * 2.8;
     if (!img) return;
 
     const frames = entry.frames || 3;
     const fh = Math.floor(img.height / frames);
-    const frame = Math.floor(state.animTick / 5) % frames;
+    const frame = Math.floor(state.animTick / 14) % frames;
     const w = img.width * 0.62;
     const h = fh * 0.62;
+
+    // Bù trừ tâm thực tế chuẩn xác của từng frame UFO để không bị giật hình:
+    // Frame 0 cx=48.2, cy=47.9
+    // Frame 1 cx=45.1, cy=47.8 (lệch trái 3.1px -> bù dx: +1.9)
+    // Frame 2 cx=51.5, cy=50.6 (lệch phải 3.3px, dưới 2.8px -> bù dx: -2.1, dy: -1.7)
+    const UFO_OFFSETS = [
+      { dx: 0, dy: 0 },
+      { dx: 1.9, dy: 0 },
+      { dx: -2.1, dy: -1.7 },
+    ];
+    const off = UFO_OFFSETS[frame] ?? { dx: 0, dy: 0 };
 
     // Tia năng lượng dưới đáy UFO
     ctx.save();
@@ -339,7 +356,7 @@ export class CharacterRenderer {
     ctx.fill();
     ctx.restore();
 
-    ctx.drawImage(img, 0, frame * fh, img.width, fh, -w / 2, -h * 0.72 + bob, w, h);
+    ctx.drawImage(img, 0, frame * fh, img.width, fh, -w / 2 + off.dx, -h * 0.72 + bob + off.dy, w, h);
   }
 
   private drawMechBoss(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
@@ -347,7 +364,7 @@ export class CharacterRenderer {
     const hangerImg = this.assets.getImage(this.assets.manifest.bosses.mechHanger.url);
     const q1 = this.assets.getImage('./assets/bosses/quat1.png');
     const q2 = this.assets.getImage('./assets/bosses/quat2.png');
-    const bob = Math.sin(state.animTick * 0.07) * 3.5;
+    const bob = Math.sin(state.animTick * 0.06) * 3.0;
 
     ctx.save();
     if (state.facingLeft) ctx.scale(-1, 1);
@@ -358,7 +375,7 @@ export class CharacterRenderer {
       const hh = hangerImg.height * 0.55;
       ctx.drawImage(hangerImg, -hw / 2, -82 + bob, hw, hh);
     }
-    const rotor = Math.floor(state.animTick / 2) % 2 === 0 ? q1 : q2;
+    const rotor = Math.floor(state.animTick / 4) % 2 === 0 ? q1 : q2;
     if (rotor) {
       ctx.drawImage(rotor, -34, -95 + bob, rotor.width * 1.2, rotor.height * 0.9);
       ctx.drawImage(rotor, 24, -95 + bob, rotor.width * 1.2, rotor.height * 0.9);
@@ -375,12 +392,12 @@ export class CharacterRenderer {
   private drawBomberUnit(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
     const entry = this.assets.manifest.bosses.bomber;
     const img = this.assets.getImage(entry.url);
-    const bob = Math.sin(state.animTick * 0.11) * 3;
+    const bob = Math.sin(state.animTick * 0.08) * 3;
     if (!img) return;
 
-    const frames = entry.frames || 2;
+    const frames = entry.frames || 1;
     const fh = Math.floor(img.height / frames);
-    const frame = Math.floor(state.animTick / 3) % frames;
+    const frame = frames > 1 ? Math.floor(state.animTick / 4) % frames : 0;
     const w = img.width * 0.65;
     const h = fh * 0.65;
 

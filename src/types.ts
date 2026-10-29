@@ -143,7 +143,11 @@ export type BattleItemId =
   | 'shield'
   | 'windstop'
   | 'digger'
-  | 'web';
+  | 'web'
+  | 'freeze'
+  | 'poison'
+  | 'nuke'
+  | 'stealth';
 
 export interface BattleItemDef {
   id: BattleItemId;
@@ -196,6 +200,7 @@ export interface BattleSetup {
   remoteHeroId?: string;
   remotePeerName?: string;
   seed?: number;
+  selectedItems?: BattleItemId[];
 }
 
 export interface MatchStats {

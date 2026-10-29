@@ -825,3 +825,63 @@ body,
     height: 10px;
   }
 }
+
+/* Trang Bị Vật Phẩm Vào Trận (Tối đa 6 món) */
+.loadout-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.loadout-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  gap: 8px;
+}
+
+.loadout-item-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1.5px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.loadout-item-card:hover {
+  border-color: #38bdf8;
+  background: rgba(30, 41, 59, 1);
+}
+
+.loadout-item-card.selected {
+  border-color: #facc15;
+  background: rgba(40, 53, 80, 0.95);
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.35);
+}
+
+.loadout-item-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #facc15;
+  color: #0f172a;
+  font-weight: 900;
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}

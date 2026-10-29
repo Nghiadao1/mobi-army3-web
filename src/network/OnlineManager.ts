@@ -37,6 +37,11 @@ export type OnlineBattleAction =
     action: 'skip_turn';
     unitId: string;
     nextWind: number;
+  }
+  | {
+    action: 'loki_morph';
+    unitId: string;
+    morphHeroId: string;
   };
 
 export type OnlinePacket =

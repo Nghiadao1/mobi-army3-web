@@ -4,7 +4,7 @@ import { Terrain } from './Terrain';
 export const PHYSICS = {
   GRAVITY: 0.215,
   WIND_FACTOR: 0.0029,
-  MAX_POWER_SPEED: 14.8,
+  MAX_POWER_SPEED: 18.2, // Tăng lực bắn tối đa cho tất cả các nhân vật
   MUZZLE_OFFSET_X: 14,
   MUZZLE_OFFSET_Y: -20,
 };

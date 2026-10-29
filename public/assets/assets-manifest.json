@@ -160,6 +160,10 @@
     "longga": {
       "url": "assets/effects/longga.png",
       "frames": 5
+    },
+    "stealth": {
+      "url": "assets/effects/tangHinhEffect.png",
+      "frames": 4
     }
   },
   "bosses": {
@@ -177,7 +181,7 @@
     },
     "bomber": {
       "url": "assets/bosses/mb00.png",
-      "frames": 2
+      "frames": 1
     },
     "jet": {
       "url": "assets/bosses/mb10.png",
@@ -249,6 +253,8 @@
     3253,
     3254,
     3315,
+    3319,
+    3329,
     3535,
     3539,
     3540,
