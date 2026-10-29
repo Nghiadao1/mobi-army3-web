@@ -258,7 +258,7 @@ class GameApp {
               <img class="brand-logo" src="./assets/ui/logoGame.png" alt="Mobi Army 3" />
               <div class="brand-title">
                 <h1>MOBI ARMY 3 — BẢN WEB OFFLINE &amp; SOLO ONLINE</h1>
-                <p>16 Chiến Binh (8 Tướng Gốc + 8 Siêu Anh Hùng Marvel) • Vượt Ải Boss • Đấu Bot • Solo Trực Tuyến 1v1</p>
+                <p>17 Chiến Binh (9 Tướng Gốc + 8 Siêu Anh Hùng Marvel) • Vượt Ải Boss • Đấu Bot • Solo Trực Tuyến 1v1</p>
               </div>
             </div>
             <div class="mode-tabs">
@@ -678,13 +678,13 @@ class GameApp {
         <div class="dpad-cluster">
           <button class="ctrl-btn" data-hold="left" title="Đi Trái (A / ←)">◀</button>
           <div style="display:flex;flex-direction:column;gap:4px">
-            <button class="ctrl-btn" data-hold="up" style="height:32px" title="Nâng Góc (W / ↑)">▲</button>
-            <button class="ctrl-btn" data-hold="down" style="height:32px" title="Hạ Góc (S / ↓)">▼</button>
+            <button class="ctrl-btn" data-hold="up" style="height:32px" title="Bay Lên (Iron Man/Ultron) hoặc Nâng Góc (W / ↑)">▲</button>
+            <button class="ctrl-btn" data-hold="down" style="height:32px" title="Bay Xuống (Iron Man/Ultron) hoặc Hạ Góc (S / ↓)">▼</button>
           </div>
           <button class="ctrl-btn" data-hold="right" title="Đi Phải (D / →)">▶</button>
           <div id="hud-fly-box" style="display:none;flex-direction:column;gap:4px;margin-left:2px">
-            <button class="ctrl-btn" data-hold="flyUp" style="height:32px;font-size:0.72rem;padding:0 6px;border-color:#38bdf8;color:#7dd3fc" title="Bay Lên (Phím Q)">🛫 Lên</button>
-            <button class="ctrl-btn" data-hold="flyDown" style="height:32px;font-size:0.72rem;padding:0 6px;border-color:#38bdf8;color:#7dd3fc" title="Bay Xuống (Phím E)">🛬 Xuống</button>
+            <button class="ctrl-btn" data-hold="angleUp" style="height:32px;font-size:0.72rem;padding:0 6px;border-color:#38bdf8;color:#7dd3fc" title="Tăng Góc Bắn (Phím Q)">📐+Góc</button>
+            <button class="ctrl-btn" data-hold="angleDown" style="height:32px;font-size:0.72rem;padding:0 6px;border-color:#38bdf8;color:#7dd3fc" title="Giảm Góc Bắn (Phím E)">📐-Góc</button>
           </div>
           <div style="margin-left:6px;text-align:center;min-width:58px">
             <div style="font-size:0.7rem;color:#94a3b8">GÓC BẮN</div>
@@ -770,7 +770,15 @@ class GameApp {
     };
 
     this.uiRoot.querySelectorAll<HTMLButtonElement>('[data-hold]').forEach((btn) => {
-      const key = btn.dataset.hold as 'left' | 'right' | 'up' | 'down' | 'flyUp' | 'flyDown';
+      const key = btn.dataset.hold as
+        | 'left'
+        | 'right'
+        | 'up'
+        | 'down'
+        | 'flyUp'
+        | 'flyDown'
+        | 'angleUp'
+        | 'angleDown';
       const setHold = (val: boolean) => {
         if (!this.battle) return;
         this.battle.keys[key] = val;
@@ -1019,11 +1027,11 @@ class GameApp {
           e.preventDefault();
           break;
         case 'KeyQ':
-          this.battle.keys.flyUp = down;
+          this.battle.keys.angleUp = down;
           e.preventDefault();
           break;
         case 'KeyE':
-          this.battle.keys.flyDown = down;
+          this.battle.keys.angleDown = down;
           e.preventDefault();
           break;
         case 'Space':
@@ -1060,6 +1068,8 @@ class GameApp {
         down: false,
         flyUp: false,
         flyDown: false,
+        angleUp: false,
+        angleDown: false,
         space: false,
       };
     });

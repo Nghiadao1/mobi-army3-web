@@ -94,11 +94,14 @@ interface Projectile {
     | 'sky_lightning'
     | 'hulk_leap'
     | 'hawkeye_giant_homing'
-    | 'apache_diamond';
+    | 'apache_diamond'
+    | 'boomerang_curve';
   diggerCharges?: number;
   droppedEgg?: boolean;
   eggDropTick?: number;
   returningToOwner?: boolean;
+  boomerangTurnDir?: 1 | -1;
+  boomerangTurned?: boolean;
   leapStartY?: number;
   leapPeakHeight?: number;
   hoveringDiamond?: boolean;
@@ -213,6 +216,8 @@ export class BattleEngine {
     down: false,
     flyUp: false,
     flyDown: false,
+    angleUp: false,
+    angleDown: false,
     space: false,
   };
 
@@ -524,6 +529,7 @@ export class BattleEngine {
         'chicky',
         'apache',
         'kingkong',
+        'tazang',
         'gunner',
         'captain',
         'thor',
@@ -1254,32 +1260,43 @@ export class BattleEngine {
         }
       }
 
-      // Iron Man & Ultron: bay tự do lên/xuống lơ lửng trên map, giới hạn bởi thể lực!
-      if (u.hero.canFly && u.stamina > 0) {
-        if (this.keys.flyUp || (moved && this.keys.up)) {
-          const nextY = Math.max(28, u.y - u.hero.moveSpeed * 0.92);
-          if (!this.terrain.isSolid(u.x, nextY - 14)) {
-            u.y = nextY;
-            u.stamina = Math.max(0, u.stamina - 0.65);
-            moved = true;
-          }
-        } else if (this.keys.flyDown || (moved && this.keys.down)) {
-          const nextY = Math.min(this.terrain.waterY - 14, u.y + u.hero.moveSpeed * 0.92);
-          if (!this.terrain.isSolid(u.x, nextY)) {
-            u.y = nextY;
-            u.stamina = Math.max(0, u.stamina - 0.65);
-            moved = true;
+      // Iron Man & Ultron: bay tự do 4 hướng (Trái/Phải/Lên/Xuống) lơ lửng trên map, giới hạn bởi thể lực!
+      if (u.hero.canFly) {
+        if (u.stamina > 0) {
+          if (this.keys.flyUp || this.keys.up) {
+            const nextY = Math.max(26, u.y - u.hero.moveSpeed * 1.05);
+            if (!this.terrain.isSolid(u.x, nextY - 14)) {
+              u.y = nextY;
+              u.stamina = Math.max(0, u.stamina - 0.62);
+              moved = true;
+            }
+          } else if (this.keys.flyDown || this.keys.down) {
+            const nextY = Math.min(this.terrain.waterY - 14, u.y + u.hero.moveSpeed * 1.05);
+            if (!this.terrain.isSolid(u.x, nextY)) {
+              u.y = nextY;
+              u.stamina = Math.max(0, u.stamina - 0.62);
+              moved = true;
+            }
           }
         }
-      }
 
-      if (this.keys.up && !(u.hero.canFly && moved)) {
-        u.aimAngleDeg = Math.min(u.hero.maxAngle, u.aimAngleDeg + 0.85);
-        aimChanged = true;
-      }
-      if (this.keys.down && !(u.hero.canFly && moved)) {
-        u.aimAngleDeg = Math.max(u.hero.minAngle, u.aimAngleDeg - 0.85);
-        aimChanged = true;
+        if (this.keys.angleUp || (u.stamina <= 0 && this.keys.up)) {
+          u.aimAngleDeg = Math.min(u.hero.maxAngle, u.aimAngleDeg + 0.85);
+          aimChanged = true;
+        }
+        if (this.keys.angleDown || (u.stamina <= 0 && this.keys.down)) {
+          u.aimAngleDeg = Math.max(u.hero.minAngle, u.aimAngleDeg - 0.85);
+          aimChanged = true;
+        }
+      } else {
+        if (this.keys.up || this.keys.angleUp) {
+          u.aimAngleDeg = Math.min(u.hero.maxAngle, u.aimAngleDeg + 0.85);
+          aimChanged = true;
+        }
+        if (this.keys.down || this.keys.angleDown) {
+          u.aimAngleDeg = Math.max(u.hero.minAngle, u.aimAngleDeg - 0.85);
+          aimChanged = true;
+        }
       }
 
       u.animMode = moved ? 'walk' : aimChanged ? 'aim' : 'idle';
@@ -1781,8 +1798,7 @@ export class BattleEngine {
         break;
       }
 
-      case 'banana_cluster':
-      case 'boomerang': {
+      case 'banana_cluster': {
         // King Kong (Khỉ Đột): Bắn chùm 4 quả chuối xoáy (POW = 6 quả chuối đại)
         const angles = usePow ? [-6, -3.6, -1.2, 1.2, 3.6, 6] : [-4.5, -1.5, 1.5, 4.5];
         const ratio = usePow ? 0.36 : 0.34;
@@ -1799,6 +1815,26 @@ export class BattleEngine {
               windScale: 0.85,
               scale: 1.2,
             });
+          });
+        });
+        break;
+      }
+
+      case 'boomerang': {
+        // Tazang: Ném 1 chiếc Bumerang xoáy và tự động ĐỔI HƯỚNG quay ngược lại khi đang bay!
+        this.queueProjectile(baseDelay, () => {
+          sound.playShoot(true);
+          this.spawnBullet(u, u.aimAngleDeg, power, {
+            spriteKey: 'boomerang',
+            effectKey: usePow ? 'nuke' : 'bigExplosion',
+            holeMask: 'hrangcua.png',
+            holeScale: usePow ? 1.32 : 1.18,
+            damage: u.attack * (usePow ? 1.52 : 1.12),
+            blastRadius: usePow ? 52 : 46,
+            windScale: 0.35,
+            special: 'boomerang_curve',
+            boomerangTurnDir: u.facingLeft ? 1 : -1,
+            scale: usePow ? 1.35 : 1.12,
           });
         });
         break;
@@ -2185,6 +2221,7 @@ export class BattleEngine {
       diggerCharges?: number;
       eggDropTick?: number;
       leapStartY?: number;
+      boomerangTurnDir?: 1 | -1;
       scale?: number;
     }
   ): void {
@@ -2214,6 +2251,7 @@ export class BattleEngine {
       special: opts.special,
       diggerCharges: opts.diggerCharges,
       eggDropTick: opts.eggDropTick,
+      boomerangTurnDir: opts.boomerangTurnDir,
       leapStartY: opts.leapStartY,
       leapPeakHeight: 0,
       trail: [],
@@ -2339,8 +2377,27 @@ export class BattleEngine {
 
       p.x += p.vx;
       p.y += p.vy;
-      p.vx += this.wind * PHYSICS.WIND_FACTOR * p.windScale;
-      p.vy += PHYSICS.GRAVITY;
+
+      // 4b. Tazang Bumerang: Đổi hướng khi đang bay trên không như 1 chiếc Bumerang thật!
+      if (p.special === 'boomerang_curve') {
+        p.vx += this.wind * PHYSICS.WIND_FACTOR * p.windScale;
+        if (p.age <= 14) {
+          p.vy += PHYSICS.GRAVITY * 0.72;
+        } else {
+          const turnDir = p.boomerangTurnDir ?? -1;
+          const prevSign = Math.sign(p.vx);
+          p.vx += turnDir * 0.36;
+          p.vy += PHYSICS.GRAVITY * 0.54 - 0.07;
+          if (!p.boomerangTurned && Math.sign(p.vx) === turnDir && prevSign !== turnDir) {
+            p.boomerangTurned = true;
+            sound.playShoot(false);
+            this.spawnFloatingText(p.x, p.y - 22, 'BUMERANG ĐỔI HƯỚNG!', '#84cc16', 1.12);
+          }
+        }
+      } else {
+        p.vx += this.wind * PHYSICS.WIND_FACTOR * p.windScale;
+        p.vy += PHYSICS.GRAVITY;
+      }
 
       // 5. Hulk Bật Nhảy: Hulk di chuyển trực tiếp theo quỹ đạo nhảy và tích lũy độ cao cực đại!
       if (p.special === 'hulk_leap') {
@@ -2449,7 +2506,11 @@ export class BattleEngine {
       let directFighterHit: Fighter | null = null;
       for (const f of this.fighters) {
         if (!f.alive) continue;
-        if (f.id === p.ownerId && (p.age < 9 || p.special === 'hulk_leap')) continue;
+        if (
+          f.id === p.ownerId &&
+          (p.age < 9 || p.special === 'hulk_leap' || p.special === 'boomerang_curve')
+        )
+          continue;
         const hitRadius = f.isBoss ? 34 : f.unitKind === 'bomber' ? 25 : 17;
         const centerY = f.isBoss ? f.y - 26 : f.y - 16;
         if (Math.hypot(p.x - f.x, p.y - centerY) <= hitRadius) {
@@ -2528,29 +2589,37 @@ export class BattleEngine {
       return;
     }
 
-    // 1b. Hulk Bật Nhảy: Khi chạm đích, Hulk đáp xuống tại điểm nổ và sát thương tăng mạnh theo độ cao cú nhảy!
+    // 1b. Hulk Bật Nhảy: Khi đáp đất sẽ KHÔNG phá địa hình và KHÔNG tự gây sát thương lên chính mình!
     if (p.special === 'hulk_leap') {
       const owner = this.fighters.find((f) => f.id === p.ownerId && f.alive);
       const heightBonus = Math.min(1.4, Math.max(0.05, (p.leapPeakHeight ?? 0) / 155));
       p.damage *= 1 + heightBonus;
-      p.holeScale += heightBonus * 0.35;
       p.blastRadius += Math.round(heightBonus * 18);
       if (owner) {
-        owner.x = Math.max(20, Math.min(this.terrain.width - 20, ix));
-        owner.y = Math.max(20, iy - 4);
+        const landX = Math.max(20, Math.min(this.terrain.width - 20, Math.round(ix)));
+        let landY = Math.max(20, Math.min(this.terrain.waterY - 14, Math.round(iy)));
+        while (landY > 24 && this.terrain.isSolid(landX, landY)) {
+          landY--;
+        }
+        owner.x = landX;
+        owner.y = landY;
+        owner.vy = 0;
+        owner.grounded = true;
         owner.animMode = 'idle';
         this.spawnFloatingText(
           owner.x,
           owner.y - 48,
-          `HULK DẬM NỔ! (+${Math.round(heightBonus * 100)}% ST ĐỘ CAO)`,
+          `HULK DẬM ĐẤT! (+${Math.round(heightBonus * 100)}% ST ĐỘ CAO)`,
           '#ef4444',
           1.22
         );
       }
     }
 
-    // 2. Khoét hố đạn + rung màn hình + hiệu ứng nổ gốc
-    this.terrain.carveCrater(ix, iy, p.holeMask, p.holeScale);
+    // 2. Khoét hố đạn (Hulk đáp đất không phá địa hình) + rung màn hình + hiệu ứng nổ gốc
+    if (p.special !== 'hulk_leap') {
+      this.terrain.carveCrater(ix, iy, p.holeMask, p.holeScale);
+    }
     this.shakeIntensity = Math.min(14, Math.max(this.shakeIntensity, p.blastRadius * 0.18));
     sound.playExplosion(p.holeScale);
 
@@ -2612,6 +2681,8 @@ export class BattleEngine {
     const shooter = this.fighters.find((f) => f.id === p.ownerId);
     for (const target of this.fighters) {
       if (!target.alive) continue;
+      // Hulk đáp đất không tự gây sát thương lên chính mình
+      if (p.special === 'hulk_leap' && target.id === p.ownerId) continue;
       const centerY = target.isBoss ? target.y - 24 : target.y - 16;
       const bodyRadius = target.isBoss ? 26 : 12;
       const dist = Math.max(0, Math.hypot(target.x - ix, centerY - iy) - bodyRadius);
@@ -3078,14 +3149,29 @@ export class BattleEngine {
       let vx = ivx;
       let vy = ivy;
       const windScale = this.getHeroWindScale(u.hero);
-      for (let step = 1; step <= 26; step++) {
+      const isBoomerang = u.hero.weapon === 'boomerang' && !this.activeItemArmed;
+      const previewSteps = isBoomerang ? 42 : 26;
+      const turnDir = u.facingLeft ? 1 : -1;
+      for (let step = 1; step <= previewSteps; step++) {
         px += vx;
         py += vy;
-        vx += this.wind * PHYSICS.WIND_FACTOR * windScale;
-        vy += PHYSICS.GRAVITY;
+        if (isBoomerang) {
+          vx += this.wind * PHYSICS.WIND_FACTOR * 0.35;
+          if (step <= 14) {
+            vy += PHYSICS.GRAVITY * 0.72;
+          } else {
+            vx += turnDir * 0.36;
+            vy += PHYSICS.GRAVITY * 0.54 - 0.07;
+          }
+        } else {
+          vx += this.wind * PHYSICS.WIND_FACTOR * windScale;
+          vy += PHYSICS.GRAVITY;
+        }
         if (step % 3 === 0) {
           ctx.fillStyle = this.powArmed
-            ? `rgba(250, 204, 21, ${0.85 - step * 0.028})`
+            ? `rgba(250, 204, 21, ${Math.max(0.18, 0.85 - step * 0.018)})`
+            : isBoomerang
+            ? `rgba(132, 204, 22, ${Math.max(0.22, 0.88 - step * 0.018)})`
             : `rgba(125, 211, 252, ${0.8 - step * 0.026})`;
           ctx.beginPath();
           ctx.arc(px, py, 2.1, 0, Math.PI * 2);
