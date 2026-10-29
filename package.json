@@ -1,0 +1,19 @@
+{
+  "name": "mobi-army-offline-web",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Khung game bắn súng tọa độ Offline (Đấu Bot & Vượt Ải) chạy trực tiếp trên Web, sử dụng tài nguyên tách rời từ Mobi Army 3 để dễ dàng thay đồ họa.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "tsc && vite build",
+    "preview": "vite preview --port 4173"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "dependencies": {
+    "peerjs": "^1.5.5"
+  }
+}

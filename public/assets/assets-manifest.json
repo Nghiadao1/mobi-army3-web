@@ -1,0 +1,253 @@
+{
+  "version": 1,
+  "note": "Thay thế trực tiếp file .png tương ứng trong public/assets/ HOẶC đổi đường dẫn tại đây để thay đồ họa mới.",
+  "heroSheets": [
+    "assets/heroes/Big0.png",
+    "assets/heroes/Big1.png",
+    "assets/heroes/Big2.png",
+    "assets/heroes/Big3.png",
+    "assets/heroes/Big4.png"
+  ],
+  "heroOverrides": {
+    "gunner": null,
+    "aka": null,
+    "electrician": null,
+    "kingkong": null,
+    "rocketer": null,
+    "granos": null,
+    "chicky": null,
+    "apache": null
+  },
+  "bullets": {
+    "cannon": {
+      "url": "assets/bullets/grenade.png",
+      "frames": 1
+    },
+    "ak": {
+      "url": "assets/bullets/rocket2.png",
+      "frames": 1
+    },
+    "lightning": {
+      "url": "assets/bullets/laser.png",
+      "frames": 8
+    },
+    "boomerang": {
+      "url": "assets/bullets/danrua.png",
+      "frames": 4
+    },
+    "rocket": {
+      "url": "assets/bullets/13Missile.png",
+      "frames": 2
+    },
+    "bomb": {
+      "url": "assets/bullets/bomb.png",
+      "frames": 2
+    },
+    "egg": {
+      "url": "assets/bullets/trungvang.png",
+      "frames": 1
+    },
+    "meteor": {
+      "url": "assets/bullets/thienthach.png",
+      "frames": 2
+    },
+    "digger": {
+      "url": "assets/bullets/daodat.png",
+      "frames": 3
+    },
+    "special": {
+      "url": "assets/bullets/specialbullet.png",
+      "frames": 2
+    },
+    "acid": {
+      "url": "assets/bullets/axit.png",
+      "frames": 16
+    },
+    "shield": {
+      "url": "assets/bullets/khien_v1.png",
+      "frames": 1
+    },
+    "crate": {
+      "url": "assets/bullets/box.png",
+      "frames": 1
+    },
+    "mouse": {
+      "url": "assets/bullets/chuotBull.png",
+      "frames": 4
+    },
+    "web": {
+      "url": "assets/bullets/web.png",
+      "frames": 2
+    },
+    "saw": {
+      "url": "assets/bullets/hrangcua.png",
+      "frames": 1
+    }
+  },
+  "effects": {
+    "explosion": {
+      "url": "assets/effects/no.png",
+      "frames": 5
+    },
+    "bigExplosion": {
+      "url": "assets/effects/ex3.png",
+      "frames": 5
+    },
+    "nuke": {
+      "url": "assets/effects/bomnguyentu.png",
+      "frames": 4
+    },
+    "electric": {
+      "url": "assets/effects/electric.png",
+      "frames": 5
+    },
+    "freeze": {
+      "url": "assets/effects/freeze.png",
+      "frames": 4
+    },
+    "smoke": {
+      "url": "assets/effects/khoi.png",
+      "frames": 5
+    },
+    "poison": {
+      "url": "assets/effects/khoidoc.png",
+      "frames": 5
+    },
+    "teleport": {
+      "url": "assets/effects/teleport_eff.png",
+      "frames": 4
+    },
+    "splash": {
+      "url": "assets/effects/waterBum.png",
+      "frames": 6
+    },
+    "tornado": {
+      "url": "assets/effects/locxoay.png",
+      "frames": 3
+    },
+    "fire": {
+      "url": "assets/effects/lua.png",
+      "frames": 4
+    }
+  },
+  "bosses": {
+    "ufo": {
+      "url": "assets/bosses/UFO.png",
+      "frames": 3
+    },
+    "mechBody": {
+      "url": "assets/bosses/than.png",
+      "frames": 1
+    },
+    "mechHanger": {
+      "url": "assets/bosses/treo.png",
+      "frames": 1
+    },
+    "bomber": {
+      "url": "assets/bosses/mb00.png",
+      "frames": 2
+    },
+    "jet": {
+      "url": "assets/bosses/mb10.png",
+      "frames": 1
+    }
+  },
+  "ui": {
+    "logo": "assets/ui/logoGame.png",
+    "waterTop": {
+      "url": "assets/ui/matnuoc.png",
+      "frames": 2
+    },
+    "waterDeep": "assets/ui/nuoc.png",
+    "itemsStrip": {
+      "url": "assets/ui/item.png",
+      "frames": 41
+    },
+    "winBanner": "assets/ui/w.png",
+    "loseBanner": "assets/ui/l.png",
+    "drawBanner": "assets/ui/d.png",
+    "turnArrow": "assets/ui/turn.png",
+    "targetCross": {
+      "url": "assets/ui/target.png",
+      "frames": 3
+    },
+    "angryFlame0": "assets/ui/fire_do0.png",
+    "angryFlame1": "assets/ui/fire_do1.png"
+  },
+  "smallParts": [
+    1593,
+    1702,
+    1853,
+    1854,
+    1866,
+    3210,
+    3214,
+    3215,
+    3216,
+    3217,
+    3218,
+    3219,
+    3224,
+    3225,
+    3226,
+    3227,
+    3228,
+    3229,
+    3235,
+    3239,
+    3240,
+    3241,
+    3242,
+    3243,
+    3244,
+    3249,
+    3250,
+    3251,
+    3252,
+    3253,
+    3254,
+    3315,
+    3535,
+    3539,
+    3540,
+    3541,
+    3542,
+    3543,
+    3544,
+    3549,
+    3550,
+    3551,
+    3552,
+    3553,
+    3554,
+    4022,
+    4026,
+    4027,
+    4028,
+    4029,
+    4030,
+    4031,
+    4036,
+    4037,
+    4038,
+    4039,
+    4040,
+    4041,
+    6837,
+    6841,
+    6851,
+    7305,
+    7309,
+    7310,
+    7311,
+    7312,
+    7313,
+    7314,
+    7319,
+    7320,
+    7321,
+    7322,
+    7323,
+    7324
+  ]
+}
