@@ -82,6 +82,30 @@
     "saw": {
       "url": "assets/bullets/hrangcua.png",
       "frames": 1
+    },
+    "gatruilong": {
+      "url": "assets/bullets/gatruilong.png",
+      "frames": 1
+    },
+    "muiten": {
+      "url": "assets/bullets/muiten.png",
+      "frames": 2
+    },
+    "muiten_cn": {
+      "url": "assets/bullets/muiten_cn.png",
+      "frames": 2
+    },
+    "imgDiamond": {
+      "url": "assets/bullets/imgDiamond.png",
+      "frames": 1
+    },
+    "stormbreaker": {
+      "url": "assets/bullets/stormbreaker.png",
+      "frames": 1
+    },
+    "banana": {
+      "url": "assets/bullets/banana.png",
+      "frames": 1
     }
   },
   "effects": {
@@ -128,6 +152,14 @@
     "fire": {
       "url": "assets/effects/lua.png",
       "frames": 4
+    },
+    "loki": {
+      "url": "assets/effects/loki.png",
+      "frames": 4
+    },
+    "longga": {
+      "url": "assets/effects/longga.png",
+      "frames": 5
     }
   },
   "bosses": {
@@ -175,6 +207,16 @@
     "angryFlame1": "assets/ui/fire_do1.png"
   },
   "smallParts": [
+    1442,
+    1443,
+    1444,
+    1451,
+    1452,
+    1454,
+    1460,
+    1461,
+    1464,
+    1465,
     1593,
     1702,
     1853,

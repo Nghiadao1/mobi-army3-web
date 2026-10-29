@@ -37,9 +37,13 @@ class GameApp {
     timerVal: HTMLElement;
     turnInfo: HTMLElement;
     angleVal: HTMLElement;
+    flyBox: HTMLElement;
     powerFill: HTMLElement;
     lastPowerMark: HTMLElement;
     powerLabel: HTMLElement;
+    power2Track: HTMLElement;
+    power2Fill: HTMLElement;
+    power2Label: HTMLElement;
     hpFill: HTMLElement;
     hpText: HTMLElement;
     staminaFill: HTMLElement;
@@ -254,7 +258,7 @@ class GameApp {
               <img class="brand-logo" src="./assets/ui/logoGame.png" alt="Mobi Army 3" />
               <div class="brand-title">
                 <h1>MOBI ARMY 3 — BẢN WEB OFFLINE &amp; SOLO ONLINE</h1>
-                <p>14 Chiến Binh (8 Tướng Gốc + 6 Siêu Anh Hùng Marvel) • Vượt Ải Boss • Đấu Bot • Solo Trực Tuyến 1v1</p>
+                <p>16 Chiến Binh (8 Tướng Gốc + 8 Siêu Anh Hùng Marvel) • Vượt Ải Boss • Đấu Bot • Solo Trực Tuyến 1v1</p>
               </div>
             </div>
             <div class="mode-tabs">
@@ -678,6 +682,10 @@ class GameApp {
             <button class="ctrl-btn" data-hold="down" style="height:32px" title="Hạ Góc (S / ↓)">▼</button>
           </div>
           <button class="ctrl-btn" data-hold="right" title="Đi Phải (D / →)">▶</button>
+          <div id="hud-fly-box" style="display:none;flex-direction:column;gap:4px;margin-left:2px">
+            <button class="ctrl-btn" data-hold="flyUp" style="height:32px;font-size:0.72rem;padding:0 6px;border-color:#38bdf8;color:#7dd3fc" title="Bay Lên (Phím Q)">🛫 Lên</button>
+            <button class="ctrl-btn" data-hold="flyDown" style="height:32px;font-size:0.72rem;padding:0 6px;border-color:#38bdf8;color:#7dd3fc" title="Bay Xuống (Phím E)">🛬 Xuống</button>
+          </div>
           <div style="margin-left:6px;text-align:center;min-width:58px">
             <div style="font-size:0.7rem;color:#94a3b8">GÓC BẮN</div>
             <div style="font-size:1.1rem;font-weight:900;color:#38bdf8" id="hud-angle">35°</div>
@@ -696,6 +704,14 @@ class GameApp {
             <div class="gauge-text">
               <span>THANH LỰC BẮN</span>
               <span id="hud-power-label">0 / 100</span>
+            </div>
+          </div>
+
+          <div class="gauge-track" id="hud-power2-track" style="display:none;height:18px;border-color:rgba(250,204,21,0.55)">
+            <div class="gauge-fill-power" id="hud-power2-fill" style="width:0%;background:linear-gradient(90deg,#fde047,#f59e0b)"></div>
+            <div class="gauge-text" style="font-size:0.7rem">
+              <span>🥚 THANH 2: CĂN GIỜ GÀ ĐẺ TRỨNG</span>
+              <span id="hud-power2-label">0%</span>
             </div>
           </div>
 
@@ -735,9 +751,13 @@ class GameApp {
       timerVal: document.getElementById('hud-timer')!,
       turnInfo: document.getElementById('hud-turn-info')!,
       angleVal: document.getElementById('hud-angle')!,
+      flyBox: document.getElementById('hud-fly-box')!,
       powerFill: document.getElementById('hud-power-fill')!,
       lastPowerMark: document.getElementById('hud-last-power')!,
       powerLabel: document.getElementById('hud-power-label')!,
+      power2Track: document.getElementById('hud-power2-track')!,
+      power2Fill: document.getElementById('hud-power2-fill')!,
+      power2Label: document.getElementById('hud-power2-label')!,
       hpFill: document.getElementById('hud-hp-fill')!,
       hpText: document.getElementById('hud-hp-text')!,
       staminaFill: document.getElementById('hud-stamina-fill')!,
@@ -750,7 +770,7 @@ class GameApp {
     };
 
     this.uiRoot.querySelectorAll<HTMLButtonElement>('[data-hold]').forEach((btn) => {
-      const key = btn.dataset.hold as 'left' | 'right' | 'up' | 'down';
+      const key = btn.dataset.hold as 'left' | 'right' | 'up' | 'down' | 'flyUp' | 'flyDown';
       const setHold = (val: boolean) => {
         if (!this.battle) return;
         this.battle.keys[key] = val;
@@ -826,10 +846,20 @@ class GameApp {
 
     if (u) {
       r.angleVal.textContent = `${Math.round(u.aimAngleDeg)}°`;
+      r.flyBox.style.display = u.hero.canFly ? 'flex' : 'none';
       r.powerFill.style.width = `${snap.chargePower}%`;
       r.powerLabel.textContent = `${snap.chargePower} / 100${
         u.lastPower > 0 ? ` (Cũ: ${u.lastPower})` : ''
       }`;
+
+      if (u.hero.weapon === 'chicky') {
+        r.power2Track.style.display = 'block';
+        const p2 = snap.chargePower2 ?? 0;
+        r.power2Fill.style.width = `${p2}%`;
+        r.power2Label.textContent = `${p2}% (Thời gian đẻ trứng)`;
+      } else {
+        r.power2Track.style.display = 'none';
+      }
 
       if (u.lastPower > 0) {
         r.lastPowerMark.style.display = 'block';
@@ -856,7 +886,14 @@ class GameApp {
       r.powBtn.classList.toggle('armed', snap.powArmed);
 
       r.fireBtn.disabled =
-        !u.isPlayerControlled || (snap.phase !== 'aiming' && snap.phase !== 'charging');
+        !u.isPlayerControlled ||
+        (snap.phase !== 'aiming' && snap.phase !== 'charging' && snap.phase !== 'charging_2');
+      r.fireBtn.textContent =
+        snap.phase === 'charging_2'
+          ? '🥚 ĐẺ TRỨNG!'
+          : u.hero.weapon === 'hulk_leap'
+          ? '💥 GIỮ NHẢY'
+          : '🎯 GIỮ BẮN';
 
       for (const [id, entry] of r.itemBtns.entries()) {
         const cnt = u.inventory[id] ?? 0;
@@ -981,6 +1018,14 @@ class GameApp {
           this.battle.keys.down = down;
           e.preventDefault();
           break;
+        case 'KeyQ':
+          this.battle.keys.flyUp = down;
+          e.preventDefault();
+          break;
+        case 'KeyE':
+          this.battle.keys.flyDown = down;
+          e.preventDefault();
+          break;
         case 'Space':
           this.battle.keys.space = down;
           e.preventDefault();
@@ -1008,7 +1053,15 @@ class GameApp {
     window.addEventListener('keyup', (e) => mapKey(e.code, false, e));
     window.addEventListener('blur', () => {
       if (!this.battle) return;
-      this.battle.keys = { left: false, right: false, up: false, down: false, space: false };
+      this.battle.keys = {
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        flyUp: false,
+        flyDown: false,
+        space: false,
+      };
     });
   }
 }

@@ -102,6 +102,20 @@ export class CharacterRenderer {
       if (override?.url && this.assets.getImage(override.url)) {
         this.drawOverrideHero(ctx, state, override.url, override.frameWidth, override.frameHeight, override.anchorY);
       } else {
+        // Phản lực bay dưới chân cho Iron Man & Ultron
+        if (state.hero.canFly) {
+          const pulse = 0.75 + 0.25 * Math.sin(state.animTick * 0.35);
+          ctx.save();
+          const grad = ctx.createRadialGradient(0, 2, 1, 0, 8, 16 * pulse);
+          grad.addColorStop(0, state.hero.id === 'ultron' ? 'rgba(244, 63, 94, 0.9)' : 'rgba(56, 189, 248, 0.92)');
+          grad.addColorStop(0.5, state.hero.id === 'ultron' ? 'rgba(251, 113, 133, 0.45)' : 'rgba(249, 115, 22, 0.5)');
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.ellipse(0, 6, 11 * pulse, 15 * pulse, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
         const poseIdx =
           state.animMode === 'idle' && Math.floor(state.animTick / 25) % 4 === 3
             ? IDLE_SEQ[Math.floor(state.animTick / 8) % IDLE_SEQ.length]
@@ -192,8 +206,11 @@ export class CharacterRenderer {
     if (eq.hat !== -1) {
       this.drawPartSlot(ctx, eq.hat, pose[0], facingLeft);
     } else if (eq.glass !== -1) {
-      // Tướng đeo mặt nạ/mũ đặc biệt (Granos, Chicky, Apache) dùng đầu nền part 59 + slot 4
-      this.drawPartSlot(ctx, 59, pose[0], facingLeft);
+      // Tướng đeo mặt nạ/mũ đặc biệt (Granos, Chicky, Apache) dùng đầu nền part 59 + slot 4.
+      // Riêng King Kong (glass = 179) là đầu Khỉ nguyên khối nên không vẽ đầu người 59 bên dưới.
+      if (eq.glass !== 179) {
+        this.drawPartSlot(ctx, 59, pose[0], facingLeft);
+      }
       this.drawPartSlot(ctx, eq.glass, pose[4], facingLeft);
     }
     if (eq.legs !== -1) {
@@ -224,7 +241,7 @@ export class CharacterRenderer {
       // Bộ phận đặc biệt (Marvel / trang bị cao cấp) được lưu trong 2Small{imgId}.png ($Kfp.$XLH)
       let smallImg = this.assets.getImage(`./assets/heroes/small/2Small${frame.imgId}.png`);
       if (!smallImg) {
-        for (const candIdx of [0, 5, 1, 2, 3, 4]) {
+        for (const candIdx of [0, 6, 7, 8, 9, 5, 1, 2, 3, 4]) {
           const cf = part.frames[candIdx];
           if (!cf) continue;
           const cImg = this.assets.getImage(`./assets/heroes/small/2Small${cf.imgId}.png`);

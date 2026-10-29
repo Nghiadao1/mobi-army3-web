@@ -87,6 +87,7 @@ export type WeaponPattern =
   | 'ak'
   | 'electric'
   | 'boomerang'
+  | 'banana_cluster'
   | 'rocket'
   | 'grenade'
   | 'chicky'
@@ -95,8 +96,11 @@ export type WeaponPattern =
   | 'vibranium_shield'
   | 'mjolnir'
   | 'hulk_smash'
+  | 'hulk_leap'
   | 'hawkeye_bow'
   | 'winter_sniper'
+  | 'ultron_beam'
+  | 'loki_morph'
   | 'ufo_beam'
   | 'bomber_drop'
   | 'mech_barrage';
@@ -118,6 +122,7 @@ export interface HeroDef {
   powName: string;
   color: string;
   faction?: 'army' | 'marvel';
+  canFly?: boolean;
   hp: number;
   attack: number;
   moveSpeed: number;
