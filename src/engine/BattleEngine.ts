@@ -71,6 +71,8 @@ export interface Fighter {
   isClone?: boolean;
   ownerUltronId?: string;
   ultronClones?: UltronClone[];
+  chatText?: string;
+  chatTimer?: number;
 }
 
 interface QueuedShot {
@@ -450,7 +452,11 @@ export class BattleEngine {
 
         coopStage.enemies.forEach((spec, idx) => {
           const eh = getHeroById(spec.heroId);
-          const isFlying = spec.unitKind !== 'hero';
+          const isFlying =
+            spec.unitKind === 'bomber' ||
+            spec.unitKind === 'ufo' ||
+            spec.unitKind === 'dragon' ||
+            spec.unitKind === 'fortress';
           const groundSpawn = this.terrain.findSpawnPoint(this.map.width * spec.spawnXRatio);
           const sx = isFlying ? Math.round(this.map.width * spec.spawnXRatio) : groundSpawn.x;
           const sy = isFlying ? (spec.spawnY ?? 150) : groundSpawn.y;
@@ -655,7 +661,11 @@ export class BattleEngine {
     if (this.setup.mode === 'campaign' && this.setup.stage) {
       this.setup.stage.enemies.forEach((spec, idx) => {
         const eh = getHeroById(spec.heroId);
-        const isFlying = spec.unitKind !== 'hero';
+        const isFlying =
+          spec.unitKind === 'bomber' ||
+          spec.unitKind === 'ufo' ||
+          spec.unitKind === 'dragon' ||
+          spec.unitKind === 'fortress';
         const groundSpawn = this.terrain.findSpawnPoint(this.map.width * spec.spawnXRatio);
         const sx = isFlying ? Math.round(this.map.width * spec.spawnXRatio) : groundSpawn.x;
         const sy = isFlying ? (spec.spawnY ?? 150) : groundSpawn.y;
@@ -976,6 +986,27 @@ export class BattleEngine {
         }
         break;
       }
+      case 'ultron_clone': {
+        const creator = this.fighters.find((unit) => unit.id === action.unitId && unit.alive);
+        if (creator) {
+          this.summonUltronClone(
+            creator,
+            action.cloneId,
+            action.spawnX,
+            action.spawnY,
+            action.cloneHp,
+            action.cloneAttack
+          );
+        }
+        break;
+      }
+      case 'chat': {
+        const speaker = this.fighters.find((unit) => unit.id === action.unitId);
+        if (speaker) {
+          this.sayChat(action.text, speaker.id);
+        }
+        break;
+      }
     }
   }
 
@@ -1039,12 +1070,19 @@ export class BattleEngine {
     if (found) found.used = true;
   }
 
-  public summonUltronClone(caller?: Fighter): boolean {
+  public summonUltronClone(
+    caller?: Fighter,
+    remoteCloneId?: string,
+    remoteSpawnX?: number,
+    remoteSpawnY?: number,
+    remoteHp?: number,
+    remoteAttack?: number
+  ): boolean {
     const u = caller || this.getActiveUnit();
     if (!u || !u.alive) return false;
     if (u.hero.id !== 'ultron') return false;
-    if (this.phase !== 'aiming' && !caller) return false;
-    if ((u.ultronCloneCooldown ?? 0) > 0) {
+    if (this.phase !== 'aiming' && !caller && !remoteCloneId) return false;
+    if ((u.ultronCloneCooldown ?? 0) > 0 && !remoteCloneId) {
       this.spawnFloatingText(
         u.x,
         u.y - 36,
@@ -1058,14 +1096,19 @@ export class BattleEngine {
     u.ultronCloneCooldown = 2;
 
     const cloneHero = { ...u.hero, name: 'Ultron Phân Thân' };
-    const spawnX = Math.max(
-      30,
-      Math.min(this.terrain.width - 30, u.x + (u.facingLeft ? -45 : 45))
-    );
-    const spawnPos = this.terrain.findSpawnPoint(spawnX);
+    const spawnX =
+      remoteSpawnX ??
+      Math.max(30, Math.min(this.terrain.width - 30, u.x + (u.facingLeft ? -45 : 45)));
+    const spawnPos =
+      remoteSpawnY !== undefined ? { x: spawnX, y: remoteSpawnY } : this.terrain.findSpawnPoint(spawnX);
+
+    const cloneId =
+      remoteCloneId ?? `ultron_clone_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const cloneHp = remoteHp ?? Math.round(u.maxHp * 0.5);
+    const cloneAttack = remoteAttack ?? Math.round(u.attack * 0.5);
 
     const clone: Fighter = {
-      id: `ultron_clone_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      id: cloneId,
       name: 'Phân Thân Ultron',
       team: u.team,
       isPlayerControlled: false,
@@ -1079,9 +1122,9 @@ export class BattleEngine {
       vy: 0,
       facingLeft: u.facingLeft,
       aimAngleDeg: u.aimAngleDeg,
-      hp: Math.round(u.maxHp * 0.5),
-      maxHp: Math.round(u.maxHp * 0.5),
-      attack: Math.round(u.attack * 0.5),
+      hp: cloneHp,
+      maxHp: cloneHp,
+      attack: cloneAttack,
       pow: 20,
       stamina: Math.round(u.maxStamina * 0.8),
       maxStamina: Math.round(u.maxStamina * 0.8),
@@ -1127,8 +1170,50 @@ export class BattleEngine {
       '#f43f5e',
       1.25
     );
+
+    // Đồng bộ sang đồng đội online trong chế độ online
+    if (this.setup.mode === 'online' && !remoteCloneId) {
+      this.onOnlineAction?.({
+        action: 'ultron_clone',
+        unitId: u.id,
+        cloneId,
+        spawnX: clone.x,
+        spawnY: clone.y,
+        cloneHp: clone.hp,
+        cloneAttack: clone.attack,
+      });
+    }
+
     this.emitHud();
     return true;
+  }
+
+  public sayChat(text: string, fighterId?: string): void {
+    const u = fighterId ? this.fighters.find((f) => f.id === fighterId) : this.getActiveUnit();
+    if (!u) return;
+    u.chatText = text;
+    u.chatTimer = 220; // ~4s
+    sound.playClick();
+    if (this.setup.mode === 'online' && !fighterId && u.isPlayerControlled) {
+      this.onOnlineAction?.({
+        action: 'chat',
+        unitId: u.id,
+        text,
+      });
+    }
+  }
+
+  public handleOpponentForfeit(): void {
+    if (this.phase === 'ended') return;
+    this.enterEndedState({
+      won: true,
+      draw: false,
+      turnsTaken: this.turnNumber,
+      damageDealt: Math.round(this.totalDamageDealt),
+      enemiesDefeated: this.enemiesDefeated,
+      mode: this.setup.mode,
+      stageId: (this.setup.stage ?? this.setup.onlineCoopStage)?.id,
+    });
   }
 
   public checkUltronClonesAlive(): void {
@@ -1776,16 +1861,17 @@ export class BattleEngine {
 
       // Nhân vật bay (Iron Man & Ultron): có thể bay xuyên tường tự do 4 hướng (Trái/Phải/Lên/Xuống), giới hạn bởi thể lực!
       if (u.hero.canFly) {
+        const drain = u.hero.id === 'ironman' ? 0.22 : 0.62;
         if (u.stamina > 0) {
           if (this.keys.flyUp || this.keys.up) {
             const nextY = Math.max(26, u.y - u.hero.moveSpeed * 1.05);
             u.y = nextY;
-            u.stamina = Math.max(0, u.stamina - 0.62);
+            u.stamina = Math.max(0, u.stamina - drain);
             moved = true;
           } else if (this.keys.flyDown || this.keys.down) {
             const nextY = Math.min(this.terrain.waterY - 14, u.y + u.hero.moveSpeed * 1.05);
             u.y = nextY;
-            u.stamina = Math.max(0, u.stamina - 0.62);
+            u.stamina = Math.max(0, u.stamina - drain);
             moved = true;
           }
         }
@@ -1987,8 +2073,9 @@ export class BattleEngine {
     const nextX = Math.max(18, Math.min(this.terrain.width - 18, u.x + stepX));
     // Nhân vật bay (Iron Man & Ultron): có thể bay xuyên tường ngang tự do trên map!
     if (u.hero.canFly) {
+      const drain = u.hero.id === 'ironman' ? 0.24 : 0.65;
       u.x = nextX;
-      u.stamina = Math.max(0, u.stamina - Math.abs(stepX) * 0.65);
+      u.stamina = Math.max(0, u.stamina - Math.abs(stepX) * drain);
       return true;
     }
     for (let climb = -9; climb <= 8; climb++) {
@@ -2017,8 +2104,15 @@ export class BattleEngine {
       }
 
       if (u.unitKind !== 'hero') {
-        u.grounded = true;
-        continue;
+        const isFlyingBoss =
+          u.unitKind === 'bomber' ||
+          u.unitKind === 'ufo' ||
+          u.unitKind === 'dragon' ||
+          u.unitKind === 'fortress';
+        if (isFlyingBoss) {
+          u.grounded = true;
+          continue;
+        }
       }
 
       // Iron Man & Ultron bay tự do lơ lửng không bị rơi theo trọng lực; hoặc Hulk đang bật nhảy trên không
@@ -2673,23 +2767,23 @@ export class BattleEngine {
             });
           }
         } else {
-          // Bắn thường: Tia Plasma siêu nhiệt Xuyên Tường, không bị cản bởi địa hình!
+          // Bắn thường: Chùm 4 tia Plasma thẳng hàng công phá cực mạnh (bị cản bởi địa hình)
           sound.playShoot(true);
-          this.spawnFloatingText(u.x, u.y - 46, '⚡ TIA PLASMA XUYÊN TƯỜNG!', '#38bdf8', 1.25);
-          const plasmaCount = 2;
+          this.spawnFloatingText(u.x, u.y - 46, '⚡ LIÊN HOÀN 4 PHÁO PLASMA!', '#38bdf8', 1.25);
+          const plasmaCount = 4;
           for (let i = 0; i < plasmaCount; i++) {
-            this.queueProjectile(baseDelay + i * 6, () => {
+            this.queueProjectile(baseDelay + i * 4, () => {
               sound.playShoot(false);
-              this.spawnBullet(u, u.aimAngleDeg + (i === 0 ? -0.3 : 0.3), power, {
+              this.spawnBullet(u, u.aimAngleDeg, power, {
                 spriteKey: 'lightning',
                 effectKey: 'electric',
                 holeMask: 'h36x30.png',
                 holeScale: 0.95,
-                damage: u.attack * 0.52,
-                blastRadius: 36,
+                damage: u.attack * 0.28,
+                blastRadius: 32,
                 windScale: 0.1,
                 special: 'ironman_plasma',
-                scale: 1.2,
+                scale: 1.15,
               });
             });
           }
@@ -3363,8 +3457,8 @@ export class BattleEngine {
         continue;
       }
 
-      // Kiểm tra chạm địa hình bằng Bresenham raycast (Đạn Plasma của Iron Man không bị cản bởi tường/địa hình)
-      const hitLand = p.special === 'ironman_plasma' ? null : this.terrain.raycast(prevX, prevY, p.x, p.y);
+      // Kiểm tra chạm địa hình bằng Bresenham raycast
+      const hitLand = this.terrain.raycast(prevX, prevY, p.x, p.y);
       if (hitLand) {
         if (p.special === 'mouse' && !p.crawling) {
           // Chuột gắn bom đáp xuống đất và bắt đầu chạy về phía kẻ địch gần nhất!
@@ -4036,6 +4130,40 @@ export class BattleEngine {
       if (active && active.id === f.id && turnImg) {
         const bounce = Math.sin(this.globalTick * 0.18) * 3;
         ctx.drawImage(turnImg, -7, -30 + bounce, 14, 20);
+      }
+
+      // Bong bóng chat hiển thị trên đầu nhân vật khi chat
+      if (f.chatText && f.chatTimer && f.chatTimer > 0) {
+        f.chatTimer--;
+        const msg = f.chatText;
+        ctx.save();
+        ctx.font = 'bold 9.5px system-ui, sans-serif';
+        const tw = ctx.measureText(msg).width;
+        const bw = Math.max(34, tw + 14);
+        const bh = 18;
+        const by = active && active.id === f.id ? -36 : -22;
+        // Khung bong bóng chat màu trắng viền đen
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.roundRect(-bw / 2, by - bh, bw, bh, 5);
+        ctx.fill();
+        ctx.stroke();
+        // Đuôi bong bóng hướng xuống đỉnh đầu
+        ctx.beginPath();
+        ctx.moveTo(-3, by);
+        ctx.lineTo(0, by + 4);
+        ctx.lineTo(3, by);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.stroke();
+        // Chữ trong bong bóng
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(msg, 0, by - bh / 2);
+        ctx.restore();
       }
 
       ctx.restore();

@@ -171,7 +171,7 @@ export class CharacterRenderer {
   /**
    * Vẽ chân dung Tướng lên Canvas nhỏ cho màn hình Chọn Tướng & HUD.
    */
-  public drawHeroPreview(canvas: HTMLCanvasElement, hero: HeroDef, poseIdx = 12): void {
+  public drawHeroPreview(canvas: HTMLCanvasElement, hero: HeroDef, poseIdx = 12, facingLeft = false): void {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -179,7 +179,7 @@ export class CharacterRenderer {
     ctx.imageSmoothingEnabled = false;
     const scale = Math.min(canvas.width / 56, canvas.height / 58);
     ctx.translate(canvas.width * 0.52, canvas.height * 0.86);
-    ctx.scale(scale, scale);
+    ctx.scale(facingLeft ? -scale : scale, scale);
 
     const override = this.assets.manifest.heroOverrides[hero.id];
     if (override?.url && this.assets.getImage(override.url)) {
@@ -212,7 +212,7 @@ export class CharacterRenderer {
   ): void {
     // Các bộ giáp Marvel / Tướng đặc biệt (body >= 220 hoặc Ironman / Loki) dùng pose 0/1 để khớp hoàn hảo đầu-thân-chân
     let effectivePoseIdx = poseIdx;
-    if ((eq.body >= 220 || eq.hat === 294 || eq.hat === 198) && poseIdx >= 11) {
+    if ((eq.body >= 220 || eq.hat === 294 || eq.hat === 220 || eq.hat === 198) && poseIdx >= 11) {
       effectivePoseIdx = poseIdx >= 23 ? 1 : 0;
     }
 
@@ -289,19 +289,23 @@ export class CharacterRenderer {
       if (partId === 295) {
         // Iron Man Body (2Small3319.png) căn chuẩn tâm ngực & khớp cổ mũ 3315
         frameDx = -5;
-        frameDy = 1;
+        frameDy = -6;
       } else if (partId === 296) {
         // Iron Man Legs (2Small3329.png) căn chuẩn hông & tiếp đất
         frameDx = -4;
-        frameDy = -1;
+        frameDy = -2;
+      } else if (partId === 220) {
+        // Loki Helmet (2Small1853.png) mũ hoàng gia Asgard
+        frameDx = 1;
+        frameDy = -5;
       } else if (partId === 221) {
         // Loki Body (2Small1854.png) áo giáp hoàng gia Asgard
         frameDx = -5;
-        frameDy = 1;
+        frameDy = -6;
       } else if (partId === 222) {
         // Loki Legs (2Small1866.png) quần & ủng chiến Asgard
         frameDx = -4;
-        frameDy = -1;
+        frameDy = -2;
       }
       const dy = poseDy + frameDy;
       if (!facingLeft) {

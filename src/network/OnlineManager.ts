@@ -42,6 +42,20 @@ export type OnlineBattleAction =
     action: 'loki_morph';
     unitId: string;
     morphHeroId: string;
+  }
+  | {
+    action: 'ultron_clone';
+    unitId: string;
+    cloneId: string;
+    spawnX: number;
+    spawnY: number;
+    cloneHp: number;
+    cloneAttack: number;
+  }
+  | {
+    action: 'chat';
+    unitId: string;
+    text: string;
   };
 
 export type OnlinePacket =
@@ -71,6 +85,17 @@ export type OnlinePacket =
   | {
     type: 'battle_action';
     payload: OnlineBattleAction;
+  }
+  | {
+    type: 'chat';
+    senderName: string;
+    text: string;
+    isLobby?: boolean;
+  }
+  | {
+    type: 'player_left';
+    role: 'host' | 'guest';
+    reason: string;
   };
 
 const PEER_PREFIX = 'mobiarmy3-solo-';
@@ -189,6 +214,21 @@ export class OnlineManager {
     if (this.conn && this.isConnected) {
       this.conn.send(packet);
     }
+  }
+
+  public leaveRoom(reason = 'left_room'): void {
+    if (this.conn && this.isConnected) {
+      try {
+        this.conn.send({
+          type: 'player_left',
+          role: this.role ?? 'guest',
+          reason,
+        });
+      } catch {
+        // ignore
+      }
+    }
+    this.disconnect();
   }
 
   public disconnect(): void {

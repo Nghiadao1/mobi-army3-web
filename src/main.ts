@@ -20,18 +20,29 @@ class GameApp {
   private battle: BattleEngine | null = null;
 
   // Trạng thái chọn ở Sảnh Chính
-  private activeTab: 'campaign' | 'boss_hunt' | 'skirmish' | 'online' | 'guide' = 'campaign';
-  private selectedHeroId = 'gunner';
-  private selectedAllyHeroId = 'captain';
-  private selectedTeamSize: 1 | 2 = 1;
+  private activeTab: 'campaign' | 'boss_hunt' | 'skirmish' | 'online' | 'guide' = 'boss_hunt';
+  private selectedHeroId = 'captain';
+  private selectedAllyHeroId = 'thor';
+  private selectedTeamSize: 1 | 2 = 2;
   private selectedMapId = 11;
   private selectedDifficulty: BotDifficulty = 'normal';
   private unlockedStage = 1;
   private selectedItems: BattleItemId[] = ['heal', 'team_heal', 'teleport', 'double', 'shield', 'freeze'];
   private selectedCoopBossStageId = 111;
 
+  // Trạng thái phòng & Giao diện chuẩn ảnh Mobi Army 3
+  private activeModal: 'none' | 'hero' | 'bag' | 'map' | 'mode' | 'menu' | 'chat' | 'online_room' | 'guide' = 'none';
+  private selectingSlotForHero: 'player' | 'ally' = 'player';
+  private lobbyChatMessages: Array<{ sender: string; text: string; time: string; isSelf?: boolean }> = [
+    { sender: 'Hệ Thống', text: 'Chào mừng các xạ thủ đến với Mobi Army 3 Web!', time: '12:00' }
+  ];
+  private playerBubbleText = '';
+  private playerBubbleTimer: any = null;
+  private allyBubbleText = '';
+  private allyBubbleTimer: any = null;
+
   // Trạng thái phòng Solo Trực Tuyến (1v1 Online) & Tổ Đội Săn Boss Online (2P Co-op)
-  private onlineStatusText = 'Chưa kết nối phòng. Hãy Tạo Phòng mới hoặc nhập Mã Phòng 4 số để mời bạn!';
+  private onlineStatusText = 'Chưa kết nối phòng. Nhấp Menu -> Phòng Trực Tuyến để tạo phòng!';
   private onlineRemoteHeroId = 'ironman';
 
   // Tham chiếu DOM HUD để cập nhật mượt mà không render lại toàn bộ DOM
@@ -126,7 +137,7 @@ class GameApp {
           });
         }
       }
-      if (!this.battle && (this.activeTab === 'online' || this.activeTab === 'boss_hunt')) {
+      if (!this.battle) {
         this.renderLobby();
       }
     };
@@ -139,7 +150,7 @@ class GameApp {
           if (packet.coopStageId) {
             this.selectedCoopBossStageId = packet.coopStageId;
           }
-          if (!this.battle && (this.activeTab === 'online' || this.activeTab === 'boss_hunt')) {
+          if (!this.battle) {
             this.renderLobby();
           }
           break;
@@ -149,7 +160,7 @@ class GameApp {
           if (this.online.role === 'host') {
             this.broadcastLobbySync();
           }
-          if (!this.battle && (this.activeTab === 'online' || this.activeTab === 'boss_hunt')) {
+          if (!this.battle) {
             this.renderLobby();
           }
           break;
@@ -178,11 +189,64 @@ class GameApp {
           this.battle?.applyOnlineAction(packet.payload);
           break;
         }
+        case 'chat': {
+          const sender = packet.senderName || 'Đồng Đội';
+          this.lobbyChatMessages.push({
+            sender,
+            text: packet.text,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isSelf: false,
+          });
+          if (this.lobbyChatMessages.length > 50) this.lobbyChatMessages.shift();
+
+          this.allyBubbleText = packet.text;
+          clearTimeout(this.allyBubbleTimer);
+          this.allyBubbleTimer = setTimeout(() => {
+            this.allyBubbleText = '';
+            this.updatePedestalBubbles();
+          }, 4000);
+
+          this.updatePedestalBubbles();
+          this.updateChatDrawer();
+
+          if (this.battle) {
+            const remoteFighter = this.battle.fighters.find(
+              (f) => !f.isPlayerControlled
+            );
+            if (remoteFighter) {
+              this.battle.sayChat(packet.text, remoteFighter.id);
+            }
+          }
+          break;
+        }
+        case 'player_left': {
+          if (this.battle) {
+            if (this.battle.setup.onlineCoopStage) {
+              alert(packet.reason || 'Chủ phòng / Đồng đội đã rời phòng. Trận đấu kết thúc!');
+              this.renderLobby();
+            } else {
+              alert('Đối thủ đã thoát trận! Bạn giành chiến thắng!');
+              this.battle.handleOpponentForfeit();
+            }
+          } else {
+            alert('Người chơi đã rời phòng.');
+            this.renderLobby();
+          }
+          break;
+        }
       }
     };
 
     this.online.onDisconnect = () => {
-      if (!this.battle && (this.activeTab === 'online' || this.activeTab === 'boss_hunt')) {
+      if (this.battle) {
+        if (this.battle.setup.onlineCoopStage) {
+          alert('Mất kết nối với phòng. Trận đấu tổ đội kết thúc!');
+          this.renderLobby();
+        } else if (this.battle.setup.mode === 'online') {
+          alert('Đối thủ đã mất kết nối! Bạn giành chiến thắng!');
+          this.battle.handleOpponentForfeit();
+        }
+      } else {
         this.renderLobby();
       }
     };
@@ -218,10 +282,84 @@ class GameApp {
     `;
   }
 
-  // ==================== LOBBY / MAIN MENU ====================
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  private sendChatMessage(text: string): void {
+    if (!text || !text.trim()) return;
+    const trimmed = text.trim();
+    this.lobbyChatMessages.push({
+      sender: 'Bạn',
+      text: trimmed,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isSelf: true,
+    });
+    if (this.lobbyChatMessages.length > 50) this.lobbyChatMessages.shift();
+
+    this.playerBubbleText = trimmed;
+    clearTimeout(this.playerBubbleTimer);
+    this.playerBubbleTimer = setTimeout(() => {
+      this.playerBubbleText = '';
+      this.updatePedestalBubbles();
+    }, 4000);
+
+    sound.playClick();
+    this.updatePedestalBubbles();
+    this.updateChatDrawer();
+
+    if (this.online.isConnected) {
+      this.online.send({
+        type: 'chat',
+        senderName: this.online.role === 'host' ? 'Chủ Phòng' : 'Đồng Đội',
+        text: trimmed,
+      });
+    }
+
+    if (this.battle) {
+      this.battle.sayChat(trimmed);
+    }
+  }
+
+  private updatePedestalBubbles(): void {
+    const b0 = document.getElementById('bubble-slot-0');
+    if (b0) {
+      b0.textContent = this.playerBubbleText;
+      b0.style.display = this.playerBubbleText ? 'block' : 'none';
+    }
+    const b1 = document.getElementById('bubble-slot-1');
+    if (b1) {
+      b1.textContent = this.allyBubbleText;
+      b1.style.display = this.allyBubbleText ? 'block' : 'none';
+    }
+  }
+
+  private updateChatDrawer(): void {
+    const listEl = document.getElementById('chat-history-container');
+    if (!listEl) return;
+    listEl.innerHTML = this.lobbyChatMessages
+      .map(
+        (m) => `
+        <div class="chat-msg-row" style="${m.isSelf ? 'border-left-color:#facc15' : 'border-left-color:#38bdf8'}">
+          <div class="chat-msg-author" style="${m.isSelf ? 'color:#fde047' : 'color:#7dd3fc'}">${this.escapeHtml(
+          m.sender
+        )} <span style="font-size:0.65rem;color:#94a3b8;font-weight:400;margin-left:4px">${m.time}</span></div>
+          <div class="chat-msg-text">${this.escapeHtml(m.text)}</div>
+        </div>
+      `
+      )
+      .join('');
+    listEl.scrollTop = listEl.scrollHeight;
+  }
+
+  // ==================== AUTHENTIC MOBI ARMY 3 LOBBY ROOM ====================
 
   private renderLobby(): void {
-    const prevScrollTop = this.uiRoot.querySelector('.screen-overlay')?.scrollTop ?? 0;
     if (this.battle) {
       this.battle.destroy();
       this.battle = null;
@@ -229,568 +367,345 @@ class GameApp {
     this.hudRefs = null;
 
     const hero = getHeroById(this.selectedHeroId);
+    const allyHero = getHeroById(this.selectedAllyHeroId);
     const remoteHero = getHeroById(this.onlineRemoteHeroId);
+    const selectedMap =
+      this.assets.maps.find((m) => m.mapId === this.selectedMapId) ?? this.assets.maps[0] ?? {
+        mapId: 11,
+        name: 'Rừng đá',
+      };
 
-    const mapOptionsHtml = this.assets.maps
-      .map(
-        (m) =>
-          `<option value="${m.mapId}" ${m.mapId === this.selectedMapId ? 'selected' : ''}>#${
-            m.mapId
-          } — ${m.name} (${m.width}x${m.height})</option>`
-      )
-      .join('');
+    let modeTitle = 'Phòng 4-56';
+    let roomTagLabel = '👑 Săn Boss Tổ Đội';
+    if (this.activeTab === 'boss_hunt') {
+      const bStage = BOSS_HUNT_STAGES.find((s) => s.id === this.selectedCoopBossStageId) ?? BOSS_HUNT_STAGES[0];
+      modeTitle = `Săn Boss: ${bStage.subtitle}`;
+      roomTagLabel = '👑 Săn Boss Tổ Đội';
+    } else if (this.activeTab === 'campaign') {
+      const cStage = CAMPAIGN_STAGES.find((s) => s.id === this.unlockedStage) ?? CAMPAIGN_STAGES[0];
+      modeTitle = `Ải ${cStage.id}: ${cStage.name}`;
+      roomTagLabel = '🗺️ Vượt Ải';
+    } else if (this.activeTab === 'skirmish') {
+      modeTitle = `Đấu Bot: ${this.selectedTeamSize}v${this.selectedTeamSize}`;
+      roomTagLabel = '⚔️ Đấu Bot';
+    } else if (this.activeTab === 'online') {
+      modeTitle = this.online.roomCode ? `Phòng #${this.online.roomCode}` : 'Solo 1v1 Online';
+      roomTagLabel = '🌐 Solo 1v1';
+    }
 
-    const allyOptionsHtml = HEROES.map(
-      (h) =>
-        `<option value="${h.id}" ${h.id === this.selectedAllyHeroId ? 'selected' : ''}>${
-          h.name
-        } — ${h.title}</option>`
-    ).join('');
+    const startBtnLabel =
+      this.online.isConnected && this.online.role === 'guest' ? 'Sẵn Sàng' : 'Bắt Đầu';
 
-    const bossHuntStagesHtml = BOSS_HUNT_STAGES.map((st) => {
-      const mapObj = this.assets.maps.find((m) => m.mapId === st.mapId);
-      const bossEnemy = st.enemies.find((e) => e.isBoss) || st.enemies[0];
-      const isSelectedCoop = st.id === this.selectedCoopBossStageId;
-      return `
-        <div class="stage-card boss-stage" style="${
-          isSelectedCoop ? 'border-color:#fde047;box-shadow:0 0 14px rgba(250,204,21,0.28)' : ''
-        }">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-              <span class="stage-badge" style="background:rgba(239,68,68,0.25);color:#fca5a5">👑 ${st.subtitle}</span>
-              <span style="font-size:0.75rem;color:#94a3b8">Map: ${mapObj?.name ?? st.mapId}</span>
-            </div>
-            <h3 style="margin:0 0 6px;font-size:1.05rem;color:#f8fafc">${st.name}</h3>
-            <p style="margin:0 0 8px;font-size:0.83rem;color:#cbd5e1;line-height:1.4">${st.description}</p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <span class="stat-pill" style="color:#f43f5e">Boss HP: ${bossEnemy.hp}</span>
-              <span class="stat-pill" style="color:#facc15">Công Boss: ${bossEnemy.attack}</span>
-              <span class="stat-pill" style="color:#38bdf8">Số Boss/Quái: ${st.enemies.length}</span>
-            </div>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;flex-wrap:wrap">
-            <span style="font-size:0.76rem;color:#fde047">★ ${st.rewardTitle}</span>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              ${
-                this.online.isConnected && this.online.role === 'host'
-                  ? `<button class="primary-cta btn-start-boss-online" data-boss-stage="${st.id}" style="padding:7px 14px;font-size:0.8rem;background:linear-gradient(135deg,#0284c7,#2563eb)">🌐 Xuất Kích Cùng Bạn →</button>`
-                  : ''
-              }
-              <button class="primary-cta btn-start-boss-hunt" data-boss-stage="${st.id}" style="padding:7px 14px;font-size:0.8rem">🤖 Đi Cùng Bot AI →</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    const stagesHtml = CAMPAIGN_STAGES.map((st) => {
-      const unlocked = st.id <= this.unlockedStage;
-      const isBoss = st.enemies.some((e) => e.isBoss);
-      const mapObj = this.assets.maps.find((m) => m.mapId === st.mapId);
-      return `
-        <div class="stage-card ${unlocked ? '' : 'locked'} ${isBoss ? 'boss-stage' : ''}">
-          <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-              <span class="stage-badge">${st.subtitle}</span>
-              <span style="font-size:0.75rem;color:#94a3b8">Map: ${mapObj?.name ?? st.mapId}</span>
-            </div>
-            <h3 style="margin:0 0 6px;font-size:1rem;color:#f8fafc">${st.name}</h3>
-            <p style="margin:0;font-size:0.82rem;color:#cbd5e1;line-height:1.4">${st.description}</p>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-            <span style="font-size:0.76rem;color:#fde047">★ ${st.rewardTitle}</span>
-            ${
-              unlocked
-                ? `<button class="primary-cta btn-start-stage" data-stage="${st.id}" style="padding:8px 16px;font-size:0.85rem">Vào Ải →</button>`
-                : `<span style="font-size:0.78rem;color:#64748b">🔒 Qua Ải ${st.id - 1} để mở</span>`
-            }
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    const inviteUrl = this.online.roomCode
-      ? `${window.location.origin}${window.location.pathname}?room=${this.online.roomCode}`
-      : '';
-    const bossInviteUrl = this.online.roomCode
-      ? `${window.location.origin}${window.location.pathname}?bossroom=${this.online.roomCode}`
-      : '';
-
-    const bagSlotsHtml = Array.from({ length: 6 }, (_, idx) => {
+    // 6 Ô vật phẩm dưới chân
+    const bagSlotsBottomHtml = Array.from({ length: 6 }, (_, idx) => {
       const itemId = this.selectedItems[idx];
       const it = itemId ? BATTLE_ITEMS.find((b) => b.id === itemId) : undefined;
       if (!it) {
         return `
-          <div class="loadout-item-card" style="opacity:0.5;border-style:dashed;justify-content:center;min-height:54px">
-            <div style="font-size:0.76rem;color:#64748b;text-align:center">Ô ${idx + 1} (Trống)<br/><span style="font-size:0.68rem">Chọn món bên dưới</span></div>
+          <div class="room-item-box empty" data-room-bag-slot="${idx}" title="Ô ${idx + 1} trống - Nhấp để lắp Item">
+            <span style="color:#ca8a04;font-size:0.82rem;font-weight:900">${idx + 1}</span>
           </div>
         `;
       }
       return `
-        <div class="loadout-item-card selected" data-bag-remove="${idx}" title="Nhấp để tháo ${it.name} khỏi Ô ${idx + 1}">
-          <span class="loadout-item-badge">Ô ${idx + 1}</span>
-          <div class="item-icon-strip" style="background-image: url('./assets/ui/item.png'); background-position: 0px ${-26 * it.stripIndex}px"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:0.8rem;font-weight:700;color:#fde047;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</div>
-            <div style="font-size:0.68rem;color:#cbd5e1">1 lần dùng • Nhấp để tháo</div>
-          </div>
+        <div class="room-item-box" data-room-bag-slot="${idx}" title="Ô ${idx + 1}: ${it.name} - Nhấp để đổi">
+          <div class="item-icon-strip" style="background-image: url('./assets/ui/item.png'); background-position: 0px ${
+            -26 * it.stripIndex
+          }px"></div>
         </div>
       `;
     }).join('');
 
     this.uiRoot.innerHTML = `
-      <div class="screen-overlay">
-        <div class="menu-container">
-          <!-- Header -->
-          <div class="brand-header">
-            <div class="brand-left">
-              <img class="brand-logo" src="./assets/ui/logoGame.png" alt="Mobi Army 3" />
-              <div class="brand-title">
-                <h1>MOBI ARMY 3 — BẢN WEB OFFLINE &amp; SĂN BOSS TỔ ĐỘI ONLINE</h1>
-                <p>17 Chiến Binh (9 Tướng Gốc + 8 Siêu Anh Hùng Marvel) • Vượt Ải • Săn Boss Tổ Đội Mời Bạn • Solo 1v1</p>
-              </div>
-            </div>
-            <div class="mode-tabs">
-              <button class="tab-btn ${this.activeTab === 'campaign' ? 'active' : ''}" data-tab="campaign">🗺️ Vượt Ải (${Math.min(this.unlockedStage, CAMPAIGN_STAGES.length)}/${CAMPAIGN_STAGES.length})</button>
-              <button class="tab-btn ${this.activeTab === 'boss_hunt' ? 'active' : ''}" data-tab="boss_hunt">👑 Săn Boss Tổ Đội</button>
-              <button class="tab-btn ${this.activeTab === 'skirmish' ? 'active' : ''}" data-tab="skirmish">⚔️ Đấu Bot</button>
-              <button class="tab-btn ${this.activeTab === 'online' ? 'active' : ''}" data-tab="online">🌐 Solo Trực Tuyến</button>
-              <button class="tab-btn ${this.activeTab === 'guide' ? 'active' : ''}" data-tab="guide">🎨 Thay Đồ Họa</button>
-              <button class="tab-btn" id="btn-mute-lobby" title="Bật/Tắt Âm Thanh">${sound.muted ? '🔇' : '🔊'}</button>
+      <div class="room-lobby-screen">
+        <!-- Thanh Trên: Nút Chat, Bản Đồ Giữa, Vàng & Lực Cân Bằng, Nút Mode/Âm Thanh -->
+        <div class="room-top-bar">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="room-btn-circle" id="btn-room-chat" title="Mở Khung Chat">💬</button>
+            <div style="text-shadow:0 1px 3px rgba(0,0,0,0.85)">
+              <div style="font-weight:900;font-size:0.86rem;color:#fef08a">MOBI ARMY 3 WEB</div>
+              <div style="font-size:0.72rem;color:#cbd5e1">${
+                this.online.roomCode ? `Phòng #${this.online.roomCode}` : 'Bản Đồ Chiến Đấu'
+              }</div>
             </div>
           </div>
 
-          <!-- Chọn Tướng Chủ Lực -->
-          <div class="panel-card">
-            <h2>
-              <span>1. Chọn Chiến Binh Ra Trận (Bao gồm Biệt Đội MARVEL)</span>
-              <span style="font-size:0.8rem;color:#38bdf8;font-weight:600">Đang chọn: ${hero.name} (${hero.title})</span>
-            </h2>
-            <div class="hero-grid">
-              ${HEROES.map(
-                (h) => `
-                <div class="hero-card ${h.faction === 'marvel' ? 'marvel-hero' : ''} ${
-                  h.id === this.selectedHeroId ? 'selected' : ''
-                }" data-hero="${h.id}">
-                  ${h.faction === 'marvel' ? '<span class="marvel-badge">MARVEL</span>' : ''}
-                  <canvas id="hero-preview-${h.id}" width="72" height="72"></canvas>
-                  <div class="hero-name" style="color:${h.color}">${h.name}</div>
-                  <div class="hero-role">${h.title.replace(' [MARVEL]', '')}</div>
-                </div>
-              `
-              ).join('')}
-            </div>
-            <div class="hero-detail-bar">
-              <div style="max-width:580px">
-                <div style="font-weight:800;font-size:0.95rem;color:${hero.color}">${hero.name} — Tuyệt kỹ Nộ: <span style="color:#fde047">${hero.powName}</span></div>
-                <div style="font-size:0.83rem;color:#cbd5e1;margin-top:3px">${hero.description}</div>
-              </div>
-              <div class="stat-pills">
-                <span class="stat-pill">❤️ HP: ${hero.hp}</span>
-                <span class="stat-pill">💥 Công: ${hero.attack}</span>
-                <span class="stat-pill">📐 Góc: ${hero.minAngle}°..${hero.maxAngle}°</span>
-                <span class="stat-pill">🏃 Thể lực: ${hero.staminaMax}</span>
-              </div>
+          <div class="room-top-center">
+            <canvas id="room-map-thumb" width="124" height="52" class="room-map-thumbnail" title="Nhấp để chọn Bản Đồ"></canvas>
+            <div class="room-map-name">${selectedMap.name}</div>
+            <div class="room-title-code">${modeTitle}</div>
+            <div class="room-gold-badge">🪙 1000</div>
+            <div class="room-balance-bar">
+              <span style="color:#38bdf8">49</span>
+              <div class="room-balance-track"></div>
+              <span style="color:#f43f5e">50</span>
             </div>
           </div>
 
-          <!-- Chọn Túi Vật Phẩm Mang Vào Trận (6 Ô - Mỗi ô 1 lần dùng, lắp trùng thoải mái) -->
-          <div class="panel-card">
-            <h2>
-              <span>2. Túi Đồ Chiến Thuật (6 Ô — Mỗi Ô 1 Lần Dùng, Có Thể Lắp Nhiều Món Giống Nhau)</span>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:0.8rem;color:#facc15;font-weight:700">Túi đồ: ${this.selectedItems.length}/6 ô</span>
-                <button class="ctrl-btn" id="btn-clear-bag" style="height:26px;font-size:0.72rem;padding:0 8px">🗑️ Làm Trống Túi</button>
-              </div>
-            </h2>
-            <div style="margin-bottom:10px">
-              <div style="font-size:0.76rem;color:#7dd3fc;margin-bottom:6px;font-weight:600">🎒 6 Ô TÚI ĐỒ ĐANG MANG (Phím 1..6 trong trận — Nhấp vào ô để tháo bỏ):</div>
-              <div class="loadout-items-grid" style="grid-template-columns:repeat(auto-fill,minmax(165px,1fr))">
-                ${bagSlotsHtml}
-              </div>
-            </div>
-            <div style="font-size:0.76rem;color:#cbd5e1;margin-bottom:6px;font-weight:600">➕ KHO VẬT PHẨM CHIẾN ĐẤU (Nhấp vào bất kỳ món nào để thêm vào Túi Đồ — Lắp 2-6 món trùng nhau nếu muốn dùng nhiều lần):</div>
-            <div class="loadout-items-grid">
-              ${BATTLE_ITEMS.map((it) => {
-                const equippedCount = this.selectedItems.filter((x) => x === it.id).length;
-                const isSel = equippedCount > 0;
-                return `
-                  <div class="loadout-item-card ${isSel ? 'selected' : ''}" data-loadout-item="${it.id}" title="Nhấp để thêm 1 ${it.name} vào túi đồ">
-                    ${isSel ? `<span class="loadout-item-badge">x${equippedCount}</span>` : ''}
-                    <div class="item-icon-strip" style="background-image: url('./assets/ui/item.png'); background-position: 0px ${-26 * it.stripIndex}px"></div>
-                    <div>
-                      <div style="font-size:0.82rem;font-weight:700;color:${isSel ? '#fde047' : '#f8fafc'}">${it.name}</div>
-                      <div style="font-size:0.7rem;color:#94a3b8">${it.shortDesc}</div>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="room-btn-circle" id="btn-room-sound" style="width:38px;height:38px;font-size:1.05rem" title="Bật/Tắt Âm Thanh">${
+              sound.muted ? '🔇' : '🔊'
+            }</button>
+            <button class="pedestal-badge ready" id="btn-room-mode-tag" style="padding:6px 12px;font-size:0.78rem;cursor:pointer" title="Nhấp để Đổi Chế Độ">${roomTagLabel} ▾</button>
           </div>
-
-          <!-- Nội dung theo Tab -->
-          ${
-            this.activeTab === 'campaign'
-              ? `
-            <div class="panel-card">
-              <h2>
-                <span>3. Chiến Dịch Vượt Ải &amp; Săn Boss</span>
-                <button class="ctrl-btn" id="btn-unlock-all" style="height:30px;font-size:0.75rem;font-weight:600">🔓 Mở Khóa Thử Mọi Ải</button>
-              </h2>
-              <div class="stage-grid">
-                ${stagesHtml}
-              </div>
-            </div>
-          `
-              : this.activeTab === 'boss_hunt'
-              ? `
-            <div class="panel-card">
-              <h2>
-                <span>3. Phòng Tổ Đội Săn Boss (Tạo Phòng Mời Bạn Bè Online Hoặc Đi Cùng Bot AI)</span>
-                <span style="font-size:0.8rem;color:${
-                  this.online.isConnected ? '#4ade80' : '#facc15'
-                }">${
-                  this.online.isConnected
-                    ? '● Đã Kết Nối Đồng Đội Online (2/2 Người)'
-                    : '○ Chế Độ Tổ Đội (Tạo Phòng Mời Bạn hoặc Đi Cùng Bot)'
-                }</span>
-              </h2>
-
-              <!-- Khu vực Tạo Phòng & Mời Bạn Săn Boss Online -->
-              <div style="background:rgba(2,6,23,0.68);border:1px solid rgba(56,189,248,0.35);border-radius:12px;padding:12px 14px;margin-bottom:14px">
-                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
-                  <div style="font-size:0.86rem;color:#e2e8f0">
-                    <strong>🌐 Sảnh Ghép Đội Trực Tuyến (P2P):</strong> <span style="color:#7dd3fc">${this.onlineStatusText}</span>
-                  </div>
-                  ${
-                    this.online.roomCode
-                      ? `
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                      <span class="stat-pill" style="background:#e11d48;color:#fff;font-size:0.88rem">Mã Phòng Săn Boss: #${this.online.roomCode}</span>
-                      <button class="ctrl-btn" id="btn-copy-boss-room" style="height:32px;font-size:0.78rem;border-color:#38bdf8;color:#7dd3fc">📋 Copy Link Mời Bạn Săn Boss</button>
-                    </div>
-                  `
-                      : ''
-                  }
-                </div>
-
-                <div class="skirmish-options" style="margin-bottom:12px">
-                  <div class="field-group">
-                    <label>Bước 1 (Đội Trưởng): Tạo Phòng Mời Bạn Bè</label>
-                    <button class="tab-btn active" id="btn-host-boss-coop" style="width:100%;background:linear-gradient(135deg,#e11d48,#be123c)">📡 Tạo Phòng Săn Boss (Lấy Mã Mời)</button>
-                  </div>
-
-                  <div class="field-group">
-                    <label>Bước 2 (Đồng Đội): Nhập Mã Phòng 4 Số Để Vào Đội</label>
-                    <div style="display:flex;gap:8px">
-                      <input type="text" id="inp-join-boss-code" class="select-input" placeholder="Nhập mã 4 số..." maxlength="6" style="flex:1;font-weight:800;letter-spacing:1px" value="${
-                        this.online.role === 'guest' ? this.online.roomCode : ''
-                      }" />
-                      <button class="tab-btn" id="btn-join-boss-coop">🔗 Vào Đội</button>
-                    </div>
-                  </div>
-
-                  <div class="field-group">
-                    <label>Nếu Đi Offline 1 Mình — Chọn Tướng Đồng Đội Bot AI:</label>
-                    <select class="select-input" id="sel-boss-ally">${allyOptionsHtml}</select>
-                  </div>
-                </div>
-
-                <!-- Thanh Hiển Thị 2 Ghế Thành Viên Tổ Đội -->
-                <div class="hero-detail-bar" style="justify-content:space-around;text-align:center;background:rgba(15,23,42,0.85)">
-                  <div>
-                    <div style="font-size:0.74rem;color:#94a3b8">THÀNH VIÊN 1 (${
-                      this.online.role === 'guest' ? 'ĐỒNG ĐỘI KHÁCH' : 'ĐỘI TRƯỞNG / BẠN'
-                    })</div>
-                    <div style="font-size:1.02rem;font-weight:800;color:${hero.color}">${hero.name}</div>
-                  </div>
-                  <div style="font-size:1.15rem;font-weight:900;color:#4ade80">🤝 HỢP LỰC SĂN BOSS 🤝</div>
-                  <div>
-                    <div style="font-size:0.74rem;color:#94a3b8">THÀNH VIÊN 2 (${
-                      this.online.isConnected ? 'BẠN BÈ TRỰC TUYẾN' : 'ĐỒNG ĐỘI BOT AI / CHỜ BẠN'
-                    })</div>
-                    <div style="font-size:1.02rem;font-weight:800;color:${
-                      this.online.isConnected ? remoteHero.color : '#38bdf8'
-                    }">${
-                      this.online.isConnected
-                        ? `${remoteHero.name} (Đã Sẵn Sàng!)`
-                        : `${getHeroById(this.selectedAllyHeroId).name} (Bot AI Hỗ Trợ)`
-                    }</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="stage-grid">
-                ${bossHuntStagesHtml}
-              </div>
-            </div>
-          `
-              : this.activeTab === 'skirmish'
-              ? `
-            <div class="panel-card">
-              <h2><span>3. Thiết Lập Trận Đấu Bot (27 Bản Đồ Gốc Chuẩn Mực Nước)</span></h2>
-              <div class="skirmish-options">
-                <div class="field-group">
-                  <label>Bản Đồ Chiến Trường (Đầy đủ gạch phá hủy):</label>
-                  <select class="select-input" id="sel-map">${mapOptionsHtml}</select>
-                </div>
-                <div class="field-group">
-                  <label>Chế Độ Đội Hình:</label>
-                  <select class="select-input" id="sel-teamsize">
-                    <option value="1" ${this.selectedTeamSize === 1 ? 'selected' : ''}>1 vs 1 (Đấu Đơn)</option>
-                    <option value="2" ${this.selectedTeamSize === 2 ? 'selected' : ''}>2 vs 2 (Đấu Đôi — Điều khiển 2 Tướng)</option>
-                  </select>
-                </div>
-                ${
-                  this.selectedTeamSize === 2
-                    ? `
-                  <div class="field-group">
-                    <label>Tướng Đồng Đội Số 2:</label>
-                    <select class="select-input" id="sel-ally">${allyOptionsHtml}</select>
-                  </div>
-                `
-                    : ''
-                }
-                <div class="field-group">
-                  <label>Trí Tuệ Nhân Tạo Bot (AI):</label>
-                  <select class="select-input" id="sel-diff">
-                    <option value="easy" ${this.selectedDifficulty === 'easy' ? 'selected' : ''}>Dễ (Tập căn góc &amp; gió)</option>
-                    <option value="normal" ${this.selectedDifficulty === 'normal' ? 'selected' : ''}>Thường (Chuẩn giải trí)</option>
-                    <option value="hard" ${this.selectedDifficulty === 'hard' ? 'selected' : ''}>Khó (Xạ thủ tính gió chuẩn + dùng Item)</option>
-                  </select>
-                </div>
-                <button class="primary-cta" id="btn-start-skirmish">🔥 BẮT ĐẦU TRẬN ĐẤU</button>
-              </div>
-            </div>
-          `
-              : this.activeTab === 'online'
-              ? `
-            <div class="panel-card">
-              <h2>
-                <span>3. Phòng Đấu Solo Trực Tuyến 1v1 (P2P WebRTC Thời Gian Thực)</span>
-                <span style="font-size:0.8rem;color:${
-                  this.online.isConnected ? '#4ade80' : '#facc15'
-                }">${this.online.isConnected ? '● Đã Kết Nối 2 Người Chơi' : '○ Đang Chờ Kết Nối'}</span>
-              </h2>
-
-              <div style="padding:10px 14px;border-radius:10px;background:rgba(2,6,23,0.6);border:1px solid rgba(56,189,248,0.28);margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
-                <div style="font-size:0.88rem;color:#e2e8f0">
-                  <strong>Trạng thái:</strong> <span style="color:#7dd3fc">${this.onlineStatusText}</span>
-                </div>
-                ${
-                  this.online.roomCode
-                    ? `
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <span class="stat-pill" style="background:#0284c7;color:#fff;font-size:0.88rem">Mã Phòng: #${this.online.roomCode}</span>
-                    <button class="ctrl-btn" id="btn-copy-room" style="height:32px;font-size:0.78rem">📋 Copy Link Mời</button>
-                  </div>
-                `
-                    : ''
-                }
-              </div>
-
-              <div class="skirmish-options" style="margin-bottom:14px">
-                <div class="field-group">
-                  <label>Cách 1: Tạo Phòng Mới (Làm Chủ Phòng)</label>
-                  <button class="tab-btn active" id="btn-host-online" style="width:100%">📡 Tạo Phòng Solo 1v1</button>
-                </div>
-
-                <div class="field-group">
-                  <label>Cách 2: Nhập Mã Phòng 4 Số Để Vào</label>
-                  <div style="display:flex;gap:8px">
-                    <input type="text" id="inp-join-code" class="select-input" placeholder="VD: 4829" maxlength="6" style="flex:1;font-weight:800;letter-spacing:1px" value="${
-                      this.online.role === 'guest' ? this.online.roomCode : ''
-                    }" />
-                    <button class="tab-btn" id="btn-join-online">🔗 Vào Phòng</button>
-                  </div>
-                </div>
-
-                <div class="field-group">
-                  <label>Bản Đồ Thi Đấu (Chủ Phòng Chọn):</label>
-                  <select class="select-input" id="sel-online-map" ${
-                    this.online.role === 'guest' ? 'disabled' : ''
-                  }>${mapOptionsHtml}</select>
-                </div>
-              </div>
-
-              <div class="hero-detail-bar" style="justify-content:space-around;text-align:center">
-                <div>
-                  <div style="font-size:0.75rem;color:#94a3b8">BẠN (${
-                    this.online.role === 'guest' ? 'KHÁCH - BÊN PHẢI' : 'CHỦ PHÒNG - BÊN TRÁI'
-                  })</div>
-                  <div style="font-size:1.05rem;font-weight:800;color:${hero.color}">${hero.name}</div>
-                </div>
-                <div style="font-size:1.3rem;font-weight:900;color:#facc15">⚡ VS ⚡</div>
-                <div>
-                  <div style="font-size:0.75rem;color:#94a3b8">ĐỐI THỦ TRỰC TUYẾN</div>
-                  <div style="font-size:1.05rem;font-weight:800;color:${
-                    this.online.isConnected ? remoteHero.color : '#64748b'
-                  }">${
-                    this.online.isConnected ? remoteHero.name : 'Đang chờ người chơi thứ 2...'
-                  }</div>
-                </div>
-                ${
-                  this.online.role === 'host'
-                    ? `<button class="primary-cta" id="btn-start-online" ${
-                        this.online.isConnected ? '' : 'disabled style="opacity:0.45;cursor:not-allowed"'
-                      }>🚀 BẮT ĐẦU SOLO TRỰC TUYẾN</button>`
-                    : `<div style="font-size:0.84rem;color:#fde047;font-weight:700">${
-                        this.online.isConnected
-                          ? '⏳ Đang chờ Chủ Phòng bấm Bắt Đầu...'
-                          : 'Hãy nhập mã phòng để kết nối với Chủ Phòng'
-                      }</div>`
-                }
-              </div>
-            </div>
-          `
-              : `
-            <div class="panel-card" style="line-height:1.55;font-size:0.88rem;color:#cbd5e1">
-              <h2><span>🎨 Kiến Trúc Tách Rời Tài Nguyên — Sẵn Sàng Thay Đồ Họa Mới</span></h2>
-              <p style="margin-top:0">Toàn bộ tài nguyên mã hóa trong Unity &amp; HotRes gốc đã được giải mã sang định dạng ảnh chuẩn <code>.png</code> và dữ liệu <code>.json</code> trong thư mục <code>web-game/public/assets/</code>:</p>
-              <ul style="margin:6px 0 10px;padding-left:20px">
-                <li><strong>Địa hình &amp; Bản đồ:</strong> Thay ảnh gạch trong <code>public/assets/bricks/*.png</code> hoặc chỉnh bố cục trong <code>public/assets/data/maps.json</code>.</li>
-                <li><strong>Đạn, Hố đạn, Hiệu ứng nổ, Boss:</strong> Ghi đè trực tiếp file <code>.png</code> trong <code>bullets/</code>, <code>holes/</code>, <code>effects/</code>, <code>bosses/</code> hoặc sửa đường dẫn trong <code>public/assets/assets-manifest.json</code>.</li>
-                <li><strong>Skin Marvel &amp; Nhân vật mới:</strong> Các bộ phận skin Marvel nằm tại <code>public/assets/heroes/small/2Small*.png</code>; hoặc thả spritesheet ngang <code>.png</code> vào <code>public/assets/heroes/overrides/</code> và khai báo vào mục <code>heroOverrides</code> trong <code>assets-manifest.json</code>.</li>
-              </ul>
-              <p style="margin:0;color:#7dd3fc"><strong>Phím tắt chiến đấu:</strong> <code>← / →</code> (hoặc <code>A / D</code>) Di chuyển • <code>↑ / ↓</code> (hoặc <code>W / S</code>) Chỉnh góc • Giữ <code>SPACE</code> Gồng lực &amp; nhả để Bắn • <code>P</code> Bật Tuyệt kỹ Nộ • <code>1..6</code> Dùng 6 Ô Túi Đồ • Kéo chuột / Lăn chuột để xem toàn bản đồ.</p>
-            </div>
-          `
-          }
         </div>
+
+        <!-- 8 Bệ Đứng Chiến Binh (4 Phe Xanh Bên Trái vs 4 Phe Đỏ Bên Phải) -->
+        <div class="room-pedestals-stage">
+          <!-- Phe Trái (Team 1) -->
+          <div class="pedestal-team-column">
+            <!-- Slot 0: Chủ Phòng / Người Chơi -->
+            <div class="pedestal-slot" id="slot-ped-0" title="Nhấp để Chọn Tướng">
+              <div class="room-chat-bubble" id="bubble-slot-0" style="display:${
+                this.playerBubbleText ? 'block' : 'none'
+              }">${this.escapeHtml(this.playerBubbleText)}</div>
+              <div class="pedestal-badge-row">
+                <span class="pedestal-badge host">⭐ Chủ ⭐</span>
+              </div>
+              <canvas id="ped-char-0" width="80" height="85" class="pedestal-char-canvas"></canvas>
+              <div class="pedestal-brick">
+                <span class="pedestal-sm-text">SM: ${hero.attack + 20}</span>
+              </div>
+            </div>
+
+            <!-- Slot 1: Đồng Đội (Bot AI hoặc Bạn Bè Online) -->
+            <div class="pedestal-slot" id="slot-ped-1" title="Nhấp để Chọn Tướng Đồng Đội">
+              <div class="room-chat-bubble" id="bubble-slot-1" style="display:${
+                this.allyBubbleText ? 'block' : 'none'
+              }">${this.escapeHtml(this.allyBubbleText)}</div>
+              <div class="pedestal-badge-row">
+                <span class="pedestal-badge ready">ok</span>
+              </div>
+              <canvas id="ped-char-1" width="80" height="85" class="pedestal-char-canvas"></canvas>
+              <div class="pedestal-brick">
+                <span class="pedestal-sm-text">SM: ${allyHero.attack + 18}</span>
+              </div>
+            </div>
+
+            <!-- Slot 2: Trống -->
+            <div class="pedestal-empty-box" id="slot-ped-2">
+              <div class="pedestal-brick" style="background:#475569;border-color:#1e293b">
+                <span style="font-size:0.7rem;color:#94a3b8;font-weight:700">+ Trống</span>
+              </div>
+            </div>
+
+            <!-- Slot 3: Trống -->
+            <div class="pedestal-empty-box" id="slot-ped-3">
+              <div class="pedestal-brick" style="background:#475569;border-color:#1e293b">
+                <span style="font-size:0.7rem;color:#94a3b8;font-weight:700">+ Trống</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phe Phải (Team 2: Boss / Quái / Đối Thủ) -->
+          <div class="pedestal-team-column">
+            <!-- Slot 4: Boss / Đối Thủ -->
+            <div class="pedestal-slot" id="slot-ped-4">
+              <div class="pedestal-badge-row">
+                <span class="pedestal-badge host" style="${
+                  this.activeTab === 'boss_hunt' ? 'background:#ef4444;color:#fff' : ''
+                }">${this.activeTab === 'boss_hunt' ? '👑 Boss' : 'ok'}</span>
+              </div>
+              <canvas id="ped-char-4" width="80" height="85" class="pedestal-char-canvas"></canvas>
+              <div class="pedestal-brick">
+                <span class="pedestal-sm-text">SM: 45</span>
+              </div>
+            </div>
+
+            <!-- Slot 5: Minion / Bot 2 -->
+            <div class="pedestal-slot" id="slot-ped-5">
+              <div class="pedestal-badge-row">
+                <span class="pedestal-badge ready">ok</span>
+              </div>
+              <canvas id="ped-char-5" width="80" height="85" class="pedestal-char-canvas"></canvas>
+              <div class="pedestal-brick">
+                <span class="pedestal-sm-text">SM: 33</span>
+              </div>
+            </div>
+
+            <!-- Slot 6: Trống -->
+            <div class="pedestal-empty-box">
+              <div class="pedestal-brick" style="background:#475569;border-color:#1e293b">
+                <span style="font-size:0.7rem;color:#94a3b8;font-weight:700">+ Trống</span>
+              </div>
+            </div>
+
+            <!-- Slot 7: Trống -->
+            <div class="pedestal-empty-box">
+              <div class="pedestal-brick" style="background:#475569;border-color:#1e293b">
+                <span style="font-size:0.7rem;color:#94a3b8;font-weight:700">+ Trống</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Thanh Đáy: Nút Menu, 6 Ô Túi Đồ, Nút Bắt Đầu -->
+        <div class="room-bottom-bar">
+          <button class="room-pill-btn" id="btn-room-menu">📜 Menu</button>
+          <div class="room-bag-slots-row" title="Túi 6 Vật Phẩm Mang Vào Trận (Nhấp để Cài Đặt)">
+            ${bagSlotsBottomHtml}
+          </div>
+          <button class="room-pill-btn" id="btn-room-start">${startBtnLabel}</button>
+        </div>
+
+        <!-- Khung Modal Overlay hiển thị khi activeModal !== 'none' -->
+        ${this.renderActiveModalHtml()}
       </div>
     `;
 
-    // Vẽ chân dung thực tế 17 Tướng lên từng thẻ chọn tướng
-    for (const h of HEROES) {
-      const c = document.getElementById(`hero-preview-${h.id}`) as HTMLCanvasElement | null;
-      if (c) {
-        this.previewRenderer.drawHeroPreview(c, h, 12);
-      }
+    // Vẽ các Tướng lên bệ đứng
+    this.renderPedestalHeroes();
+
+    // Vẽ thumbnail bản đồ thu nhỏ
+    const mapThumbCanvas = document.getElementById('room-map-thumb') as HTMLCanvasElement | null;
+    if (mapThumbCanvas) {
+      this.drawMapThumbnail(mapThumbCanvas);
     }
 
-    // Gắn sự kiện tương tác Sảnh
-    this.uiRoot.querySelectorAll<HTMLElement>('[data-tab]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        sound.playClick();
-        this.activeTab = btn.dataset.tab as 'campaign' | 'boss_hunt' | 'skirmish' | 'online' | 'guide';
-        this.renderLobby();
-      });
+    // Gắn sự kiện các nút chính
+    document.getElementById('btn-room-chat')?.addEventListener('click', () => {
+      sound.playClick();
+      this.activeModal = 'chat';
+      this.renderLobby();
     });
 
-    document.getElementById('btn-mute-lobby')?.addEventListener('click', () => {
+    document.getElementById('btn-room-sound')?.addEventListener('click', () => {
       sound.toggleMute();
       this.renderLobby();
     });
 
-    this.uiRoot.querySelectorAll<HTMLElement>('[data-hero]').forEach((card) => {
-      card.addEventListener('click', () => {
+    document.getElementById('btn-room-mode-tag')?.addEventListener('click', () => {
+      sound.playClick();
+      this.activeModal = 'mode';
+      this.renderLobby();
+    });
+
+    document.getElementById('room-map-thumb')?.addEventListener('click', () => {
+      sound.playClick();
+      this.activeModal = 'map';
+      this.renderLobby();
+    });
+
+    document.getElementById('slot-ped-0')?.addEventListener('click', () => {
+      sound.playClick();
+      this.selectingSlotForHero = 'player';
+      this.activeModal = 'hero';
+      this.renderLobby();
+    });
+
+    document.getElementById('slot-ped-1')?.addEventListener('click', () => {
+      sound.playClick();
+      this.selectingSlotForHero = 'ally';
+      this.activeModal = 'hero';
+      this.renderLobby();
+    });
+
+    this.uiRoot.querySelectorAll<HTMLElement>('[data-room-bag-slot]').forEach((el) => {
+      el.addEventListener('click', () => {
         sound.playClick();
-        this.selectedHeroId = card.dataset.hero || 'gunner';
-        if (this.online.isConnected) {
-          if (this.online.role === 'host') {
-            this.broadcastLobbySync();
-          } else {
-            this.online.send({
-              type: 'guest_select',
-              guestHeroId: this.selectedHeroId,
-              guestName: 'Khách',
-            });
-          }
-        }
+        this.activeModal = 'bag';
         this.renderLobby();
       });
     });
 
-    this.uiRoot.querySelectorAll<HTMLElement>('[data-loadout-item]').forEach((card) => {
-      card.addEventListener('click', () => {
-        const id = card.dataset.loadoutItem as BattleItemId;
-        this.addItemToBag(id);
-      });
-    });
-
-    this.uiRoot.querySelectorAll<HTMLElement>('[data-bag-remove]').forEach((card) => {
-      card.addEventListener('click', () => {
-        const slotIdx = parseInt(card.dataset.bagRemove || '0', 10);
-        this.removeBagSlotAt(slotIdx);
-      });
-    });
-
-    document.getElementById('btn-clear-bag')?.addEventListener('click', () => {
+    document.getElementById('btn-room-menu')?.addEventListener('click', () => {
       sound.playClick();
-      this.selectedItems = [];
-      localStorage.setItem(STORAGE_ITEMS_KEY, JSON.stringify(this.selectedItems));
+      this.activeModal = 'menu';
       this.renderLobby();
     });
 
-    document.getElementById('btn-unlock-all')?.addEventListener('click', () => {
-      sound.playItemUse();
-      this.unlockedStage = CAMPAIGN_STAGES.length;
-      localStorage.setItem(STORAGE_STAGE_KEY, String(this.unlockedStage));
-      this.renderLobby();
+    document.getElementById('btn-room-start')?.addEventListener('click', () => {
+      this.handleRoomStartClick();
     });
 
-    this.uiRoot.querySelectorAll<HTMLElement>('.btn-start-stage').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        sound.playClick();
-        const id = parseInt(btn.dataset.stage || '1', 10);
-        const stage = CAMPAIGN_STAGES.find((s) => s.id === id) ?? CAMPAIGN_STAGES[0];
-        this.launchBattle({
-          mode: 'campaign',
-          playerHeroId: this.selectedHeroId,
-          teamSize: stage.allyHeroId ? 2 : 1,
-          mapId: stage.mapId,
-          difficulty: 'normal',
-          stage,
-          selectedItems: this.selectedItems,
-        });
-      });
-    });
+    // Gắn sự kiện các Modal (nếu đang mở)
+    this.bindModalEvents();
+  }
 
-    document.getElementById('sel-boss-ally')?.addEventListener('change', (e) => {
-      this.selectedAllyHeroId = (e.target as HTMLSelectElement).value;
-      this.renderLobby();
-    });
+  private renderPedestalHeroes(): void {
+    const hero = getHeroById(this.selectedHeroId);
+    const allyHero = getHeroById(this.selectedAllyHeroId);
+    const remoteHero = getHeroById(this.onlineRemoteHeroId);
 
-    // Sự kiện Tạo Phòng / Vào Phòng Săn Boss Tổ Đội Online
-    document.getElementById('btn-host-boss-coop')?.addEventListener('click', async () => {
-      sound.playClick();
-      try {
-        await this.online.hostRoom();
-        this.renderLobby();
-      } catch {
-        this.renderLobby();
+    // Slot 0 (Left 1: Player) - quay sang phải
+    const c0 = document.getElementById('ped-char-0') as HTMLCanvasElement | null;
+    if (c0) this.previewRenderer.drawHeroPreview(c0, hero, 12, false);
+
+    // Slot 1 (Left 2: Ally or Online Teammate) - quay sang phải
+    const c1 = document.getElementById('ped-char-1') as HTMLCanvasElement | null;
+    if (c1) {
+      const activeAlly = this.online.isConnected ? remoteHero : allyHero;
+      this.previewRenderer.drawHeroPreview(c1, activeAlly, 12, false);
+    }
+
+    // Slot 4 (Right 1: Boss or Opponent) - quay sang trái
+    const c4 = document.getElementById('ped-char-4') as HTMLCanvasElement | null;
+    if (c4) {
+      if (this.activeTab === 'online') {
+        const oppHero = this.online.isConnected ? remoteHero : getHeroById('ironman');
+        this.previewRenderer.drawHeroPreview(c4, oppHero, 12, true);
+      } else if (this.activeTab === 'boss_hunt') {
+        const bossHero = getHeroById('ultron') || hero;
+        this.previewRenderer.drawHeroPreview(c4, bossHero, 12, true);
+      } else {
+        const enemyHero = getHeroById('gunner');
+        this.previewRenderer.drawHeroPreview(c4, enemyHero, 12, true);
       }
-    });
+    }
 
-    document.getElementById('btn-join-boss-coop')?.addEventListener('click', async () => {
-      sound.playClick();
-      const inp = document.getElementById('inp-join-boss-code') as HTMLInputElement | null;
-      const code = inp?.value.trim() || '';
-      if (!code) return;
-      try {
-        await this.online.joinRoom(code);
-        this.renderLobby();
-      } catch {
-        this.renderLobby();
-      }
-    });
+    // Slot 5 (Right 2: Minion or Bot 2) - quay sang trái
+    const c5 = document.getElementById('ped-char-5') as HTMLCanvasElement | null;
+    if (c5) {
+      const minionHero = getHeroById('loki') || hero;
+      this.previewRenderer.drawHeroPreview(c5, minionHero, 12, true);
+    }
+  }
 
-    document.getElementById('btn-copy-boss-room')?.addEventListener('click', (e) => {
-      sound.playItemUse();
-      if (bossInviteUrl && navigator.clipboard) {
-        navigator.clipboard.writeText(bossInviteUrl);
-        (e.currentTarget as HTMLButtonElement).textContent = '✅ Đã Copy Link Mời Đội!';
-      }
-    });
+  private drawMapThumbnail(canvas: HTMLCanvasElement): void {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
 
-    // Bắt đầu Săn Boss Tổ Đội Online (2 người chơi P2P hợp lực đánh Boss)
-    this.uiRoot.querySelectorAll<HTMLElement>('.btn-start-boss-online').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (!this.online.isConnected || this.online.role !== 'host') return;
-        sound.playPow();
-        const id = parseInt(btn.dataset.bossStage || '101', 10);
-        this.selectedCoopBossStageId = id;
-        const stage = BOSS_HUNT_STAGES.find((s) => s.id === id) ?? BOSS_HUNT_STAGES[0];
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#38bdf8');
+    sky.addColorStop(0.7, '#bae6fd');
+    sky.addColorStop(1, '#0284c7');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+
+    // Đồi & đảo cỏ
+    ctx.fillStyle = '#65a30d';
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.72);
+    ctx.quadraticCurveTo(w * 0.25, h * 0.48, w * 0.5, h * 0.65);
+    ctx.quadraticCurveTo(w * 0.78, h * 0.85, w, h * 0.56);
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fill();
+
+    // Khối đất lơ lửng
+    ctx.fillStyle = '#84cc16';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.38, w * 0.22, h * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#365314';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Nước biển dưới chân
+    ctx.fillStyle = 'rgba(2, 132, 199, 0.75)';
+    ctx.fillRect(0, h * 0.82, w, h * 0.18);
+  }
+
+  private handleRoomStartClick(): void {
+    sound.playClick();
+    if (this.activeTab === 'boss_hunt') {
+      const stage =
+        BOSS_HUNT_STAGES.find((s) => s.id === this.selectedCoopBossStageId) ?? BOSS_HUNT_STAGES[0];
+      if (this.online.isConnected && this.online.role === 'host') {
         const initialWind = Math.round((Math.random() * 2 - 1) * 12);
         const matchSeed = Math.floor(100000 + Math.random() * 900000);
         this.online.send({
@@ -814,16 +729,8 @@ class GameApp {
           onlineCoopStage: stage,
           selectedItems: this.selectedItems,
         });
-      });
-    });
-
-    // Bắt đầu Săn Boss Cùng Bot AI
-    this.uiRoot.querySelectorAll<HTMLElement>('.btn-start-boss-hunt').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        sound.playClick();
-        const id = parseInt(btn.dataset.bossStage || '101', 10);
-        this.selectedCoopBossStageId = id;
-        const stage = BOSS_HUNT_STAGES.find((s) => s.id === id) ?? BOSS_HUNT_STAGES[0];
+      } else {
+        // Đi cùng Bot AI
         this.launchBattle({
           mode: 'campaign',
           playerHeroId: this.selectedHeroId,
@@ -834,25 +741,19 @@ class GameApp {
           stage,
           selectedItems: this.selectedItems,
         });
+      }
+    } else if (this.activeTab === 'campaign') {
+      const stage = CAMPAIGN_STAGES.find((s) => s.id === this.unlockedStage) ?? CAMPAIGN_STAGES[0];
+      this.launchBattle({
+        mode: 'campaign',
+        playerHeroId: this.selectedHeroId,
+        teamSize: stage.allyHeroId ? 2 : 1,
+        mapId: stage.mapId,
+        difficulty: 'normal',
+        stage,
+        selectedItems: this.selectedItems,
       });
-    });
-
-    document.getElementById('sel-map')?.addEventListener('change', (e) => {
-      this.selectedMapId = parseInt((e.target as HTMLSelectElement).value, 10);
-    });
-    document.getElementById('sel-teamsize')?.addEventListener('change', (e) => {
-      this.selectedTeamSize = parseInt((e.target as HTMLSelectElement).value, 10) === 2 ? 2 : 1;
-      this.renderLobby();
-    });
-    document.getElementById('sel-ally')?.addEventListener('change', (e) => {
-      this.selectedAllyHeroId = (e.target as HTMLSelectElement).value;
-    });
-    document.getElementById('sel-diff')?.addEventListener('change', (e) => {
-      this.selectedDifficulty = (e.target as HTMLSelectElement).value as BotDifficulty;
-    });
-
-    document.getElementById('btn-start-skirmish')?.addEventListener('click', () => {
-      sound.playClick();
+    } else if (this.activeTab === 'skirmish') {
       this.launchBattle({
         mode: 'skirmish',
         playerHeroId: this.selectedHeroId,
@@ -862,76 +763,572 @@ class GameApp {
         difficulty: this.selectedDifficulty,
         selectedItems: this.selectedItems,
       });
-    });
+    } else if (this.activeTab === 'online') {
+      if (this.online.isConnected && this.online.role === 'host') {
+        const initialWind = Math.round((Math.random() * 2 - 1) * 12);
+        const matchSeed = Math.floor(100000 + Math.random() * 900000);
+        this.online.send({
+          type: 'start_match',
+          hostHeroId: this.selectedHeroId,
+          guestHeroId: this.onlineRemoteHeroId,
+          mapId: this.selectedMapId,
+          seed: matchSeed,
+          initialWind,
+        });
+        this.launchBattle({
+          mode: 'online',
+          onlineRole: 'host',
+          playerHeroId: this.selectedHeroId,
+          remoteHeroId: this.onlineRemoteHeroId,
+          teamSize: 1,
+          mapId: this.selectedMapId,
+          difficulty: 'normal',
+          seed: matchSeed,
+          selectedItems: this.selectedItems,
+        });
+      } else {
+        this.activeModal = 'online_room';
+        this.renderLobby();
+      }
+    }
+  }
 
-    // Sự kiện Tab Solo Trực Tuyến 1v1
-    document.getElementById('btn-host-online')?.addEventListener('click', async () => {
+  // ==================== MODAL OVERLAYS RENDERING ====================
+
+  private renderActiveModalHtml(): string {
+    if (this.activeModal === 'none') return '';
+
+    if (this.activeModal === 'chat') {
+      return `
+        <div class="chat-drawer" id="modal-chat-drawer">
+          <div class="army-modal-header" style="background:#0f172a">
+            <h2>💬 Tin Nhắn Phòng</h2>
+            <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
+          </div>
+          <div class="chat-history" id="chat-history-container">
+            ${this.lobbyChatMessages
+              .map(
+                (m) => `
+              <div class="chat-msg-row" style="${m.isSelf ? 'border-left-color:#facc15' : 'border-left-color:#38bdf8'}">
+                <div class="chat-msg-author" style="${m.isSelf ? 'color:#fde047' : 'color:#7dd3fc'}">${this.escapeHtml(
+                  m.sender
+                )} <span style="font-size:0.65rem;color:#94a3b8;font-weight:400;margin-left:4px">${m.time}</span></div>
+                <div class="chat-msg-text">${this.escapeHtml(m.text)}</div>
+              </div>
+            `
+              )
+              .join('')}
+          </div>
+          <div class="chat-quick-pills">
+            <button class="chat-pill" data-quick-chat="Chào mọi người!">👋 Chào bạn!</button>
+            <button class="chat-pill" data-quick-chat="Sẵn sàng chiến nào!">🚀 Sẵn sàng!</button>
+            <button class="chat-pill" data-quick-chat="Tập trung hất boss!">💥 Bắn boss!</button>
+            <button class="chat-pill" data-quick-chat="Cố lên bạn ơi!">🛡️ Cố lên!</button>
+          </div>
+          <div class="chat-input-bar">
+            <input type="text" id="inp-chat-drawer" class="select-input" placeholder="Nhập tin nhắn..." maxlength="60" style="flex:1" />
+            <button class="tab-btn active" id="btn-send-chat" style="padding:0 12px;height:36px">Gửi</button>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.activeModal === 'menu') {
+      return `
+        <div class="army-modal-overlay">
+          <div class="army-modal-box" style="max-width:440px">
+            <div class="army-modal-header">
+              <h2>📜 Menu Mobi Army 3</h2>
+              <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
+            </div>
+            <div class="army-modal-body" style="display:flex;flex-direction:column;gap:10px">
+              <button class="tab-btn ${this.activeTab === 'boss_hunt' ? 'active' : ''}" data-nav-mode="boss_hunt" style="justify-content:flex-start;padding:12px">👑 Săn Boss Tổ Đội</button>
+              <button class="tab-btn ${this.activeTab === 'campaign' ? 'active' : ''}" data-nav-mode="campaign" style="justify-content:flex-start;padding:12px">🗺️ Chiến Dịch Vượt Ải (${Math.min(this.unlockedStage, CAMPAIGN_STAGES.length)}/${CAMPAIGN_STAGES.length})</button>
+              <button class="tab-btn ${this.activeTab === 'skirmish' ? 'active' : ''}" data-nav-mode="skirmish" style="justify-content:flex-start;padding:12px">⚔️ Đấu Bot Tự Do (1v1, 2v2)</button>
+              <button class="tab-btn ${this.activeTab === 'online' ? 'active' : ''}" data-nav-mode="online" style="justify-content:flex-start;padding:12px">🌐 Solo Trực Tuyến 1v1 (P2P)</button>
+              <button class="tab-btn" id="menu-btn-hero" style="justify-content:flex-start;padding:12px">🦸 Chọn Tướng & Biệt Đội Marvel</button>
+              <button class="tab-btn" id="menu-btn-bag" style="justify-content:flex-start;padding:12px">🎒 Cài Đặt Túi Đồ Chiến Đấu (6 Ô)</button>
+              <button class="tab-btn" id="menu-btn-online-room" style="justify-content:flex-start;padding:12px">📡 Tạo / Vào Phòng Mời Bạn Online</button>
+              <button class="tab-btn" id="menu-btn-guide" style="justify-content:flex-start;padding:12px">🎨 Hướng Dẫn & Thay Đồ Họa</button>
+            </div>
+            <div class="army-modal-footer">
+              <button class="tab-btn" id="btn-close-modal-footer">Đóng</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.activeModal === 'mode') {
+      return `
+        <div class="army-modal-overlay">
+          <div class="army-modal-box" style="max-width:480px">
+            <div class="army-modal-header">
+              <h2>🎮 Chọn Chế Độ Chơi</h2>
+              <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
+            </div>
+            <div class="army-modal-body" style="display:flex;flex-direction:column;gap:12px">
+              <button class="stage-card ${this.activeTab === 'boss_hunt' ? 'boss-stage' : ''}" data-set-mode="boss_hunt" style="cursor:pointer;text-align:left">
+                <h3 style="margin:0 0 4px;color:#fde047">👑 Săn Boss Tổ Đội (Mời Bạn Hoặc Đi Bot)</h3>
+                <p style="margin:0;font-size:0.8rem;color:#cbd5e1">2 Người chơi cùng phe đối đầu Boss khủng (Hulk, Thor, Ultron, Nhện máy...)</p>
+              </button>
+              <button class="stage-card ${this.activeTab === 'campaign' ? 'boss-stage' : ''}" data-set-mode="campaign" style="cursor:pointer;text-align:left">
+                <h3 style="margin:0 0 4px;color:#38bdf8">🗺️ Vượt Ải Chiến Dịch (${this.unlockedStage}/${CAMPAIGN_STAGES.length})</h3>
+                <p style="margin:0;font-size:0.8rem;color:#cbd5e1">Chuỗi ải chiến dịch mở dần, đánh bại kẻ địch và boss từng bản đồ</p>
+              </button>
+              <button class="stage-card ${this.activeTab === 'skirmish' ? 'boss-stage' : ''}" data-set-mode="skirmish" style="cursor:pointer;text-align:left">
+                <h3 style="margin:0 0 4px;color:#4ade80">⚔️ Đấu Bot Tự Do</h3>
+                <p style="margin:0;font-size:0.8rem;color:#cbd5e1">Tập bắn thoải mái, chọn 27 bản đồ gốc và độ khó Bot</p>
+              </button>
+              <button class="stage-card ${this.activeTab === 'online' ? 'boss-stage' : ''}" data-set-mode="online" style="cursor:pointer;text-align:left">
+                <h3 style="margin:0 0 4px;color:#fb7185">🌐 Solo Trực Tuyến 1v1</h3>
+                <p style="margin:0;font-size:0.8rem;color:#cbd5e1">Tạo phòng lấy mã 4 số mời bạn bè so tài trực tuyến qua mạng</p>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.activeModal === 'hero') {
+      const isAlly = this.selectingSlotForHero === 'ally';
+      const curHeroId = isAlly ? this.selectedAllyHeroId : this.selectedHeroId;
+      const curHero = getHeroById(curHeroId);
+      return `
+        <div class="army-modal-overlay">
+          <div class="army-modal-box">
+            <div class="army-modal-header">
+              <h2>🦸 ${isAlly ? 'Chọn Tướng Đồng Đội' : 'Chọn Chiến Binh Của Bạn'}: <span style="color:#fde047">${curHero.name}</span></h2>
+              <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
+            </div>
+            <div class="army-modal-body">
+              <div class="hero-grid" style="margin-bottom:14px">
+                ${HEROES.map(
+                  (h) => `
+                  <div class="hero-card ${h.faction === 'marvel' ? 'marvel-hero' : ''} ${
+                    h.id === curHeroId ? 'selected' : ''
+                  }" data-pick-hero="${h.id}">
+                    ${h.faction === 'marvel' ? '<span class="marvel-badge">MARVEL</span>' : ''}
+                    <canvas id="modal-hero-${h.id}" width="72" height="72"></canvas>
+                    <div class="hero-name" style="color:${h.color}">${h.name}</div>
+                    <div class="hero-role">${h.title.replace(' [MARVEL]', '')}</div>
+                  </div>
+                `
+                ).join('')}
+              </div>
+              <div class="hero-detail-bar">
+                <div>
+                  <div style="font-weight:800;font-size:0.95rem;color:${curHero.color}">${curHero.name} — Tuyệt kỹ Nộ: <span style="color:#fde047">${curHero.powName}</span></div>
+                  <div style="font-size:0.82rem;color:#cbd5e1;margin-top:2px">${curHero.description}</div>
+                </div>
+                <div class="stat-pills">
+                  <span class="stat-pill">❤️ HP: ${curHero.hp}</span>
+                  <span class="stat-pill">💥 Công: ${curHero.attack}</span>
+                  <span class="stat-pill">📐 Góc: ${curHero.minAngle}°..${curHero.maxAngle}°</span>
+                  <span class="stat-pill">🏃 Thể lực: ${curHero.staminaMax}</span>
+                </div>
+              </div>
+            </div>
+            <div class="army-modal-footer">
+              <button class="primary-cta" id="btn-confirm-hero" style="padding:8px 22px">Xác Nhận Chọn</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.activeModal === 'bag') {
+      const bagSlotsModalHtml = Array.from({ length: 6 }, (_, idx) => {
+        const itemId = this.selectedItems[idx];
+        const it = itemId ? BATTLE_ITEMS.find((b) => b.id === itemId) : undefined;
+        if (!it) {
+          return `
+            <div class="loadout-item-card" style="opacity:0.45;border-style:dashed;justify-content:center;min-height:54px">
+              <div style="font-size:0.75rem;color:#64748b;text-align:center">Ô ${idx + 1} (Trống)</div>
+            </div>
+          `;
+        }
+        return `
+          <div class="loadout-item-card selected" data-bag-remove="${idx}" title="Nhấp để tháo ${it.name} khỏi Ô ${idx + 1}">
+            <span class="loadout-item-badge">Ô ${idx + 1}</span>
+            <div class="item-icon-strip" style="background-image: url('./assets/ui/item.png'); background-position: 0px ${-26 * it.stripIndex}px"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:0.78rem;font-weight:700;color:#fde047;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</div>
+              <div style="font-size:0.65rem;color:#cbd5e1">1 lần • Nhấp để tháo</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="army-modal-overlay">
+          <div class="army-modal-box">
+            <div class="army-modal-header">
+              <h2>🎒 Cài Đặt Túi Đồ (6 Ô — Mỗi Ô 1 Lần Dùng, Được Lắp Trùng Nhau)</h2>
+              <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
+            </div>
+            <div class="army-modal-body">
+              <div style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <div style="font-size:0.78rem;color:#7dd3fc;font-weight:700">🎒 6 Ô ĐANG MANG VÀO TRẬN (Phím 1..6 — Nhấp vào ô để tháo):</div>
+                  <button class="ctrl-btn" id="btn-clear-bag-modal" style="height:24px;font-size:0.7rem;padding:0 8px">🗑️ Làm Trống</button>
+                </div>
+                <div class="loadout-items-grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+                  ${bagSlotsModalHtml}
+                </div>
+              </div>
+              <div style="font-size:0.78rem;color:#cbd5e1;font-weight:700;margin-bottom:6px">➕ KHO VẬT PHẨM (Nhấp vào món để thêm vào ô trống tiếp theo):</div>
+              <div class="loadout-items-grid">
+                ${BATTLE_ITEMS.map((it) => {
+                  const equippedCount = this.selectedItems.filter((x) => x === it.id).length;
+                  const isSel = equippedCount > 0;
+                  return `
+                    <div class="loadout-item-card ${isSel ? 'selected' : ''}" data-loadout-item="${it.id}">
+                      ${isSel ? `<span class="loadout-item-badge">x${equippedCount}</span>` : ''}
+                      <div class="item-icon-strip" style="background-image: url('./assets/ui/item.png'); background-position: 0px ${-26 * it.stripIndex}px"></div>
+                      <div>
+                        <div style="font-size:0.8rem;font-weight:700;color:${isSel ? '#fde047' : '#f8fafc'}">${it.name}</div>
+                        <div style="font-size:0.68rem;color:#94a3b8">${it.shortDesc}</div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+            <div class="army-modal-footer">
+              <button class="primary-cta" id="btn-confirm-bag" style="padding:8px 22px">Xong</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.activeModal === 'map') {
+      return `
+        <div class="army-modal-overlay">
+          <div class="army-modal-box">
+            <div class="army-modal-header">
+              <h2>🗺️ Chọn Bản Đồ & Ải Săn Boss</h2>
+              <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
+            </div>
+            <div class="army-modal-body">
+              <h3 style="margin:0 0 8px;font-size:0.92rem;color:#fde047">👑 Ải Săn Boss Khủng:</h3>
+              <div class="stage-grid" style="margin-bottom:16px">
+                ${BOSS_HUNT_STAGES.map((st) => `
+                  <div class="stage-card boss-stage ${st.id === this.selectedCoopBossStageId ? 'selected' : ''}" data-pick-boss-stage="${st.id}" style="cursor:pointer">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                      <span class="stage-badge" style="background:rgba(239,68,68,0.25);color:#fca5a5">${st.subtitle}</span>
+                      <span style="font-size:0.72rem;color:#94a3b8">Map #${st.mapId}</span>
+                    </div>
+                    <h3 style="margin:0 0 4px;font-size:0.95rem;color:#f8fafc">${st.name}</h3>
+                    <p style="margin:0;font-size:0.76rem;color:#cbd5e1">${st.description}</p>
+                  </div>
+                `).join('')}
+              </div>
+
+              <h3 style="margin:0 0 8px;font-size:0.92rem;color:#38bdf8">🗺️ Danh Sách 27 Bản Đồ Chiến Trường:</h3>
+              <div class="hero-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))">
+                ${this.assets.maps.map((m) => `
+                  <div class="loadout-item-card ${m.mapId === this.selectedMapId ? 'selected' : ''}" data-pick-map="${m.mapId}" style="cursor:pointer;flex-direction:column;align-items:flex-start">
+                    <div style="font-weight:700;font-size:0.82rem;color:#f8fafc">#${m.mapId} — ${m.name}</div>
+                    <div style="font-size:0.68rem;color:#94a3b8">${m.width}x${m.height}px</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="army-modal-footer">
+              <button class="primary-cta" id="btn-confirm-map" style="padding:8px 22px">Xác Nhận</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.activeModal === 'online_room') {
+      const inviteUrl = this.online.roomCode
+        ? `${window.location.origin}${window.location.pathname}?room=${this.online.roomCode}`
+        : '';
+      return `
+        <div class="army-modal-overlay">
+          <div class="army-modal-box" style="max-width:540px">
+            <div class="army-modal-header">
+              <h2>🌐 Phòng Trực Tuyến (P2P WebRTC)</h2>
+              <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
+            </div>
+            <div class="army-modal-body" style="display:flex;flex-direction:column;gap:12px">
+              <div style="background:rgba(2,6,23,0.6);border:1px solid rgba(56,189,248,0.3);border-radius:10px;padding:10px 12px">
+                <div style="font-size:0.85rem;color:#e2e8f0;margin-bottom:6px">
+                  <strong>Trạng thái:</strong> <span style="color:#7dd3fc">${this.onlineStatusText}</span>
+                </div>
+                ${
+                  this.online.roomCode
+                    ? `
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <span class="stat-pill" style="background:#0284c7;color:#fff;font-size:0.9rem">Mã Phòng: #${this.online.roomCode}</span>
+                    <button class="ctrl-btn" id="btn-copy-modal-room" style="height:30px;font-size:0.75rem">📋 Copy Link Mời</button>
+                  </div>
+                `
+                    : ''
+                }
+              </div>
+
+              <div class="field-group">
+                <label>Bước 1 (Chủ Phòng): Tạo Phòng Lấy Mã</label>
+                <button class="tab-btn active" id="btn-modal-host" style="width:100%;height:38px">📡 Tạo Phòng Mới</button>
+              </div>
+
+              <div class="field-group">
+                <label>Bước 2 (Khách): Nhập Mã 4 Số Để Vào Phòng</label>
+                <div style="display:flex;gap:8px">
+                  <input type="text" id="inp-modal-code" class="select-input" placeholder="VD: 4829" maxlength="6" style="flex:1" value="${
+                    this.online.role === 'guest' ? this.online.roomCode : ''
+                  }" />
+                  <button class="tab-btn" id="btn-modal-join" style="padding:0 16px">🔗 Vào</button>
+                </div>
+              </div>
+
+              ${
+                this.online.isConnected
+                  ? `<button class="ctrl-btn" id="btn-modal-leave" style="color:#fda4af;border-color:rgba(244,63,94,0.5);margin-top:6px">🚪 Rời Khỏi Phòng Hiện Tại</button>`
+                  : ''
+              }
+            </div>
+            <div class="army-modal-footer">
+              <button class="primary-cta" id="btn-confirm-online-room" style="padding:8px 22px">Xong</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.activeModal === 'guide') {
+      return `
+        <div class="army-modal-overlay">
+          <div class="army-modal-box">
+            <div class="army-modal-header">
+              <h2>🎨 Hướng Dẫn & Thay Thế Đồ Họa</h2>
+              <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
+            </div>
+            <div class="army-modal-body" style="line-height:1.6;font-size:0.86rem;color:#cbd5e1">
+              <p>Mobi Army 3 Web Edition hỗ trợ tùy biến đồ họa, bản đồ và âm thanh:</p>
+              <ul style="padding-left:20px;margin:8px 0">
+                <li><strong>Địa hình:</strong> Thay ảnh gạch trong <code>public/assets/bricks/*.png</code> hoặc bố cục trong <code>maps.json</code>.</li>
+                <li><strong>Đạn & Bom:</strong> Ghi đè file PNG trong <code>bullets/</code>, <code>holes/</code>, <code>effects/</code>.</li>
+                <li><strong>Nhân vật & Skin:</strong> Tướng Marvel đặt trong <code>public/assets/heroes/small/2Small*.png</code>.</li>
+              </ul>
+              <p style="color:#fde047"><strong>Phím tắt:</strong> <code>A / D</code> di chuyển • <code>W / S</code> chỉnh góc • Giữ <code>SPACE</code> gồng lực • <code>P</code> bật Nộ POW • <code>1..6</code> dùng Item • <code>U</code> gọi phân thân Ultron.</p>
+            </div>
+            <div class="army-modal-footer">
+              <button class="primary-cta" id="btn-confirm-guide" style="padding:8px 22px">Đóng</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    return '';
+  }
+
+  private bindModalEvents(): void {
+    if (this.activeModal === 'none') return;
+
+    // Nút đóng modal chung
+    const closeModal = () => {
       sound.playClick();
-      try {
-        await this.online.hostRoom();
-        this.renderLobby();
-      } catch {
-        this.renderLobby();
-      }
-    });
+      this.activeModal = 'none';
+      this.renderLobby();
+    };
 
-    document.getElementById('btn-join-online')?.addEventListener('click', async () => {
-      sound.playClick();
-      const inp = document.getElementById('inp-join-code') as HTMLInputElement | null;
-      const code = inp?.value.trim() || '';
-      if (!code) return;
-      try {
-        await this.online.joinRoom(code);
-        this.renderLobby();
-      } catch {
-        this.renderLobby();
-      }
-    });
+    document.getElementById('btn-close-modal')?.addEventListener('click', closeModal);
+    document.getElementById('btn-close-modal-footer')?.addEventListener('click', closeModal);
+    document.getElementById('btn-confirm-hero')?.addEventListener('click', closeModal);
+    document.getElementById('btn-confirm-bag')?.addEventListener('click', closeModal);
+    document.getElementById('btn-confirm-map')?.addEventListener('click', closeModal);
+    document.getElementById('btn-confirm-online-room')?.addEventListener('click', closeModal);
+    document.getElementById('btn-confirm-guide')?.addEventListener('click', closeModal);
 
-    document.getElementById('btn-copy-room')?.addEventListener('click', (e) => {
-      sound.playItemUse();
-      if (inviteUrl && navigator.clipboard) {
-        navigator.clipboard.writeText(inviteUrl);
-        (e.currentTarget as HTMLButtonElement).textContent = '✅ Đã Copy Link!';
-      }
-    });
-
-    document.getElementById('sel-online-map')?.addEventListener('change', (e) => {
-      this.selectedMapId = parseInt((e.target as HTMLSelectElement).value, 10);
-      this.broadcastLobbySync();
-    });
-
-    document.getElementById('btn-start-online')?.addEventListener('click', () => {
-      if (!this.online.isConnected || this.online.role !== 'host') return;
-      sound.playPow();
-      const initialWind = Math.round((Math.random() * 2 - 1) * 12);
-      const matchSeed = Math.floor(100000 + Math.random() * 900000);
-      this.online.send({
-        type: 'start_match',
-        hostHeroId: this.selectedHeroId,
-        guestHeroId: this.onlineRemoteHeroId,
-        mapId: this.selectedMapId,
-        seed: matchSeed,
-        initialWind,
+    // Chat Drawer
+    if (this.activeModal === 'chat') {
+      const inp = document.getElementById('inp-chat-drawer') as HTMLInputElement | null;
+      const doSend = () => {
+        if (inp && inp.value.trim()) {
+          this.sendChatMessage(inp.value.trim());
+          inp.value = '';
+        }
+      };
+      document.getElementById('btn-send-chat')?.addEventListener('click', doSend);
+      inp?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') doSend();
       });
-      this.launchBattle({
-        mode: 'online',
-        onlineRole: 'host',
-        playerHeroId: this.selectedHeroId,
-        remoteHeroId: this.onlineRemoteHeroId,
-        teamSize: 1,
-        mapId: this.selectedMapId,
-        difficulty: 'normal',
-        seed: matchSeed,
-        selectedItems: this.selectedItems,
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-quick-chat]').forEach((pill) => {
+        pill.addEventListener('click', () => {
+          const txt = pill.dataset.quickChat;
+          if (txt) this.sendChatMessage(txt);
+        });
       });
-    });
+    }
 
-    const overlay = this.uiRoot.querySelector('.screen-overlay');
-    if (overlay && prevScrollTop > 0) {
-      overlay.scrollTop = prevScrollTop;
-      requestAnimationFrame(() => {
-        if (overlay) overlay.scrollTop = prevScrollTop;
+    // Menu Drawer Navigation
+    if (this.activeModal === 'menu') {
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-nav-mode]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          sound.playClick();
+          this.activeTab = btn.dataset.navMode as any;
+          this.activeModal = 'none';
+          this.renderLobby();
+        });
+      });
+      document.getElementById('menu-btn-hero')?.addEventListener('click', () => {
+        sound.playClick();
+        this.selectingSlotForHero = 'player';
+        this.activeModal = 'hero';
+        this.renderLobby();
+      });
+      document.getElementById('menu-btn-bag')?.addEventListener('click', () => {
+        sound.playClick();
+        this.activeModal = 'bag';
+        this.renderLobby();
+      });
+      document.getElementById('menu-btn-online-room')?.addEventListener('click', () => {
+        sound.playClick();
+        this.activeModal = 'online_room';
+        this.renderLobby();
+      });
+      document.getElementById('menu-btn-guide')?.addEventListener('click', () => {
+        sound.playClick();
+        this.activeModal = 'guide';
+        this.renderLobby();
+      });
+    }
+
+    // Mode Selection Modal
+    if (this.activeModal === 'mode') {
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-set-mode]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          sound.playClick();
+          this.activeTab = btn.dataset.setMode as any;
+          this.activeModal = 'none';
+          this.renderLobby();
+        });
+      });
+    }
+
+    // Hero Selection Modal
+    if (this.activeModal === 'hero') {
+      for (const h of HEROES) {
+        const c = document.getElementById(`modal-hero-${h.id}`) as HTMLCanvasElement | null;
+        if (c) {
+          this.previewRenderer.drawHeroPreview(c, h, 12, false);
+        }
+      }
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-pick-hero]').forEach((card) => {
+        card.addEventListener('click', () => {
+          sound.playClick();
+          const pickId = card.dataset.pickHero || 'captain';
+          if (this.selectingSlotForHero === 'ally') {
+            this.selectedAllyHeroId = pickId;
+          } else {
+            this.selectedHeroId = pickId;
+            if (this.online.isConnected) {
+              if (this.online.role === 'host') {
+                this.broadcastLobbySync();
+              } else {
+                this.online.send({
+                  type: 'guest_select',
+                  guestHeroId: this.selectedHeroId,
+                  guestName: 'Khách',
+                });
+              }
+            }
+          }
+          this.renderLobby();
+        });
+      });
+    }
+
+    // Bag Selection Modal
+    if (this.activeModal === 'bag') {
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-loadout-item]').forEach((card) => {
+        card.addEventListener('click', () => {
+          const id = card.dataset.loadoutItem as BattleItemId;
+          this.addItemToBag(id);
+        });
+      });
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-bag-remove]').forEach((card) => {
+        card.addEventListener('click', () => {
+          const slotIdx = parseInt(card.dataset.bagRemove || '0', 10);
+          this.removeBagSlotAt(slotIdx);
+        });
+      });
+      document.getElementById('btn-clear-bag-modal')?.addEventListener('click', () => {
+        sound.playClick();
+        this.selectedItems = [];
+        localStorage.setItem(STORAGE_ITEMS_KEY, JSON.stringify(this.selectedItems));
+        this.renderLobby();
+      });
+    }
+
+    // Map Selection Modal
+    if (this.activeModal === 'map') {
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-pick-boss-stage]').forEach((card) => {
+        card.addEventListener('click', () => {
+          sound.playClick();
+          const sId = parseInt(card.dataset.pickBossStage || '101', 10);
+          this.selectedCoopBossStageId = sId;
+          const st = BOSS_HUNT_STAGES.find((s) => s.id === sId);
+          if (st) this.selectedMapId = st.mapId;
+          this.activeTab = 'boss_hunt';
+          this.broadcastLobbySync();
+          this.activeModal = 'none';
+          this.renderLobby();
+        });
+      });
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-pick-map]').forEach((card) => {
+        card.addEventListener('click', () => {
+          sound.playClick();
+          this.selectedMapId = parseInt(card.dataset.pickMap || '11', 10);
+          this.broadcastLobbySync();
+          this.activeModal = 'none';
+          this.renderLobby();
+        });
+      });
+    }
+
+    // Online Room Modal
+    if (this.activeModal === 'online_room') {
+      document.getElementById('btn-modal-host')?.addEventListener('click', async () => {
+        sound.playClick();
+        try {
+          await this.online.hostRoom();
+          this.renderLobby();
+        } catch {
+          this.renderLobby();
+        }
+      });
+      document.getElementById('btn-modal-join')?.addEventListener('click', async () => {
+        sound.playClick();
+        const inp = document.getElementById('inp-modal-code') as HTMLInputElement | null;
+        const code = inp?.value.trim() || '';
+        if (!code) return;
+        try {
+          await this.online.joinRoom(code);
+          this.renderLobby();
+        } catch {
+          this.renderLobby();
+        }
+      });
+      document.getElementById('btn-modal-leave')?.addEventListener('click', () => {
+        sound.playClick();
+        this.online.leaveRoom('Bạn đã rời phòng');
+        this.renderLobby();
+      });
+      document.getElementById('btn-copy-modal-room')?.addEventListener('click', (e) => {
+        sound.playItemUse();
+        const url = `${window.location.origin}${window.location.pathname}?room=${this.online.roomCode}`;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(url);
+          (e.currentTarget as HTMLButtonElement).textContent = '✅ Đã Copy Link!';
+        }
       });
     }
   }
@@ -940,7 +1337,6 @@ class GameApp {
     if (this.selectedItems.length < 6) {
       this.selectedItems.push(id);
     } else {
-      // Nếu đã đủ 6 ô, thay vào ô cuối cùng
       this.selectedItems[5] = id;
     }
     sound.playItemUse();
@@ -1031,6 +1427,7 @@ class GameApp {
         </div>
 
         <div class="hud-box">
+          <button class="ctrl-btn" id="btn-battle-chat" title="Chat Trong Trận (Phím Enter)">💬 Chat</button>
           <button class="ctrl-btn" id="btn-center-cam" title="Đưa Camera về Tướng (Phím C)">🎯 Định Tâm</button>
           <button class="ctrl-btn" id="btn-skip-turn" title="Nhường lượt (+20 Nộ) (Phím F)">⏭️ Bỏ Lượt</button>
           <button class="ctrl-btn" id="btn-mute-battle" title="Âm thanh">${sound.muted ? '🔇' : '🔊'}</button>
@@ -1102,6 +1499,12 @@ class GameApp {
           <button class="ctrl-btn" id="btn-ultron-clone" style="display:none;height:42px;padding:0 10px;font-size:0.8rem;background:rgba(244,63,94,0.25);border-color:#f43f5e;color:#fda4af;white-space:nowrap;font-weight:700" title="Gọi Phân Thân Ultron (Phím U) - Hồi chiêu 2 lượt">👥 Phân Thân</button>
           <button class="pow-btn" id="btn-pow" disabled title="Kích hoạt Tuyệt Kỹ Nộ (Phím P)">🔥 POW</button>
           <button class="fire-btn" id="btn-fire">🎯 GIỮ BẮN</button>
+        </div>
+
+        <!-- Thanh thông báo Đang chờ lượt của đối thủ / đồng đội -->
+        <div class="hud-bottom-spectator" id="hud-spectator-bar" style="display:none">
+          <div class="spectator-pulse-dot"></div>
+          <div id="hud-spectator-text" style="font-size:0.95rem;font-weight:800;color:#f8fafc">Đang chờ lượt...</div>
         </div>
       </div>
     `;
@@ -1191,8 +1594,17 @@ class GameApp {
       const muted = sound.toggleMute();
       (e.currentTarget as HTMLButtonElement).textContent = muted ? '🔇' : '🔊';
     });
+    document.getElementById('btn-battle-chat')?.addEventListener('click', () => {
+      const msg = window.prompt('Nhập tin nhắn chat trong trận (hiển thị trên đầu tướng):');
+      if (msg && msg.trim()) {
+        this.sendChatMessage(msg.trim());
+      }
+    });
     document.getElementById('btn-exit-lobby')?.addEventListener('click', () => {
       sound.playClick();
+      if (this.battle && this.battle.setup.mode === 'online' && this.online.isConnected) {
+        this.online.leaveRoom('Người chơi đã thoát trận');
+      }
       this.renderLobby();
     });
   }
@@ -1229,6 +1641,31 @@ class GameApp {
 
     r.timerVal.textContent = String(snap.turnTimeLeft);
     r.timerVal.classList.toggle('urgent', snap.turnTimeLeft <= 6);
+
+    // Ẩn/Hiện UI bắn khi chuyển qua lượt đối thủ hoặc đồng đội
+    const isPlayerTurn = !!(u && u.isPlayerControlled);
+    const dpadEl = this.uiRoot.querySelector('.dpad-cluster') as HTMLElement | null;
+    const barsEl = this.uiRoot.querySelector('.bars-center') as HTMLElement | null;
+    const fireEl = this.uiRoot.querySelector('.fire-cluster') as HTMLElement | null;
+    const specEl = document.getElementById('hud-spectator-bar');
+    const specTextEl = document.getElementById('hud-spectator-text');
+
+    if (isPlayerTurn) {
+      if (dpadEl) dpadEl.style.display = 'flex';
+      if (barsEl) barsEl.style.display = 'flex';
+      if (fireEl) fireEl.style.display = 'flex';
+      if (specEl) specEl.style.display = 'none';
+    } else {
+      if (dpadEl) dpadEl.style.display = 'none';
+      if (barsEl) barsEl.style.display = 'none';
+      if (fireEl) fireEl.style.display = 'none';
+      if (specEl) {
+        specEl.style.display = 'flex';
+        if (specTextEl) {
+          specTextEl.innerHTML = `⏳ ĐANG CHỜ LƯỢT: <span style="color:#fde047">${displayUnitName || 'Đối Thủ'}</span> (${snap.turnTimeLeft}s)`;
+        }
+      }
+    }
 
     if (u) {
       r.angleVal.textContent = `${Math.round(u.aimAngleDeg)}°`;
@@ -1440,6 +1877,10 @@ class GameApp {
         if (code === 'KeyU') this.battle.summonUltronClone();
         if (code === 'KeyC') this.battle.centerCameraOnActive();
         if (code === 'KeyF') this.battle.skipTurn();
+        if (code === 'Enter') {
+          const msg = window.prompt('Nhập tin nhắn chat:');
+          if (msg && msg.trim()) this.sendChatMessage(msg.trim());
+        }
         if (code.startsWith('Digit')) {
           const num = parseInt(code.replace('Digit', ''), 10);
           if (num >= 1 && num <= 6) {
