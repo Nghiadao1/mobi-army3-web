@@ -62,6 +62,7 @@ export interface Fighter {
   ultronTurnCount?: number;
   ultronCloneCooldown?: number;
   isClone?: boolean;
+  ownerUltronId?: string;
   ultronClones?: UltronClone[];
 }
 
@@ -98,6 +99,7 @@ interface Projectile {
     | 'web'
     | 'shield_bounce'
     | 'sky_lightning'
+    | 'ironman_plasma'
     | 'hulk_leap'
     | 'hawkeye_giant_homing'
     | 'apache_diamond'
@@ -106,6 +108,9 @@ interface Projectile {
     | 'poison'
     | 'nuke';
   diggerCharges?: number;
+  isBounced?: boolean;
+  immuneFighterId?: string;
+  immuneTicks?: number;
   droppedEgg?: boolean;
   eggDropTick?: number;
   returningToOwner?: boolean;
@@ -924,6 +929,7 @@ export class BattleEngine {
         stealth: 0,
       },
       isClone: true,
+      ownerUltronId: u.id,
     };
 
     this.fighters.push(clone);
@@ -938,6 +944,33 @@ export class BattleEngine {
     );
     this.emitHud();
     return true;
+  }
+
+  public checkUltronClonesAlive(): void {
+    for (const f of this.fighters) {
+      if (f.alive && f.isClone && f.ownerUltronId) {
+        const creator = this.fighters.find((m) => m.id === f.ownerUltronId);
+        if (!creator || !creator.alive) {
+          f.alive = false;
+          f.hp = 0;
+          this.spawnEffect(
+            f.x,
+            f.y - 16,
+            this.assets.manifest.effects.bigExplosion,
+            1.1
+          );
+          sound.playExplosion(1.0);
+          this.spawnFloatingText(
+            f.x,
+            f.y - 36,
+            'PHÂN THÂN BIẾN MẤT (BẢN CHÍNH ĐÃ CHẾT)!',
+            '#f43f5e',
+            1.2
+          );
+          if (f.team === 1) this.enemiesDefeated++;
+        }
+      }
+    }
   }
 
   private applyUnitItem(u: Fighter, itemId: BattleItemId): boolean {
@@ -1717,6 +1750,7 @@ export class BattleEngine {
     sound.playSplash();
     this.spawnEffect(u.x, this.terrain.waterY - 12, this.assets.manifest.effects.splash, 1.15);
     this.spawnFloatingText(u.x, this.terrain.waterY - 26, 'RƠI XUỐNG NƯỚC!', '#38bdf8', 1.25);
+    this.checkUltronClonesAlive();
   }
 
   private updateCrates(): void {
@@ -2233,35 +2267,26 @@ export class BattleEngine {
             });
           }
         } else {
-          // Bắn thường: 2 tia Laze Repulsor siêu tốc + 1 tên lửa Jericho
-          const laserCount = 2;
-          for (let i = 0; i < laserCount; i++) {
-            this.queueProjectile(baseDelay + i * 5, () => {
+          // Bắn thường: Tia Plasma siêu nhiệt Xuyên Tường, không bị cản bởi địa hình!
+          sound.playShoot(true);
+          this.spawnFloatingText(u.x, u.y - 46, '⚡ TIA PLASMA XUYÊN TƯỜNG!', '#38bdf8', 1.25);
+          const plasmaCount = 2;
+          for (let i = 0; i < plasmaCount; i++) {
+            this.queueProjectile(baseDelay + i * 6, () => {
               sound.playShoot(false);
-              this.spawnBullet(u, u.aimAngleDeg + (i - (laserCount - 1) / 2) * 1.2, power, {
+              this.spawnBullet(u, u.aimAngleDeg + (i === 0 ? -0.3 : 0.3), power, {
                 spriteKey: 'lightning',
                 effectKey: 'electric',
                 holeMask: 'h36x30.png',
                 holeScale: 0.95,
-                damage: u.attack * 0.36,
+                damage: u.attack * 0.52,
                 blastRadius: 36,
-                windScale: 0.25,
-                special: 'electric',
+                windScale: 0.1,
+                special: 'ironman_plasma',
+                scale: 1.2,
               });
             });
           }
-          this.queueProjectile(baseDelay + 12, () => {
-            sound.playShoot(true);
-            this.spawnBullet(u, u.aimAngleDeg, power, {
-              spriteKey: 'rocket',
-              effectKey: 'bigExplosion',
-              holeMask: 'h44x39.png',
-              holeScale: 1.05,
-              damage: u.attack * 0.45,
-              blastRadius: 40,
-              special: 'homing',
-            });
-          });
         }
         break;
       }
@@ -2749,6 +2774,16 @@ export class BattleEngine {
         continue;
       }
 
+      if (p.immuneTicks && p.immuneTicks > 0) {
+        p.immuneTicks--;
+      }
+
+      // Đạn Plasma của Iron Man tan biến khi hết tầm bay xa
+      if (p.special === 'ironman_plasma' && p.age > 85) {
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+
       // Kiểm tra trúng thân Tướng / Boss trực tiếp (bỏ qua chủ nhân trong 8 tick đầu)
       let directFighterHit: Fighter | null = null;
       for (const f of this.fighters) {
@@ -2758,6 +2793,10 @@ export class BattleEngine {
           (p.age < 9 || p.special === 'hulk_leap' || p.special === 'boomerang_curve')
         )
           continue;
+        // Miễn nhiễm va chạm lại với người vừa bị trúng khiên trong các tick đầu bật nảy (ngăn x2 dame)
+        if (f.id === p.immuneFighterId && (p.immuneTicks ?? 0) > 0) {
+          continue;
+        }
         const hitRadius = f.isBoss ? 34 : f.unitKind === 'bomber' ? 25 : 17;
         const centerY = f.isBoss ? f.y - 26 : f.y - 16;
         if (Math.hypot(p.x - f.x, p.y - centerY) <= hitRadius) {
@@ -2767,18 +2806,39 @@ export class BattleEngine {
       }
 
       if (directFighterHit && p.special !== 'teleport') {
-        this.detonateProjectile(p, p.x, p.y);
         if (p.special === 'shield_bounce') {
-          // Khiên Captain America trúng mục tiêu sẽ quay trở lại với Cap!
-          p.returningToOwner = true;
-        } else {
-          this.projectiles.splice(i, 1);
+          if (!p.isBounced) {
+            // Khiên trúng người mà chưa nảy sẽ nảy lần nữa!
+            this.detonateProjectile(p, p.x, p.y);
+            p.isBounced = true;
+            // Sát thương khiên bật nảy cao hơn 30% so với ném trực tiếp
+            p.damage = Math.round(p.damage * 1.3);
+            p.diggerCharges = 0;
+            // Đảm bảo không lỗi khi khiên nảy lại bị chặn bởi người vừa bị trúng gây ra x2 lần dame
+            p.immuneFighterId = directFighterHit.id;
+            p.immuneTicks = 16;
+            const bounceDir = p.vx >= 0 ? 1 : -1;
+            p.x = directFighterHit.x + bounceDir * 18;
+            p.y = directFighterHit.y - 30;
+            p.vx = -bounceDir * Math.max(4.2, Math.abs(p.vx) * 0.8);
+            p.vy = -Math.max(6.2, Math.abs(p.vy) * 0.88);
+            sound.playShoot(true);
+            this.spawnFloatingText(p.x, p.y - 20, '🛡️ KHIÊN BẬT NẢY (+30% SÁT THƯƠNG)!', '#38bdf8', 1.25);
+            continue;
+          } else {
+            // Lần trúng sau khi đã bật nảy: gây sát thương cao hơn 30% rồi quay về với Cap
+            this.detonateProjectile(p, p.x, p.y);
+            p.returningToOwner = true;
+            continue;
+          }
         }
+        this.detonateProjectile(p, p.x, p.y);
+        this.projectiles.splice(i, 1);
         continue;
       }
 
-      // Kiểm tra chạm địa hình bằng Bresenham raycast ($nMi)
-      const hitLand = this.terrain.raycast(prevX, prevY, p.x, p.y);
+      // Kiểm tra chạm địa hình bằng Bresenham raycast (Đạn Plasma của Iron Man không bị cản bởi tường/địa hình)
+      const hitLand = p.special === 'ironman_plasma' ? null : this.terrain.raycast(prevX, prevY, p.x, p.y);
       if (hitLand) {
         if (p.special === 'mouse' && !p.crawling) {
           // Chuột gắn bom đáp xuống đất và bắt đầu chạy về phía kẻ địch gần nhất!
@@ -2799,14 +2859,17 @@ export class BattleEngine {
           p.y = hitLand.y + p.vy * 0.8;
           p.vx *= 0.82;
           p.vy *= 0.82;
-        } else if (p.special === 'shield_bounce' && (p.diggerCharges ?? 0) > 1) {
-          // Khiên Vibranium của Captain America va chạm địa hình bật nảy thêm 1 lần nữa!
-          p.diggerCharges = (p.diggerCharges ?? 2) - 1;
+        } else if (p.special === 'shield_bounce' && !p.isBounced) {
+          // Khiên va chạm địa hình bật nảy thêm 1 lần: Tăng 30% sát thương cho lần nảy!
+          p.isBounced = true;
+          p.damage = Math.round(p.damage * 1.3);
+          p.diggerCharges = 0;
           this.detonateProjectile(p, hitLand.x, hitLand.y, true);
           p.x = hitLand.x;
           p.y = hitLand.y - 6;
           p.vx *= 0.82;
-          p.vy = -Math.max(4.6, Math.abs(p.vy) * 0.68);
+          p.vy = -Math.max(5.5, Math.abs(p.vy) * 0.75);
+          this.spawnFloatingText(p.x, p.y - 20, '🛡️ KHIÊN BẬT NẢY (+30% SÁT THƯƠNG)!', '#38bdf8', 1.25);
         } else if (p.special === 'shield_bounce') {
           // Sau khi hoàn thành lần nảy thứ 2, Khiên quay trở lại tay Captain America!
           this.detonateProjectile(p, hitLand.x, hitLand.y, false);
@@ -2879,6 +2942,35 @@ export class BattleEngine {
       this.lightningBeams.push({ x: ix, y: iy, ticksLeft: 24 });
       for (let sy = iy - 45; sy > 0; sy -= 48) {
         this.spawnEffect(ix, sy, this.assets.manifest.effects.electric, 0.95);
+      }
+
+      // Sét đánh xuống gây thêm sát thương hàng dọc theo đường sét đánh (tách riêng sát thương rìu và sét riêng)
+      const lightningColWidth = 44;
+      for (const target of this.fighters) {
+        if (!target.alive || target.id === p.ownerId) continue;
+        const inVerticalPath = Math.abs(target.x - ix) <= (target.isBoss ? 48 : lightningColWidth) && target.y <= iy + 25;
+        if (inVerticalPath) {
+          const shooterUnit = this.fighters.find((f) => f.id === p.ownerId);
+          let lightningDmg = Math.round((shooterUnit ? shooterUnit.attack * 0.72 : p.damage * 0.65));
+          if (target.team === p.team) lightningDmg = Math.round(lightningDmg * 0.45);
+          if (target.shieldTurns > 0) lightningDmg = Math.round(lightningDmg * 0.45);
+          target.hp = Math.max(0, target.hp - lightningDmg);
+          target.hurtTimer = 24;
+          this.spawnEffect(target.x, target.y - 18, this.assets.manifest.effects.electric, 1.15);
+          this.spawnFloatingText(
+            target.x + (Math.random() - 0.5) * 14,
+            target.y - 44,
+            `-${lightningDmg} ⚡ SÉT GIÁNG!`,
+            '#e879f9',
+            1.28
+          );
+          if (target.hp <= 0) {
+            target.alive = false;
+            if (target.team === 1) this.enemiesDefeated++;
+            this.spawnEffect(target.x, target.y - 16, this.assets.manifest.effects.bigExplosion, 1.2);
+            this.spawnFloatingText(target.x, target.y - 32, 'HẠ GỤC!', '#fde047', 1.3);
+          }
+        }
       }
     }
 
@@ -2997,10 +3089,18 @@ export class BattleEngine {
       }
 
       const isCrit = falloff > 0.88;
+      let label = `-${finalDmg}${isCrit ? '!' : ''}`;
+      if (p.special === 'sky_lightning') {
+        label = `-${finalDmg} 🪓 RÌU!`;
+      } else if (p.special === 'shield_bounce') {
+        label = p.isBounced ? `-${finalDmg} 🛡️ BẬT NẢY (+30%)!` : `-${finalDmg} 🛡️ TRỰC TIẾP!`;
+      } else if (p.special === 'ironman_plasma') {
+        label = `-${finalDmg} ⚡ PLASMA!`;
+      }
       this.spawnFloatingText(
         target.x + (Math.random() - 0.5) * 16,
         centerY - 18,
-        `-${finalDmg}${isCrit ? '!' : ''}`,
+        label,
         isCrit ? '#fbbf24' : '#f87171',
         isCrit ? 1.3 : 1.08
       );
@@ -3015,8 +3115,10 @@ export class BattleEngine {
           target.isBoss ? 1.6 : 1.15
         );
         this.spawnFloatingText(target.x, centerY - 34, 'HẠ GỤC!', '#fde047', 1.35);
+        this.checkUltronClonesAlive();
       }
     }
+    this.checkUltronClonesAlive();
   }
 
   // ==================== EFFECTS, CAMERA & RENDERING ====================
@@ -3522,7 +3624,9 @@ export class BattleEngine {
         const pt = p.trail[i];
         const ratio = (i + 1) / p.trail.length;
         ctx.fillStyle =
-          p.special === 'electric' || p.special === 'sky_lightning'
+          p.special === 'ironman_plasma'
+            ? `rgba(56, 189, 248, ${ratio * 0.82})`
+            : p.special === 'electric' || p.special === 'sky_lightning'
             ? `rgba(167, 139, 250, ${ratio * 0.48})`
             : p.special === 'hawkeye_giant_homing'
             ? `rgba(192, 132, 252, ${ratio * 0.7})`
@@ -3530,7 +3634,7 @@ export class BattleEngine {
             ? `rgba(192, 132, 252, ${ratio * 0.5})`
             : `rgba(248, 250, 252, ${ratio * 0.36})`;
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 1.5 + ratio * 2.5, 0, Math.PI * 2);
+        ctx.arc(pt.x, pt.y, (p.special === 'ironman_plasma' ? 3.2 : 1.5) + ratio * 2.5, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -3538,6 +3642,19 @@ export class BattleEngine {
       const img = entry ? this.assets.getImage(entry.url) : undefined;
       ctx.save();
       ctx.translate(p.x, p.y);
+
+      // Quầng sáng năng lượng Plasma của Iron Man
+      if (p.special === 'ironman_plasma') {
+        const rad = ctx.createRadialGradient(0, 0, 2, 0, 0, 18);
+        rad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        rad.addColorStop(0.4, 'rgba(56, 189, 248, 0.85)');
+        rad.addColorStop(1, 'rgba(14, 165, 233, 0)');
+        ctx.fillStyle = rad;
+        ctx.beginPath();
+        ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       if (p.crawling) {
         if ((p.crawlDir ?? 1) < 0) ctx.scale(-1, 1);
       } else if (p.spriteKey === 'gatruilong') {
@@ -3559,7 +3676,8 @@ export class BattleEngine {
           p.spriteKey === 'special' ||
           p.spriteKey === 'meteor' ||
           p.spriteKey === 'egg' ||
-          p.spriteKey === 'rocket'
+          p.spriteKey === 'rocket' ||
+          p.special === 'ironman_plasma'
         ) {
           // Sprite gốc hướng thẳng đứng lên trên (12h) -> xoay thêm +PI/2 để đầu đạn luôn hướng về phía trước theo quỹ đạo bay
           rot = Math.atan2(p.vy, p.vx) + Math.PI / 2;
