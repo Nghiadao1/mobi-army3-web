@@ -73,6 +73,8 @@ export interface Fighter {
   ultronClones?: UltronClone[];
   chatText?: string;
   chatTimer?: number;
+  hasBatShield?: boolean;
+  stunTurns?: number;
 }
 
 interface QueuedShot {
@@ -457,7 +459,9 @@ export class BattleEngine {
             spec.unitKind === 'bomber' ||
             spec.unitKind === 'ufo' ||
             spec.unitKind === 'dragon' ||
-            spec.unitKind === 'fortress';
+            spec.unitKind === 'fortress' ||
+            spec.unitKind === 'bat_queen' ||
+            spec.unitKind === 'bat_minion';
           const groundSpawn = this.terrain.findSpawnPoint(this.map.width * spec.spawnXRatio);
           const sx = isFlying ? Math.round(this.map.width * spec.spawnXRatio) : groundSpawn.x;
           const sy = isFlying ? (spec.spawnY ?? 150) : groundSpawn.y;
@@ -471,6 +475,7 @@ export class BattleEngine {
             botDifficulty: spec.difficulty,
             unitKind: spec.unitKind,
             isBoss: Boolean(spec.isBoss),
+            hasBatShield: spec.unitKind === 'bat_queen',
             hero: eh,
             x: sx,
             y: sy,
@@ -666,7 +671,9 @@ export class BattleEngine {
           spec.unitKind === 'bomber' ||
           spec.unitKind === 'ufo' ||
           spec.unitKind === 'dragon' ||
-          spec.unitKind === 'fortress';
+          spec.unitKind === 'fortress' ||
+          spec.unitKind === 'bat_queen' ||
+          spec.unitKind === 'bat_minion';
         const groundSpawn = this.terrain.findSpawnPoint(this.map.width * spec.spawnXRatio);
         const sx = isFlying ? Math.round(this.map.width * spec.spawnXRatio) : groundSpawn.x;
         const sy = isFlying ? (spec.spawnY ?? 150) : groundSpawn.y;
@@ -679,6 +686,7 @@ export class BattleEngine {
           botDifficulty: spec.difficulty,
           unitKind: spec.unitKind,
           isBoss: Boolean(spec.isBoss),
+          hasBatShield: spec.unitKind === 'bat_queen',
           hero: eh,
           x: sx,
           y: sy,
@@ -880,8 +888,9 @@ export class BattleEngine {
   private clampCamera(): void {
     const padX = 140;
     const padY = 120;
+    const topPad = this.projectiles.length > 0 ? 1200 : padY;
     this.camX = Math.max(-padX, Math.min(this.map.width + padX, this.camX));
-    this.camY = Math.max(-padY, Math.min(this.map.height + padY, this.camY));
+    this.camY = Math.max(-topPad, Math.min(this.map.height + padY, this.camY));
   }
 
   public start(): void {
@@ -1430,7 +1439,7 @@ export class BattleEngine {
     return false;
   }
 
-  private detonateSuicideBomb(u: Fighter): void {
+  private detonateSuicideBomb(u: Fighter, overrideMaxDmg?: number): void {
     sound.stopCharge();
     sound.playExplosion(1.65);
     this.shakeIntensity = 18;
@@ -1442,10 +1451,18 @@ export class BattleEngine {
       this.spawnEffect(ix, iy, this.assets.manifest.effects.nuke, 1.55);
     }
     this.spawnEffect(ix, iy - 16, this.assets.manifest.effects.bigExplosion, 1.45);
-    this.spawnFloatingText(ix, iy - 48, '💥 BOM CẢM TỬ TỰ SÁT!!', '#ef4444', 1.38);
 
-    const blastRadius = 96;
-    const maxDmg = 680;
+    const isBombBoss = u.unitKind === 'bomb_boss';
+    const isBombMinion = u.unitKind === 'bomb_minion';
+    const title = isBombBoss
+      ? '💥 ĐẠI BOM HẠT NHÂN CẢM TỬ (1000 SÁT THƯƠNG)!!'
+      : isBombMinion
+      ? '💥 TIỂU BOM CẢM TỬ (500 SÁT THƯƠNG)!!'
+      : '💥 BOM CẢM TỬ TỰ SÁT!!';
+    this.spawnFloatingText(ix, iy - 48, title, '#ef4444', 1.38);
+
+    const blastRadius = isBombBoss ? 110 : isBombMinion ? 65 : 96;
+    const maxDmg = overrideMaxDmg ?? (isBombBoss ? 1000 : isBombMinion ? 500 : 680);
     for (const target of this.fighters) {
       if (!target.alive || target.id === u.id) continue;
       const centerY = target.isBoss ? target.y - 24 : target.y - 16;
@@ -1688,6 +1705,25 @@ export class BattleEngine {
     this.manualCamTimer = 0;
 
     sound.playTurnStart(active.isPlayerControlled);
+
+    // Xử lý trạng thái Choáng của Dơi Chúa (bị choáng 2 lượt sau khi 2 dơi con chết)
+    if (active.unitKind === 'bat_queen' && (active.stunTurns ?? 0) > 0) {
+      active.stunTurns = (active.stunTurns ?? 1) - 1;
+      this.spawnFloatingText(
+        active.x,
+        active.y - 52,
+        active.stunTurns > 0 ? '💫 DƠI CHÚA ĐANG CHOÁNG (CÒN 1 LƯỢT)!' : '💫 DƠI CHÚA HỒI TỈNH!',
+        '#facc15',
+        1.3
+      );
+      if (active.stunTurns === 0) {
+        this.resummonBatMinions(active);
+      }
+      this.phase = 'settling';
+      this.settleTicks = 35;
+      this.emitHud();
+      return;
+    }
 
     if (!active.isPlayerControlled && !active.isRemoteOnline) {
       this.botThinkTicks = 42;
@@ -1973,6 +2009,74 @@ export class BattleEngine {
       Boolean(this.setup.onlineCoopStage) &&
       this.setup.onlineRole !== 'guest';
 
+    // AI đặc biệt cho Boss Bom & Bom con: Tiếp cận mục tiêu và kích hoạt bom nổ cảm tử!
+    if (u.unitKind === 'bomb_boss' || u.unitKind === 'bomb_minion') {
+      if (this.botThinkTicks > 0) {
+        this.botThinkTicks--;
+        return;
+      }
+      const enemies = this.fighters.filter((f) => f.alive && f.team !== u.team);
+      if (enemies.length === 0) {
+        this.phase = 'settling';
+        this.settleTicks = 20;
+        return;
+      }
+      let closest = enemies[0];
+      let minDist = Math.hypot(enemies[0].x - u.x, enemies[0].y - u.y);
+      for (let i = 1; i < enemies.length; i++) {
+        const d = Math.hypot(enemies[i].x - u.x, enemies[i].y - u.y);
+        if (d < minDist) {
+          minDist = d;
+          closest = enemies[i];
+        }
+      }
+
+      const contactRange = u.unitKind === 'bomb_boss' ? 44 : 32;
+      if (minDist <= contactRange) {
+        this.detonateSuicideBomb(u, u.unitKind === 'bomb_boss' ? 1000 : 500);
+        return;
+      }
+
+      const dir = closest.x > u.x ? 1 : -1;
+      u.facingLeft = dir < 0;
+      if (u.stamina > 4) {
+        const moveStep = dir * 2.3;
+        const ok = this.tryWalkStep(u, moveStep);
+        u.animMode = ok ? 'walk' : 'idle';
+        u.stamina -= 0.85;
+        if (syncCoopBot && this.globalTick % 4 === 0) {
+          this.onOnlineAction?.({
+            action: 'sync_pos',
+            unitId: u.id,
+            x: u.x,
+            y: u.y,
+            facingLeft: u.facingLeft,
+            aimAngle: u.aimAngleDeg,
+            stamina: u.stamina,
+          });
+        }
+        const newDist = Math.hypot(closest.x - u.x, closest.y - u.y);
+        if (newDist <= contactRange) {
+          this.detonateSuicideBomb(u, u.unitKind === 'bomb_boss' ? 1000 : 500);
+          return;
+        }
+        if (!ok) {
+          u.stamina = 0;
+        }
+        return;
+      }
+
+      if (minDist <= contactRange + 14) {
+        this.detonateSuicideBomb(u, u.unitKind === 'bomb_boss' ? 1000 : 500);
+        return;
+      }
+
+      this.phase = 'settling';
+      this.settleTicks = 25;
+      this.emitHud();
+      return;
+    }
+
     if (!this.botPlan) {
       this.executeFire(u, 55, false);
       return;
@@ -2110,7 +2214,9 @@ export class BattleEngine {
           u.unitKind === 'bomber' ||
           u.unitKind === 'ufo' ||
           u.unitKind === 'dragon' ||
-          u.unitKind === 'fortress';
+          u.unitKind === 'fortress' ||
+          u.unitKind === 'bat_queen' ||
+          u.unitKind === 'bat_minion';
         if (isFlyingBoss) {
           u.grounded = true;
           continue;
@@ -2412,6 +2518,37 @@ export class BattleEngine {
     }
 
     // Vũ khí đặc trưng của Boss & Oanh Tạc Cơ
+    if (u.unitKind === 'bomb_boss' || u.unitKind === 'bomb_minion') {
+      this.detonateSuicideBomb(u, u.unitKind === 'bomb_boss' ? 1000 : 500);
+      this.emitHud();
+      return;
+    }
+    if (u.unitKind === 'giant_robot') {
+      this.scheduleBossGiantRobotPattern(u, power, usePow);
+      this.emitHud();
+      return;
+    }
+    if (u.unitKind === 'bat_queen') {
+      this.scheduleBossBatQueenPattern(u, power, usePow);
+      this.emitHud();
+      return;
+    }
+    if (u.unitKind === 'bat_minion') {
+      this.queueProjectile(0, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'bullet',
+          effectKey: 'fireExplosion',
+          holeMask: 'h30x27.png',
+          holeScale: 0.85,
+          damage: u.attack * 0.75,
+          blastRadius: 30,
+          special: 'poison',
+        });
+      });
+      this.emitHud();
+      return;
+    }
     if (u.unitKind === 'ufo') {
       this.scheduleBossUfoPattern(u, power, usePow);
       this.emitHud();
@@ -3032,6 +3169,201 @@ export class BattleEngine {
     });
   }
 
+  private scheduleBossGiantRobotPattern(u: Fighter, power: number, usePow: boolean): void {
+    const enemies = this.fighters.filter((f) => f.alive && f.team !== u.team);
+    const targetEnemy = enemies.length > 0
+      ? enemies[Math.floor(Math.random() * enemies.length)]
+      : null;
+    const targetX = targetEnemy ? targetEnemy.x : u.x + (u.facingLeft ? -180 : 180);
+
+    // Kỹ năng 1: POW hoặc 35% cơ hội -> Bắn Laze từ trên trời cắm xuống!
+    if (usePow || Math.random() < 0.35) {
+      this.spawnFloatingText(
+        u.x,
+        u.y - 64,
+        '🤖 TITAN ROBOT: LAZE KHÔNG GIAN CẮM THẲNG XUỐNG!',
+        '#ef4444',
+        1.32
+      );
+      const beamPositions = [targetX - 26, targetX + 26];
+      beamPositions.forEach((bx, idx) => {
+        this.queueProjectile(idx * 12, () => {
+          sound.playShoot(true);
+          const safeBx = Math.max(20, Math.min(this.terrain.width - 20, bx));
+          this.projectiles.push({
+            x: safeBx,
+            y: -120,
+            vx: 0,
+            vy: 20,
+            ownerId: u.id,
+            team: u.team,
+            spriteKey: 'laser',
+            effectKey: 'nuke',
+            holeMask: 'h55x50.png',
+            holeScale: 1.25,
+            damage: u.attack * 0.95,
+            blastRadius: 52,
+            windScale: 0,
+            age: 0,
+            isVampireShot: false,
+            trail: [],
+            special: 'sky_lightning',
+          });
+        });
+      });
+      return;
+    }
+
+    // Kỹ năng 2: 50% cơ hội -> Gọi máy bay thả bom rải thảm
+    if (Math.random() < 0.5) {
+      this.spawnFloatingText(
+        u.x,
+        u.y - 64,
+        '🤖 TITAN ROBOT: GỌI MÁY BAY THẢ BOM CHIẾN THUẬT!',
+        '#f97316',
+        1.3
+      );
+      this.spawnAirstrikeCarpet(u, targetX);
+      return;
+    }
+
+    // Kỹ năng 3: Bắn loạt tên lửa công phá
+    this.spawnFloatingText(
+      u.x,
+      u.y - 64,
+      '🤖 TITAN ROBOT: PHÓNG LOẠT TÊN LỬA TỰ ĐỘNG!',
+      '#eab308',
+      1.28
+    );
+    const angles = [-5, 0, 5];
+    angles.forEach((da, i) => {
+      this.queueProjectile(i * 9, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg + da, power, {
+          spriteKey: 'rocket',
+          effectKey: 'fireExplosion',
+          holeMask: 'h44x39.png',
+          holeScale: 1.15,
+          damage: u.attack * 0.48,
+          blastRadius: 48,
+        });
+      });
+    });
+  }
+
+  private scheduleBossBatQueenPattern(u: Fighter, power: number, usePow: boolean): void {
+    this.spawnFloatingText(
+      u.x,
+      u.y - 60,
+      usePow ? '🦇 DƠI CHÚA: SIÊU ÂM HUYẾT TỘC HỦY DIỆT!' : '🦇 DƠI CHÚA: TIẾNG THÉT ĐỘC HUYẾT!',
+      '#a855f7',
+      1.28
+    );
+    const angles = usePow ? [-7, -3.5, 0, 3.5, 7] : [-4, 0, 4];
+    angles.forEach((da, i) => {
+      this.queueProjectile(i * 8, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg + da, power, {
+          spriteKey: usePow ? 'special' : 'acid',
+          effectKey: 'poison',
+          holeMask: 'h40x35.png',
+          holeScale: 1.05,
+          damage: u.attack * (usePow ? 0.45 : 0.42),
+          blastRadius: 44,
+          special: 'poison',
+        });
+      });
+    });
+  }
+
+  private resummonBatMinions(queen: Fighter): void {
+    queen.hasBatShield = true;
+    this.spawnFloatingText(
+      queen.x,
+      queen.y - 62,
+      '🦇 DƠI CHÚA HỒI TỈNH & TRIỆU HỒI 2 DƠI CON!',
+      '#c084fc',
+      1.35
+    );
+
+    const existingMinions = this.fighters.filter(
+      (f) => f.team === queen.team && f.unitKind === 'bat_minion'
+    );
+
+    const offsets = [-70, 70];
+    offsets.forEach((ox, idx) => {
+      const sx = Math.max(40, Math.min(this.terrain.width - 40, queen.x + ox));
+      const sy = Math.max(60, queen.y - 35);
+      if (existingMinions[idx]) {
+        const m = existingMinions[idx];
+        m.alive = true;
+        m.hp = m.maxHp;
+        m.x = sx;
+        m.y = sy;
+        m.vy = 0;
+        m.grounded = true;
+        this.spawnEffect(sx, sy, this.assets.manifest.effects.smoke, 1.2);
+      } else {
+        const newMinion: Fighter = {
+          id: `bat_minion_${Date.now()}_${idx}`,
+          name: `Dơi Con #${idx + 1}`,
+          team: queen.team,
+          isPlayerControlled: false,
+          isRemoteOnline: false,
+          botDifficulty: 'normal',
+          unitKind: 'bat_minion',
+          isBoss: false,
+          hero: queen.hero,
+          x: sx,
+          y: sy,
+          vx: 0,
+          vy: 0,
+          facingLeft: ox < 0,
+          aimAngleDeg: ox < 0 ? 30 : 150,
+          hp: 550,
+          maxHp: 550,
+          pow: 0,
+          stamina: 100,
+          maxStamina: 100,
+          attack: 160,
+          inventory: {
+            heal: 0,
+            team_heal: 0,
+            teleport: 0,
+            double: 0,
+            airstrike: 0,
+            suicide: 0,
+            vampire: 0,
+            mouse: 0,
+            shield: 0,
+            windstop: 0,
+            digger: 0,
+            web: 0,
+            freeze: 0,
+            poison: 0,
+            nuke: 0,
+            stealth: 0,
+          },
+          bagSlots: [],
+          alive: true,
+          grounded: true,
+          animMode: 'idle',
+          animTick: 0,
+          shieldTurns: 0,
+          frozenTurns: 0,
+          poisonTurns: 0,
+          webbedTurns: 0,
+          hurtTimer: 0,
+          lastPower: 50,
+          lastAngle: 45,
+          scale: 0.95,
+        };
+        this.fighters.push(newMinion);
+        this.spawnEffect(sx, sy, this.assets.manifest.effects.smoke, 1.2);
+      }
+    });
+  }
+
   private spawnAirstrikeCarpet(u: Fighter | undefined, centerX: number): void {
     const ownerId = u?.id ?? this.activeUnitId;
     const team = u?.team ?? 0;
@@ -3158,7 +3490,7 @@ export class BattleEngine {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       p.age++;
-      if (p.age > 260) {
+      if (p.age > 560) {
         this.projectiles.splice(i, 1);
         continue;
       }
@@ -3698,6 +4030,24 @@ export class BattleEngine {
       const dist = Math.max(0, Math.hypot(target.x - ix, centerY - iy) - bodyRadius);
       if (dist > p.blastRadius) continue;
 
+      // Miễn nhiễm sát thương của Nữ Hoàng Dơi Chúa khi dơi con còn sống
+      if (target.unitKind === 'bat_queen') {
+        const minionsAlive = this.fighters.some(
+          (f) => f.alive && f.team === target.team && f.unitKind === 'bat_minion'
+        );
+        if (minionsAlive) {
+          target.hasBatShield = true;
+          this.spawnFloatingText(
+            target.x,
+            centerY - 38,
+            '🛡️ DƠI CHÚA BẤT TỬ (DIỆT DƠI CON TRƯỚC)!',
+            '#c084fc',
+            1.25
+          );
+          continue;
+        }
+      }
+
       const falloff = Math.max(0.28, 1 - (dist / p.blastRadius) * 0.72);
       let rawDmg = p.damage * falloff;
 
@@ -3804,6 +4154,34 @@ export class BattleEngine {
         );
         this.spawnFloatingText(target.x, centerY - 34, 'HẠ GỤC!', '#fde047', 1.35);
         this.checkUltronClonesAlive();
+
+        // 1. Khi Dơi con bị hạ: kiểm tra nếu cả 2 dơi con chết thì Dơi Chúa bị Choáng 2 lượt!
+        if (target.unitKind === 'bat_minion') {
+          const anyOtherMinion = this.fighters.some(
+            (f) => f.alive && f.id !== target.id && f.team === target.team && f.unitKind === 'bat_minion'
+          );
+          if (!anyOtherMinion) {
+            const queen = this.fighters.find(
+              (f) => f.alive && f.team === target.team && f.unitKind === 'bat_queen'
+            );
+            if (queen) {
+              queen.stunTurns = 2;
+              queen.hasBatShield = false;
+              this.spawnFloatingText(
+                queen.x,
+                queen.y - 56,
+                '💫 DƠI CON ĐÃ BỊ DIỆT: DƠI CHÚA CHOÁNG 2 LƯỢT!',
+                '#facc15',
+                1.35
+              );
+            }
+          }
+        }
+
+        // 2. Boss Bom hoặc Bom con phát nổ cảm tử khi chết
+        if (target.unitKind === 'bomb_boss' || target.unitKind === 'bomb_minion') {
+          this.detonateSuicideBomb(target, target.unitKind === 'bomb_boss' ? 1000 : 500);
+        }
       }
     }
     this.checkUltronClonesAlive();
@@ -3887,7 +4265,7 @@ export class BattleEngine {
     if (this.projectiles.length > 0) {
       const lead = this.projectiles[0];
       targetX = lead.x;
-      targetY = Math.min(this.terrain.waterY - 40, Math.max(40, lead.y));
+      targetY = Math.min(this.terrain.waterY - 40, Math.max(-1000, lead.y));
     } else {
       const active = this.getActiveUnit();
       if (active) {
@@ -4105,6 +4483,8 @@ export class BattleEngine {
         animTick: f.animTick,
         isPowReady: f.pow >= 100,
         hasShield: f.shieldTurns > 0,
+        hasBatShield: f.hasBatShield,
+        stunTurns: f.stunTurns,
         isFrozen: (f.frozenTurns ?? 0) > 0,
         isPoisoned: (f.poisonTurns ?? 0) > 0,
         isWebbed: f.webbedTurns > 0,
@@ -4446,6 +4826,46 @@ export class BattleEngine {
         ctx.fill();
       }
       ctx.restore();
+
+      // Chỉ báo đạn bay cao ngoài màn hình (Off-screen sky indicator)
+      if (p.y < this.camY - 10) {
+        ctx.save();
+        const screenY = this.camY + 28;
+        const heightMeters = Math.max(0, Math.round((this.camY - p.y) / 10));
+        ctx.translate(p.x, screenY);
+
+        // Nền badge
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(-24, -14, 48, 26, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // Mũi tên hướng lên / xuống
+        ctx.fillStyle = p.vy < 0 ? '#38bdf8' : '#f87171';
+        ctx.beginPath();
+        if (p.vy < 0) {
+          ctx.moveTo(0, -9);
+          ctx.lineTo(-6, -2);
+          ctx.lineTo(6, -2);
+        } else {
+          ctx.moveTo(0, -1);
+          ctx.lineTo(-6, -8);
+          ctx.lineTo(6, -8);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // Số mét độ cao
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${heightMeters}m`, 0, 9);
+
+        ctx.restore();
+      }
     }
   }
 

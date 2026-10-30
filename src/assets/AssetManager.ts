@@ -48,6 +48,12 @@ export class AssetManager {
     for (const boss of Object.values(manifest.bosses)) urls.add(`./${boss.url}`);
     urls.add('./assets/bosses/quat1.png');
     urls.add('./assets/bosses/quat2.png');
+    urls.add('./assets/bosses/bat.png');
+    urls.add('./assets/bosses/bomnguyentu.png');
+    urls.add('./assets/bosses/thuocno.png');
+    urls.add('./assets/effects/mb00.png');
+    urls.add('./assets/heroes/small/2Small198_body.png');
+    urls.add('./assets/heroes/small/2Small198_legs.png');
 
     // UI sprites
     urls.add(`./${manifest.ui.logo}`);
@@ -135,7 +141,11 @@ export class AssetManager {
 
   public getImage(url: string): HTMLImageElement | undefined {
     const normalized = url.startsWith('./') ? url : `./${url}`;
-    return this.imgCache.get(normalized);
+    const cached = this.imgCache.get(normalized);
+    if (!cached && !this.loadingPromises.has(normalized)) {
+      this.loadImage(normalized).catch(() => {});
+    }
+    return cached;
   }
 
   public async loadImage(url: string): Promise<HTMLImageElement> {

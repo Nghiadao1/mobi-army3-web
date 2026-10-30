@@ -84,7 +84,13 @@ export function solveBotShot(
   // Quyết định di chuyển nhẹ trước khi bắn
   let moveTargetX = shooter.x;
   let moveTargetY: number | undefined = undefined;
-  const isFlying = shooter.unitKind !== 'hero';
+  const isFlying =
+    shooter.unitKind === 'bomber' ||
+    shooter.unitKind === 'ufo' ||
+    shooter.unitKind === 'dragon' ||
+    shooter.unitKind === 'fortress' ||
+    shooter.unitKind === 'bat_queen' ||
+    shooter.unitKind === 'bat_minion';
   if (isFlying) {
     const shiftX = (Math.random() - 0.5) * 90;
     moveTargetX = Math.max(70, Math.min(terrain.width - 70, shooter.x + shiftX));

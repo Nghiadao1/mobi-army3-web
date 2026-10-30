@@ -65,7 +65,7 @@ export class Terrain {
     }
 
     // Các map phức tạp & map Boss: thêm các bệ pháo đài thép và nền đá ngầm vĩnh cửu không thể phá hủy
-    const complexMaps = new Set([17, 18, 19, 21, 22, 25, 27, 30, 31, 33, 34]);
+    const complexMaps = new Set([11, 17, 18, 19, 21, 22, 25, 27, 30, 31, 33, 34, 50, 51, 52, 53, 54, 55, 56]);
     if (complexMaps.has(this.map.mapId) || this.map.mapId >= 25) {
       this.buildComplexIndestructibleStructures();
     }

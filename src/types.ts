@@ -165,7 +165,19 @@ export interface BattleItemDef {
 
 export type BotDifficulty = 'easy' | 'normal' | 'hard';
 
-export type UnitKind = 'hero' | 'bomber' | 'ufo' | 'mech' | 'spider' | 'dragon' | 'fortress';
+export type UnitKind =
+  | 'hero'
+  | 'bomber'
+  | 'ufo'
+  | 'mech'
+  | 'spider'
+  | 'dragon'
+  | 'fortress'
+  | 'bomb_boss'
+  | 'bomb_minion'
+  | 'giant_robot'
+  | 'bat_queen'
+  | 'bat_minion';
 
 export interface StageEnemySpec {
   name: string;
