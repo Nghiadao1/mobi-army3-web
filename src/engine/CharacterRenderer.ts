@@ -12,6 +12,9 @@ export interface CharacterRenderState {
   animTick: number;
   isPowReady: boolean;
   hasShield: boolean;
+  isFrozen?: boolean;
+  isPoisoned?: boolean;
+  isWebbed?: boolean;
   scale?: number;
 }
 
@@ -94,6 +97,12 @@ export class CharacterRenderer {
       this.drawUfoBoss(ctx, state);
     } else if (state.unitKind === 'mech') {
       this.drawMechBoss(ctx, state);
+    } else if (state.unitKind === 'spider') {
+      this.drawSpiderBoss(ctx, state);
+    } else if (state.unitKind === 'dragon') {
+      this.drawDragonBoss(ctx, state);
+    } else if (state.unitKind === 'fortress') {
+      this.drawFortressBoss(ctx, state);
     } else if (state.unitKind === 'bomber') {
       this.drawBomberUnit(ctx, state);
     } else {
@@ -122,6 +131,21 @@ export class CharacterRenderer {
             : this.resolvePoseIndex(state);
         this.drawCompositeHero(ctx, state.hero.equipment, poseIdx, state.facingLeft);
       }
+    }
+
+    // Hiệu ứng trúng Tơ Nhện quấn quanh người
+    if (state.isWebbed) {
+      this.drawWebOverlay(ctx, state.animTick);
+    }
+
+    // Hiệu ứng trúng Độc Axit bao quanh mục tiêu
+    if (state.isPoisoned) {
+      this.drawPoisonOverlay(ctx, state.animTick);
+    }
+
+    // Hiệu ứng Đóng Băng tạo tảng băng pha lê bao quanh mục tiêu
+    if (state.isFrozen) {
+      this.drawFrozenOverlay(ctx, state.animTick);
     }
 
     // Vòng Khiên bảo vệ nếu bật item Khiên
@@ -342,38 +366,396 @@ export class CharacterRenderer {
   private drawUfoBoss(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
     const entry = this.assets.manifest.bosses.ufo;
     const img = this.assets.getImage(entry.url);
-    const bob = Math.sin(state.animTick * 0.05) * 2.8;
-    if (!img) return;
+    const bob = Math.sin(state.animTick * 0.06) * 3.2;
+    const tilt = Math.sin(state.animTick * 0.04) * 0.055;
 
-    const frames = entry.frames || 3;
-    const fh = Math.floor(img.height / frames);
-    const frame = Math.floor(state.animTick / 14) % frames;
-    const w = img.width * 0.62;
-    const h = fh * 0.62;
-
-    // Bù trừ tâm thực tế chuẩn xác của từng frame UFO để không bị giật hình:
-    // Frame 0 cx=48.2, cy=47.9
-    // Frame 1 cx=45.1, cy=47.8 (lệch trái 3.1px -> bù dx: +1.9)
-    // Frame 2 cx=51.5, cy=50.6 (lệch phải 3.3px, dưới 2.8px -> bù dx: -2.1, dy: -1.7)
-    const UFO_OFFSETS = [
-      { dx: 0, dy: 0 },
-      { dx: 1.9, dy: 0 },
-      { dx: -2.1, dy: -1.7 },
-    ];
-    const off = UFO_OFFSETS[frame] ?? { dx: 0, dy: 0 };
-
-    // Tia năng lượng dưới đáy UFO
     ctx.save();
-    const grad = ctx.createRadialGradient(0, bob + 8, 2, 0, bob + 20, 32);
-    grad.addColorStop(0, 'rgba(56, 189, 248, 0.55)');
-    grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.translate(0, bob);
+    ctx.rotate(tilt);
+
+    // Chùm tia Tractor Beam & lõi năng lượng dưới đáy UFO
+    const pulse = 0.75 + 0.25 * Math.sin(state.animTick * 0.15);
+    const beamGrad = ctx.createRadialGradient(0, 6, 2, 0, 18, 36 * pulse);
+    beamGrad.addColorStop(0, 'rgba(56, 189, 248, 0.85)');
+    beamGrad.addColorStop(0.5, 'rgba(168, 85, 247, 0.42)');
+    beamGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.fillStyle = beamGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 10, 28 * pulse, 18 * pulse, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Chỉ dùng Frame 0 chuẩn cân đối (0..90px) trong UFO.png (vì frame 1 & 2 trong ảnh gốc là trạng thái nghiêng vỡ khi nổ)
+    if (img) {
+      const fh = Math.floor(img.height / 3);
+      const w = img.width * 0.68;
+      const h = fh * 0.68;
+      ctx.drawImage(img, 0, 0, img.width, fh - 2, -w / 2, -h * 0.72, w, h);
+    } else {
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.ellipse(0, -14, 34, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Dải đèn led năng lượng chạy quanh vành đĩa bay mượt mà
+    for (let i = 0; i < 6; i++) {
+      const a = state.animTick * 0.1 + (i * Math.PI) / 3;
+      const lx = Math.cos(a) * 26;
+      const ly = -10 + Math.sin(a) * 4.5;
+      ctx.fillStyle = i % 2 === 0 ? '#38bdf8' : '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(lx, ly, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  private drawSpiderBoss(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const bob = Math.sin(state.animTick * 0.08) * 2.2;
+    ctx.save();
+    ctx.translate(0, bob);
+    if (state.facingLeft) ctx.scale(-1, 1);
+
+    // Bóng năng lượng độc dưới chân Nhện Máy
+    const glow = ctx.createRadialGradient(0, 2, 3, 0, 2, 36);
+    glow.addColorStop(0, 'rgba(34, 197, 94, 0.55)');
+    glow.addColorStop(1, 'rgba(34, 197, 94, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.ellipse(0, 2, 36, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 8 Chân Nhện Cơ Khí có khớp chuyển động
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 4; i++) {
+        const phase = state.animTick * 0.16 + i * 1.1 + (side === 1 ? 0.5 : 0);
+        const lift = Math.max(0, Math.sin(phase)) * 5;
+        const swing = Math.cos(phase) * 3.5;
+        const bx = side * (8 + i * 4);
+        const by = -16 + i * 1.5;
+        const kx = side * (22 + i * 6) + swing * 0.5;
+        const ky = -32 - (3 - i) * 2 - lift;
+        const fx = side * (30 + i * 7) + swing;
+        const fy = 2 - lift;
+
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 4.5;
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(kx, ky);
+        ctx.lineTo(fx, fy);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(kx, ky);
+        ctx.stroke();
+
+        // Khớp nối phát sáng
+        ctx.fillStyle = '#22c55e';
+        ctx.beginPath();
+        ctx.arc(kx, ky, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Bụng Nhện chứa Bể Độc Sinh Học (Abdomen)
+    const abGrad = ctx.createRadialGradient(-14, -28, 3, -12, -24, 22);
+    abGrad.addColorStop(0, '#4ade80');
+    abGrad.addColorStop(0.45, '#15803d');
+    abGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = abGrad;
+    ctx.beginPath();
+    ctx.ellipse(-13, -24, 20, 15, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#86efac';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Đầu & Giáp Ngực Nhện Máy (Cephalothorax)
+    const headGrad = ctx.createRadialGradient(6, -20, 2, 6, -18, 16);
+    headGrad.addColorStop(0, '#475569');
+    headGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = headGrad;
+    ctx.beginPath();
+    ctx.ellipse(6, -18, 15, 12, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Cụm 6 Mắt Đỏ Tinh Thể & Nanh Độc
+    ctx.fillStyle = '#ef4444';
+    for (const [ex, ey, er] of [
+      [14, -21, 2.6],
+      [17, -18, 2.2],
+      [11, -23, 1.8],
+      [12, -16, 1.8],
+    ]) {
+      ctx.beginPath();
+      ctx.arc(ex, ey, er, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Nanh độc nhỏ giọt axit
+    ctx.strokeStyle = '#a3e635';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(16, -12);
+    ctx.lineTo(23, -6);
+    ctx.moveTo(13, -11);
+    ctx.lineTo(19, -5);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  private drawDragonBoss(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const bob = Math.sin(state.animTick * 0.07) * 4.0;
+    const wingFlap = Math.sin(state.animTick * 0.15);
+
+    ctx.save();
+    ctx.translate(0, bob);
+    if (state.facingLeft) ctx.scale(-1, 1);
+
+    // Hào quang dung nham Hắc Long
+    const aura = ctx.createRadialGradient(0, -24, 4, 0, -24, 46);
+    aura.addColorStop(0, 'rgba(249, 115, 22, 0.6)');
+    aura.addColorStop(0.6, 'rgba(220, 38, 38, 0.25)');
+    aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(0, -24, 46, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Đôi Cánh Rồng Lửa đập theo nhịp
+    const wingY = -44 + wingFlap * 14;
+    ctx.fillStyle = '#7f1d1d';
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-4, -28);
+    ctx.quadraticCurveTo(-26, wingY - 14, -44, wingY);
+    ctx.quadraticCurveTo(-30, wingY + 14, -18, -14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Đuôi Rồng có gai lửa
+    ctx.strokeStyle = '#991b1b';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-12, -16);
+    ctx.quadraticCurveTo(-32, -8, -42, -22 + Math.cos(state.animTick * 0.1) * 5);
+    ctx.stroke();
+
+    // Thân Rồng bọc giáp vảy Hắc Ám & Lõi Dung Nham
+    const bodyGrad = ctx.createLinearGradient(-16, -38, 16, -6);
+    bodyGrad.addColorStop(0, '#1e1b4b');
+    bodyGrad.addColorStop(0.5, '#991b1b');
+    bodyGrad.addColorStop(1, '#f97316');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, -22, 20, 15, -0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fb923c';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+
+    // Đầu Rồng & Sừng Hoàng Kim
+    ctx.fillStyle = '#7f1d1d';
+    ctx.beginPath();
+    ctx.moveTo(10, -32);
+    ctx.lineTo(30, -30);
+    ctx.lineTo(28, -18);
+    ctx.lineTo(12, -18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Sừng Rồng
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(14, -32);
+    ctx.lineTo(4, -45);
+    ctx.moveTo(18, -32);
+    ctx.lineTo(10, -43);
+    ctx.stroke();
+
+    // Mắt Rồng rực sáng + Lửa phun ở hàm
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(21, -26, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    const flameScale = 0.7 + 0.3 * Math.sin(state.animTick * 0.3);
+    ctx.fillStyle = 'rgba(251, 146, 60, 0.85)';
+    ctx.beginPath();
+    ctx.arc(32, -22, 6 * flameScale, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  private drawFortressBoss(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const bodyImg = this.assets.getImage(this.assets.manifest.bosses.mechBody.url);
+    const jetImg = this.assets.getImage(this.assets.manifest.bosses.jet.url);
+    const q1 = this.assets.getImage('./assets/bosses/quat1.png');
+    const q2 = this.assets.getImage('./assets/bosses/quat2.png');
+    const bob = Math.sin(state.animTick * 0.05) * 2.5;
+
+    ctx.save();
+    ctx.translate(0, bob);
+    if (state.facingLeft) ctx.scale(-1, 1);
+
+    // Vòng khiên từ trường Pháo Đài Bay
+    const pulse = 0.8 + 0.2 * Math.sin(state.animTick * 0.12);
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(0, -34, 48 * pulse, 28 * pulse, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Thân chiến hạm bọc thép
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(-42, -46, 84, 28, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    if (bodyImg) {
+      const bw = bodyImg.width * 0.52;
+      const bh = bodyImg.height * 0.52;
+      ctx.drawImage(bodyImg, -bw / 2, -bh * 0.88, bw, bh);
+    }
+    if (jetImg) {
+      const jw = jetImg.width * 0.55;
+      const jh = jetImg.height * 0.55;
+      ctx.drawImage(jetImg, -jw / 2, -58, jw, jh);
+    }
+
+    // Cánh quạt phản lực 2 bên mạn Pháo Đài
+    const rotor = Math.floor(state.animTick / 3) % 2 === 0 ? q1 : q2;
+    if (rotor) {
+      ctx.drawImage(rotor, -44, -56, rotor.width * 1.15, rotor.height * 0.85);
+      ctx.drawImage(rotor, 22, -56, rotor.width * 1.15, rotor.height * 0.85);
+    }
+
+    // Lõi Laze Hạt Nhân trung tâm
+    const coreGrad = ctx.createRadialGradient(0, -32, 2, 0, -32, 13);
+    coreGrad.addColorStop(0, '#ffffff');
+    coreGrad.addColorStop(0.4, '#38bdf8');
+    coreGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(0, -32, 13, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  private drawFrozenOverlay(ctx: CanvasRenderingContext2D, tick: number): void {
+    ctx.save();
+    const shimmer = 0.82 + 0.1 * Math.sin(tick * 0.12);
+
+    // Khối băng pha lê đa diện bao quanh toàn bộ nhân vật
+    const iceGrad = ctx.createLinearGradient(-20, -44, 20, 6);
+    iceGrad.addColorStop(0, `rgba(186, 230, 253, ${0.68 * shimmer})`);
+    iceGrad.addColorStop(0.5, `rgba(56, 189, 248, ${0.52 * shimmer})`);
+    iceGrad.addColorStop(1, `rgba(14, 165, 233, ${0.72 * shimmer})`);
+
+    ctx.fillStyle = iceGrad;
+    ctx.strokeStyle = 'rgba(224, 242, 254, 0.95)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-16, 4);
+    ctx.lineTo(-21, -18);
+    ctx.lineTo(-14, -39);
+    ctx.lineTo(0, -45);
+    ctx.lineTo(15, -38);
+    ctx.lineTo(21, -16);
+    ctx.lineTo(16, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Đường vân phản quang mặt cắt tinh thể băng
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-12, -34);
+    ctx.lineTo(8, -12);
+    ctx.moveTo(-14, -16);
+    ctx.lineTo(10, 0);
+    ctx.moveTo(0, -42);
+    ctx.lineTo(-6, -8);
+    ctx.stroke();
+
+    // Gai băng dưới chân
+    ctx.fillStyle = 'rgba(125, 211, 252, 0.88)';
+    for (const sx of [-15, -6, 5, 14]) {
+      ctx.beginPath();
+      ctx.moveTo(sx - 4, 4);
+      ctx.lineTo(sx, -8);
+      ctx.lineTo(sx + 4, 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private drawPoisonOverlay(ctx: CanvasRenderingContext2D, tick: number): void {
+    ctx.save();
+    // Quầng khói độc axit bao quanh mục tiêu
+    const pulse = 0.8 + 0.2 * Math.sin(tick * 0.14);
+    const grad = ctx.createRadialGradient(0, -18, 4, 0, -18, 26 * pulse);
+    grad.addColorStop(0, 'rgba(74, 222, 128, 0.45)');
+    grad.addColorStop(0.6, 'rgba(22, 163, 74, 0.32)');
+    grad.addColorStop(1, 'rgba(22, 163, 74, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(0, bob + 12, 32, 0, Math.PI * 2);
+    ctx.arc(0, -18, 26 * pulse, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
 
-    ctx.drawImage(img, 0, frame * fh, img.width, fh, -w / 2 + off.dx, -h * 0.72 + bob + off.dy, w, h);
+    // Các bong bóng độc axit bay lên quanh người
+    for (let i = 0; i < 6; i++) {
+      const a = tick * 0.08 + i * 1.05;
+      const bx = Math.cos(a * 1.3) * 15;
+      const by = -6 - ((tick * 0.6 + i * 7) % 34);
+      const br = 2.2 + (i % 2) * 1.2;
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(163, 230, 53, 0.88)' : 'rgba(34, 197, 94, 0.85)';
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private drawWebOverlay(ctx: CanvasRenderingContext2D, _tick: number): void {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(248, 250, 252, 0.9)';
+    ctx.lineWidth = 1.6;
+    for (const y of [-28, -20, -12, -5]) {
+      ctx.beginPath();
+      ctx.moveTo(-15, y);
+      ctx.quadraticCurveTo(0, y + 3, 15, y - 1);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(-12, -32);
+    ctx.lineTo(12, -2);
+    ctx.moveTo(12, -32);
+    ctx.lineTo(-12, -2);
+    ctx.stroke();
+    ctx.restore();
   }
 
   private drawMechBoss(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {

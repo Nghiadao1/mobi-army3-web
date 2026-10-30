@@ -52,6 +52,7 @@ export type OnlinePacket =
     mapId: number;
     hostName: string;
     guestName: string;
+    coopStageId?: number;
   }
   | {
     type: 'guest_select';
@@ -65,6 +66,7 @@ export type OnlinePacket =
     mapId: number;
     seed: number;
     initialWind: number;
+    coopStageId?: number;
   }
   | {
     type: 'battle_action';

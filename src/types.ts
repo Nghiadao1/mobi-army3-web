@@ -137,8 +137,12 @@ export interface HeroDef {
 
 export type BattleItemId =
   | 'heal'
+  | 'team_heal'
   | 'teleport'
   | 'double'
+  | 'airstrike'
+  | 'suicide'
+  | 'vampire'
   | 'mouse'
   | 'shield'
   | 'windstop'
@@ -161,7 +165,7 @@ export interface BattleItemDef {
 
 export type BotDifficulty = 'easy' | 'normal' | 'hard';
 
-export type UnitKind = 'hero' | 'bomber' | 'ufo' | 'mech';
+export type UnitKind = 'hero' | 'bomber' | 'ufo' | 'mech' | 'spider' | 'dragon' | 'fortress';
 
 export interface StageEnemySpec {
   name: string;
@@ -197,6 +201,7 @@ export interface BattleSetup {
   difficulty: BotDifficulty;
   stage?: CampaignStage;
   onlineRole?: 'host' | 'guest';
+  onlineCoopStage?: CampaignStage;
   remoteHeroId?: string;
   remotePeerName?: string;
   seed?: number;

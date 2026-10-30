@@ -27,10 +27,11 @@ class GameApp {
   private selectedMapId = 11;
   private selectedDifficulty: BotDifficulty = 'normal';
   private unlockedStage = 1;
-  private selectedItems: BattleItemId[] = ['heal', 'teleport', 'double', 'mouse', 'shield', 'freeze'];
+  private selectedItems: BattleItemId[] = ['heal', 'team_heal', 'teleport', 'double', 'shield', 'freeze'];
+  private selectedCoopBossStageId = 111;
 
-  // Trạng thái phòng Solo Trực Tuyến (1v1 Online)
-  private onlineStatusText = 'Chưa kết nối phòng. Hãy Tạo Phòng mới hoặc nhập Mã Phòng 4 số để Solo 1v1!';
+  // Trạng thái phòng Solo Trực Tuyến (1v1 Online) & Tổ Đội Săn Boss Online (2P Co-op)
+  private onlineStatusText = 'Chưa kết nối phòng. Hãy Tạo Phòng mới hoặc nhập Mã Phòng 4 số để mời bạn!';
   private onlineRemoteHeroId = 'ironman';
 
   // Tham chiếu DOM HUD để cập nhật mượt mà không render lại toàn bộ DOM
@@ -54,7 +55,7 @@ class GameApp {
     powText: HTMLElement;
     powBtn: HTMLButtonElement;
     fireBtn: HTMLButtonElement;
-    itemBtns: Map<BattleItemId, { btn: HTMLButtonElement; countEl: HTMLElement }>;
+    slotBtns: Array<{ btn: HTMLButtonElement; countEl: HTMLElement; itemId: BattleItemId }>;
   } | null = null;
 
   public async boot(): Promise<void> {
@@ -84,10 +85,15 @@ class GameApp {
       }
       this.bindGlobalKeyboard();
 
-      // Kiểm tra nếu người chơi mở bằng Link mời ?room=XXXX
+      // Kiểm tra nếu người chơi mở bằng Link mời ?room=XXXX hoặc ?bossroom=XXXX
       const urlParams = new URLSearchParams(window.location.search);
+      const bossRoomParam = urlParams.get('bossroom');
       const roomParam = urlParams.get('room');
-      if (roomParam) {
+      if (bossRoomParam) {
+        this.activeTab = 'boss_hunt';
+        this.renderLobby();
+        this.online.joinRoom(bossRoomParam).catch(() => {});
+      } else if (roomParam) {
         this.activeTab = 'online';
         this.renderLobby();
         this.online.joinRoom(roomParam).catch(() => {});
@@ -116,11 +122,11 @@ class GameApp {
           this.online.send({
             type: 'guest_select',
             guestHeroId: this.selectedHeroId,
-            guestName: 'Khách',
+            guestName: 'Đồng Đội',
           });
         }
       }
-      if (!this.battle && this.activeTab === 'online') {
+      if (!this.battle && (this.activeTab === 'online' || this.activeTab === 'boss_hunt')) {
         this.renderLobby();
       }
     };
@@ -130,7 +136,10 @@ class GameApp {
         case 'lobby_sync': {
           this.onlineRemoteHeroId = packet.hostHeroId;
           this.selectedMapId = packet.mapId;
-          if (!this.battle && this.activeTab === 'online') {
+          if (packet.coopStageId) {
+            this.selectedCoopBossStageId = packet.coopStageId;
+          }
+          if (!this.battle && (this.activeTab === 'online' || this.activeTab === 'boss_hunt')) {
             this.renderLobby();
           }
           break;
@@ -140,7 +149,7 @@ class GameApp {
           if (this.online.role === 'host') {
             this.broadcastLobbySync();
           }
-          if (!this.battle && this.activeTab === 'online') {
+          if (!this.battle && (this.activeTab === 'online' || this.activeTab === 'boss_hunt')) {
             this.renderLobby();
           }
           break;
@@ -148,15 +157,20 @@ class GameApp {
         case 'start_match': {
           sound.playPow();
           const isHost = this.online.role === 'host';
+          const coopStage = packet.coopStageId
+            ? BOSS_HUNT_STAGES.find((s) => s.id === packet.coopStageId) ?? BOSS_HUNT_STAGES[0]
+            : undefined;
           this.launchBattle({
             mode: 'online',
             onlineRole: isHost ? 'host' : 'guest',
             playerHeroId: isHost ? packet.hostHeroId : packet.guestHeroId,
             remoteHeroId: isHost ? packet.guestHeroId : packet.hostHeroId,
-            teamSize: 1,
-            mapId: packet.mapId,
-            difficulty: 'normal',
+            teamSize: coopStage ? 2 : 1,
+            mapId: coopStage ? coopStage.mapId : packet.mapId,
+            difficulty: coopStage ? 'hard' : 'normal',
             seed: packet.seed,
+            onlineCoopStage: coopStage,
+            selectedItems: this.selectedItems,
           });
           break;
         }
@@ -168,7 +182,7 @@ class GameApp {
     };
 
     this.online.onDisconnect = () => {
-      if (!this.battle && this.activeTab === 'online') {
+      if (!this.battle && (this.activeTab === 'online' || this.activeTab === 'boss_hunt')) {
         this.renderLobby();
       }
     };
@@ -182,7 +196,8 @@ class GameApp {
         guestHeroId: this.onlineRemoteHeroId,
         mapId: this.selectedMapId,
         hostName: 'Chủ Phòng',
-        guestName: 'Khách',
+        guestName: 'Đồng Đội',
+        coopStageId: this.activeTab === 'boss_hunt' ? this.selectedCoopBossStageId : undefined,
       });
     }
   }
@@ -235,8 +250,11 @@ class GameApp {
     const bossHuntStagesHtml = BOSS_HUNT_STAGES.map((st) => {
       const mapObj = this.assets.maps.find((m) => m.mapId === st.mapId);
       const bossEnemy = st.enemies.find((e) => e.isBoss) || st.enemies[0];
+      const isSelectedCoop = st.id === this.selectedCoopBossStageId;
       return `
-        <div class="stage-card boss-stage">
+        <div class="stage-card boss-stage" style="${
+          isSelectedCoop ? 'border-color:#fde047;box-shadow:0 0 14px rgba(250,204,21,0.28)' : ''
+        }">
           <div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
               <span class="stage-badge" style="background:rgba(239,68,68,0.25);color:#fca5a5">👑 ${st.subtitle}</span>
@@ -247,12 +265,19 @@ class GameApp {
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <span class="stat-pill" style="color:#f43f5e">Boss HP: ${bossEnemy.hp}</span>
               <span class="stat-pill" style="color:#facc15">Công Boss: ${bossEnemy.attack}</span>
-              <span class="stat-pill" style="color:#38bdf8">Tổ Đội: 2 Người</span>
+              <span class="stat-pill" style="color:#38bdf8">Số Boss/Quái: ${st.enemies.length}</span>
             </div>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;flex-wrap:wrap">
             <span style="font-size:0.76rem;color:#fde047">★ ${st.rewardTitle}</span>
-            <button class="primary-cta btn-start-boss-hunt" data-boss-stage="${st.id}" style="padding:8px 18px;font-size:0.85rem">Săn Boss Ngay →</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${
+                this.online.isConnected && this.online.role === 'host'
+                  ? `<button class="primary-cta btn-start-boss-online" data-boss-stage="${st.id}" style="padding:7px 14px;font-size:0.8rem;background:linear-gradient(135deg,#0284c7,#2563eb)">🌐 Xuất Kích Cùng Bạn →</button>`
+                  : ''
+              }
+              <button class="primary-cta btn-start-boss-hunt" data-boss-stage="${st.id}" style="padding:7px 14px;font-size:0.8rem">🤖 Đi Cùng Bot AI →</button>
+            </div>
           </div>
         </div>
       `;
@@ -287,6 +312,31 @@ class GameApp {
     const inviteUrl = this.online.roomCode
       ? `${window.location.origin}${window.location.pathname}?room=${this.online.roomCode}`
       : '';
+    const bossInviteUrl = this.online.roomCode
+      ? `${window.location.origin}${window.location.pathname}?bossroom=${this.online.roomCode}`
+      : '';
+
+    const bagSlotsHtml = Array.from({ length: 6 }, (_, idx) => {
+      const itemId = this.selectedItems[idx];
+      const it = itemId ? BATTLE_ITEMS.find((b) => b.id === itemId) : undefined;
+      if (!it) {
+        return `
+          <div class="loadout-item-card" style="opacity:0.5;border-style:dashed;justify-content:center;min-height:54px">
+            <div style="font-size:0.76rem;color:#64748b;text-align:center">Ô ${idx + 1} (Trống)<br/><span style="font-size:0.68rem">Chọn món bên dưới</span></div>
+          </div>
+        `;
+      }
+      return `
+        <div class="loadout-item-card selected" data-bag-remove="${idx}" title="Nhấp để tháo ${it.name} khỏi Ô ${idx + 1}">
+          <span class="loadout-item-badge">Ô ${idx + 1}</span>
+          <div class="item-icon-strip" style="background-image: url('./assets/ui/item.png'); background-position: 0px ${-26 * it.stripIndex}px"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.8rem;font-weight:700;color:#fde047;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.name}</div>
+            <div style="font-size:0.68rem;color:#cbd5e1">1 lần dùng • Nhấp để tháo</div>
+          </div>
+        </div>
+      `;
+    }).join('');
 
     this.uiRoot.innerHTML = `
       <div class="screen-overlay">
@@ -296,8 +346,8 @@ class GameApp {
             <div class="brand-left">
               <img class="brand-logo" src="./assets/ui/logoGame.png" alt="Mobi Army 3" />
               <div class="brand-title">
-                <h1>MOBI ARMY 3 — BẢN WEB OFFLINE &amp; SOLO ONLINE</h1>
-                <p>17 Chiến Binh (9 Tướng Gốc + 8 Siêu Anh Hùng Marvel) • Vượt Ải Boss • Đấu Bot • Solo Trực Tuyến 1v1</p>
+                <h1>MOBI ARMY 3 — BẢN WEB OFFLINE &amp; SĂN BOSS TỔ ĐỘI ONLINE</h1>
+                <p>17 Chiến Binh (9 Tướng Gốc + 8 Siêu Anh Hùng Marvel) • Vượt Ải • Săn Boss Tổ Đội Mời Bạn • Solo 1v1</p>
               </div>
             </div>
             <div class="mode-tabs">
@@ -310,7 +360,7 @@ class GameApp {
             </div>
           </div>
 
-          <!-- Chọn Tướng Chủ Lực (8 Tướng Mobi Army 3 + 6 Skin Biệt Đội Marvel) -->
+          <!-- Chọn Tướng Chủ Lực -->
           <div class="panel-card">
             <h2>
               <span>1. Chọn Chiến Binh Ra Trận (Bao gồm Biệt Đội MARVEL)</span>
@@ -344,19 +394,29 @@ class GameApp {
             </div>
           </div>
 
-          <!-- Chọn Túi Vật Phẩm Mang Vào Trận (Tối đa 6 món) -->
+          <!-- Chọn Túi Vật Phẩm Mang Vào Trận (6 Ô - Mỗi ô 1 lần dùng, lắp trùng thoải mái) -->
           <div class="panel-card">
             <h2>
-              <span>2. Chọn Túi Vật Phẩm Mang Vào Trận (Tối đa 6 món — Phím tắt 1..6)</span>
-              <span style="font-size:0.8rem;color:#facc15;font-weight:700">Đã chọn: ${this.selectedItems.length}/6 món (Nhấp để chọn / bỏ)</span>
+              <span>2. Túi Đồ Chiến Thuật (6 Ô — Mỗi Ô 1 Lần Dùng, Có Thể Lắp Nhiều Món Giống Nhau)</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:0.8rem;color:#facc15;font-weight:700">Túi đồ: ${this.selectedItems.length}/6 ô</span>
+                <button class="ctrl-btn" id="btn-clear-bag" style="height:26px;font-size:0.72rem;padding:0 8px">🗑️ Làm Trống Túi</button>
+              </div>
             </h2>
+            <div style="margin-bottom:10px">
+              <div style="font-size:0.76rem;color:#7dd3fc;margin-bottom:6px;font-weight:600">🎒 6 Ô TÚI ĐỒ ĐANG MANG (Phím 1..6 trong trận — Nhấp vào ô để tháo bỏ):</div>
+              <div class="loadout-items-grid" style="grid-template-columns:repeat(auto-fill,minmax(165px,1fr))">
+                ${bagSlotsHtml}
+              </div>
+            </div>
+            <div style="font-size:0.76rem;color:#cbd5e1;margin-bottom:6px;font-weight:600">➕ KHO VẬT PHẨM CHIẾN ĐẤU (Nhấp vào bất kỳ món nào để thêm vào Túi Đồ — Lắp 2-6 món trùng nhau nếu muốn dùng nhiều lần):</div>
             <div class="loadout-items-grid">
               ${BATTLE_ITEMS.map((it) => {
-                const slotIdx = this.selectedItems.indexOf(it.id);
-                const isSel = slotIdx >= 0;
+                const equippedCount = this.selectedItems.filter((x) => x === it.id).length;
+                const isSel = equippedCount > 0;
                 return `
-                  <div class="loadout-item-card ${isSel ? 'selected' : ''}" data-loadout-item="${it.id}" title="${it.name}: ${it.shortDesc}">
-                    ${isSel ? `<span class="loadout-item-badge">${slotIdx + 1}</span>` : ''}
+                  <div class="loadout-item-card ${isSel ? 'selected' : ''}" data-loadout-item="${it.id}" title="Nhấp để thêm 1 ${it.name} vào túi đồ">
+                    ${isSel ? `<span class="loadout-item-badge">x${equippedCount}</span>` : ''}
                     <div class="item-icon-strip" style="background-image: url('./assets/ui/item.png'); background-position: 0px ${-26 * it.stripIndex}px"></div>
                     <div>
                       <div style="font-size:0.82rem;font-weight:700;color:${isSel ? '#fde047' : '#f8fafc'}">${it.name}</div>
@@ -386,17 +446,80 @@ class GameApp {
               ? `
             <div class="panel-card">
               <h2>
-                <span>3. Tổ Đội Săn Boss (2 Chiến Binh Hợp Lực)</span>
+                <span>3. Phòng Tổ Đội Săn Boss (Tạo Phòng Mời Bạn Bè Online Hoặc Đi Cùng Bot AI)</span>
+                <span style="font-size:0.8rem;color:${
+                  this.online.isConnected ? '#4ade80' : '#facc15'
+                }">${
+                  this.online.isConnected
+                    ? '● Đã Kết Nối Đồng Đội Online (2/2 Người)'
+                    : '○ Chế Độ Tổ Đội (Tạo Phòng Mời Bạn hoặc Đi Cùng Bot)'
+                }</span>
               </h2>
-              <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:14px;background:rgba(2,6,23,0.5);padding:10px 14px;border-radius:10px;border:1px solid rgba(244,63,94,0.3)">
-                <div class="field-group" style="flex:1;min-width:240px">
-                  <label>Chọn Tướng Đồng Đội Hỗ Trợ Bạn:</label>
-                  <select class="select-input" id="sel-boss-ally">${allyOptionsHtml}</select>
+
+              <!-- Khu vực Tạo Phòng & Mời Bạn Săn Boss Online -->
+              <div style="background:rgba(2,6,23,0.68);border:1px solid rgba(56,189,248,0.35);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+                  <div style="font-size:0.86rem;color:#e2e8f0">
+                    <strong>🌐 Sảnh Ghép Đội Trực Tuyến (P2P):</strong> <span style="color:#7dd3fc">${this.onlineStatusText}</span>
+                  </div>
+                  ${
+                    this.online.roomCode
+                      ? `
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                      <span class="stat-pill" style="background:#e11d48;color:#fff;font-size:0.88rem">Mã Phòng Săn Boss: #${this.online.roomCode}</span>
+                      <button class="ctrl-btn" id="btn-copy-boss-room" style="height:32px;font-size:0.78rem;border-color:#38bdf8;color:#7dd3fc">📋 Copy Link Mời Bạn Săn Boss</button>
+                    </div>
+                  `
+                      : ''
+                  }
                 </div>
-                <div style="font-size:0.82rem;color:#cbd5e1;flex:2;min-width:240px">
-                  Đồng đội sẽ xuất kích cùng bạn, tự động tính gió, phối hợp hỏa lực và sử dụng Item để hạ gục Đại Boss máu trâu!
+
+                <div class="skirmish-options" style="margin-bottom:12px">
+                  <div class="field-group">
+                    <label>Bước 1 (Đội Trưởng): Tạo Phòng Mời Bạn Bè</label>
+                    <button class="tab-btn active" id="btn-host-boss-coop" style="width:100%;background:linear-gradient(135deg,#e11d48,#be123c)">📡 Tạo Phòng Săn Boss (Lấy Mã Mời)</button>
+                  </div>
+
+                  <div class="field-group">
+                    <label>Bước 2 (Đồng Đội): Nhập Mã Phòng 4 Số Để Vào Đội</label>
+                    <div style="display:flex;gap:8px">
+                      <input type="text" id="inp-join-boss-code" class="select-input" placeholder="Nhập mã 4 số..." maxlength="6" style="flex:1;font-weight:800;letter-spacing:1px" value="${
+                        this.online.role === 'guest' ? this.online.roomCode : ''
+                      }" />
+                      <button class="tab-btn" id="btn-join-boss-coop">🔗 Vào Đội</button>
+                    </div>
+                  </div>
+
+                  <div class="field-group">
+                    <label>Nếu Đi Offline 1 Mình — Chọn Tướng Đồng Đội Bot AI:</label>
+                    <select class="select-input" id="sel-boss-ally">${allyOptionsHtml}</select>
+                  </div>
+                </div>
+
+                <!-- Thanh Hiển Thị 2 Ghế Thành Viên Tổ Đội -->
+                <div class="hero-detail-bar" style="justify-content:space-around;text-align:center;background:rgba(15,23,42,0.85)">
+                  <div>
+                    <div style="font-size:0.74rem;color:#94a3b8">THÀNH VIÊN 1 (${
+                      this.online.role === 'guest' ? 'ĐỒNG ĐỘI KHÁCH' : 'ĐỘI TRƯỞNG / BẠN'
+                    })</div>
+                    <div style="font-size:1.02rem;font-weight:800;color:${hero.color}">${hero.name}</div>
+                  </div>
+                  <div style="font-size:1.15rem;font-weight:900;color:#4ade80">🤝 HỢP LỰC SĂN BOSS 🤝</div>
+                  <div>
+                    <div style="font-size:0.74rem;color:#94a3b8">THÀNH VIÊN 2 (${
+                      this.online.isConnected ? 'BẠN BÈ TRỰC TUYẾN' : 'ĐỒNG ĐỘI BOT AI / CHỜ BẠN'
+                    })</div>
+                    <div style="font-size:1.02rem;font-weight:800;color:${
+                      this.online.isConnected ? remoteHero.color : '#38bdf8'
+                    }">${
+                      this.online.isConnected
+                        ? `${remoteHero.name} (Đã Sẵn Sàng!)`
+                        : `${getHeroById(this.selectedAllyHeroId).name} (Bot AI Hỗ Trợ)`
+                    }</div>
+                  </div>
                 </div>
               </div>
+
               <div class="stage-grid">
                 ${bossHuntStagesHtml}
               </div>
@@ -444,7 +567,7 @@ class GameApp {
               ? `
             <div class="panel-card">
               <h2>
-                <span>2. Phòng Đấu Solo Trực Tuyến 1v1 (P2P WebRTC Thời Gian Thực)</span>
+                <span>3. Phòng Đấu Solo Trực Tuyến 1v1 (P2P WebRTC Thời Gian Thực)</span>
                 <span style="font-size:0.8rem;color:${
                   this.online.isConnected ? '#4ade80' : '#facc15'
                 }">${this.online.isConnected ? '● Đã Kết Nối 2 Người Chơi' : '○ Đang Chờ Kết Nối'}</span>
@@ -529,7 +652,7 @@ class GameApp {
                 <li><strong>Đạn, Hố đạn, Hiệu ứng nổ, Boss:</strong> Ghi đè trực tiếp file <code>.png</code> trong <code>bullets/</code>, <code>holes/</code>, <code>effects/</code>, <code>bosses/</code> hoặc sửa đường dẫn trong <code>public/assets/assets-manifest.json</code>.</li>
                 <li><strong>Skin Marvel &amp; Nhân vật mới:</strong> Các bộ phận skin Marvel nằm tại <code>public/assets/heroes/small/2Small*.png</code>; hoặc thả spritesheet ngang <code>.png</code> vào <code>public/assets/heroes/overrides/</code> và khai báo vào mục <code>heroOverrides</code> trong <code>assets-manifest.json</code>.</li>
               </ul>
-              <p style="margin:0;color:#7dd3fc"><strong>Phím tắt chiến đấu:</strong> <code>← / →</code> (hoặc <code>A / D</code>) Di chuyển • <code>↑ / ↓</code> (hoặc <code>W / S</code>) Chỉnh góc • Giữ <code>SPACE</code> Gồng lực &amp; nhả để Bắn • <code>P</code> Bật Tuyệt kỹ Nộ • <code>1..8</code> Dùng 8 Vật phẩm chuẩn • Kéo chuột / Lăn chuột để xem toàn bản đồ.</p>
+              <p style="margin:0;color:#7dd3fc"><strong>Phím tắt chiến đấu:</strong> <code>← / →</code> (hoặc <code>A / D</code>) Di chuyển • <code>↑ / ↓</code> (hoặc <code>W / S</code>) Chỉnh góc • Giữ <code>SPACE</code> Gồng lực &amp; nhả để Bắn • <code>P</code> Bật Tuyệt kỹ Nộ • <code>1..6</code> Dùng 6 Ô Túi Đồ • Kéo chuột / Lăn chuột để xem toàn bản đồ.</p>
             </div>
           `
           }
@@ -537,7 +660,7 @@ class GameApp {
       </div>
     `;
 
-    // Vẽ chân dung thực tế 14 Tướng (8 Tướng Gốc + 6 Tướng Marvel) lên từng thẻ chọn tướng
+    // Vẽ chân dung thực tế 17 Tướng lên từng thẻ chọn tướng
     for (const h of HEROES) {
       const c = document.getElementById(`hero-preview-${h.id}`) as HTMLCanvasElement | null;
       if (c) {
@@ -581,8 +704,22 @@ class GameApp {
     this.uiRoot.querySelectorAll<HTMLElement>('[data-loadout-item]').forEach((card) => {
       card.addEventListener('click', () => {
         const id = card.dataset.loadoutItem as BattleItemId;
-        this.toggleItemSelection(id);
+        this.addItemToBag(id);
       });
+    });
+
+    this.uiRoot.querySelectorAll<HTMLElement>('[data-bag-remove]').forEach((card) => {
+      card.addEventListener('click', () => {
+        const slotIdx = parseInt(card.dataset.bagRemove || '0', 10);
+        this.removeBagSlotAt(slotIdx);
+      });
+    });
+
+    document.getElementById('btn-clear-bag')?.addEventListener('click', () => {
+      sound.playClick();
+      this.selectedItems = [];
+      localStorage.setItem(STORAGE_ITEMS_KEY, JSON.stringify(this.selectedItems));
+      this.renderLobby();
     });
 
     document.getElementById('btn-unlock-all')?.addEventListener('click', () => {
@@ -611,12 +748,81 @@ class GameApp {
 
     document.getElementById('sel-boss-ally')?.addEventListener('change', (e) => {
       this.selectedAllyHeroId = (e.target as HTMLSelectElement).value;
+      this.renderLobby();
     });
 
+    // Sự kiện Tạo Phòng / Vào Phòng Săn Boss Tổ Đội Online
+    document.getElementById('btn-host-boss-coop')?.addEventListener('click', async () => {
+      sound.playClick();
+      try {
+        await this.online.hostRoom();
+        this.renderLobby();
+      } catch {
+        this.renderLobby();
+      }
+    });
+
+    document.getElementById('btn-join-boss-coop')?.addEventListener('click', async () => {
+      sound.playClick();
+      const inp = document.getElementById('inp-join-boss-code') as HTMLInputElement | null;
+      const code = inp?.value.trim() || '';
+      if (!code) return;
+      try {
+        await this.online.joinRoom(code);
+        this.renderLobby();
+      } catch {
+        this.renderLobby();
+      }
+    });
+
+    document.getElementById('btn-copy-boss-room')?.addEventListener('click', (e) => {
+      sound.playItemUse();
+      if (bossInviteUrl && navigator.clipboard) {
+        navigator.clipboard.writeText(bossInviteUrl);
+        (e.currentTarget as HTMLButtonElement).textContent = '✅ Đã Copy Link Mời Đội!';
+      }
+    });
+
+    // Bắt đầu Săn Boss Tổ Đội Online (2 người chơi P2P hợp lực đánh Boss)
+    this.uiRoot.querySelectorAll<HTMLElement>('.btn-start-boss-online').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!this.online.isConnected || this.online.role !== 'host') return;
+        sound.playPow();
+        const id = parseInt(btn.dataset.bossStage || '101', 10);
+        this.selectedCoopBossStageId = id;
+        const stage = BOSS_HUNT_STAGES.find((s) => s.id === id) ?? BOSS_HUNT_STAGES[0];
+        const initialWind = Math.round((Math.random() * 2 - 1) * 12);
+        const matchSeed = Math.floor(100000 + Math.random() * 900000);
+        this.online.send({
+          type: 'start_match',
+          hostHeroId: this.selectedHeroId,
+          guestHeroId: this.onlineRemoteHeroId,
+          mapId: stage.mapId,
+          seed: matchSeed,
+          initialWind,
+          coopStageId: stage.id,
+        });
+        this.launchBattle({
+          mode: 'online',
+          onlineRole: 'host',
+          playerHeroId: this.selectedHeroId,
+          remoteHeroId: this.onlineRemoteHeroId,
+          teamSize: 2,
+          mapId: stage.mapId,
+          difficulty: 'hard',
+          seed: matchSeed,
+          onlineCoopStage: stage,
+          selectedItems: this.selectedItems,
+        });
+      });
+    });
+
+    // Bắt đầu Săn Boss Cùng Bot AI
     this.uiRoot.querySelectorAll<HTMLElement>('.btn-start-boss-hunt').forEach((btn) => {
       btn.addEventListener('click', () => {
         sound.playClick();
         const id = parseInt(btn.dataset.bossStage || '101', 10);
+        this.selectedCoopBossStageId = id;
         const stage = BOSS_HUNT_STAGES.find((s) => s.id === id) ?? BOSS_HUNT_STAGES[0];
         this.launchBattle({
           mode: 'campaign',
@@ -730,31 +936,33 @@ class GameApp {
     }
   }
 
-  private toggleItemSelection(id: BattleItemId): void {
-    const idx = this.selectedItems.indexOf(id);
-    if (idx >= 0) {
-      if (this.selectedItems.length > 1) {
-        this.selectedItems.splice(idx, 1);
-        sound.playClick();
-      }
+  private addItemToBag(id: BattleItemId): void {
+    if (this.selectedItems.length < 6) {
+      this.selectedItems.push(id);
     } else {
-      if (this.selectedItems.length < 6) {
-        this.selectedItems.push(id);
-      } else {
-        // Nếu đã đủ 6 món, bấm món mới sẽ thay thế món thứ 6
-        this.selectedItems[5] = id;
-      }
-      sound.playItemUse();
+      // Nếu đã đủ 6 ô, thay vào ô cuối cùng
+      this.selectedItems[5] = id;
     }
+    sound.playItemUse();
     localStorage.setItem(STORAGE_ITEMS_KEY, JSON.stringify(this.selectedItems));
     this.renderLobby();
+  }
+
+  private removeBagSlotAt(slotIdx: number): void {
+    if (slotIdx >= 0 && slotIdx < this.selectedItems.length) {
+      this.selectedItems.splice(slotIdx, 1);
+      sound.playClick();
+      localStorage.setItem(STORAGE_ITEMS_KEY, JSON.stringify(this.selectedItems));
+      this.renderLobby();
+    }
   }
 
   // ==================== BATTLE HUD & LAUNCH ====================
 
   private async launchBattle(setup: BattleSetup): Promise<void> {
     if (!setup.selectedItems || setup.selectedItems.length === 0) {
-      setup.selectedItems = [...this.selectedItems];
+      setup.selectedItems =
+        this.selectedItems.length > 0 ? [...this.selectedItems] : ['heal'];
     }
     const map =
       this.assets.maps.find((m) => m.mapId === setup.mapId) ?? this.assets.maps[0];
@@ -790,17 +998,19 @@ class GameApp {
         ? this.battle.setup.selectedItems.slice(0, 6)
         : this.selectedItems.slice(0, 6);
 
-    const itemsHtml = activeItems.map((itemId, idx) => {
-      const it = BATTLE_ITEMS.find((b) => b.id === itemId) || BATTLE_ITEMS[0];
-      const hotkey = String(idx + 1);
-      return `
-        <button class="item-btn" data-item="${it.id}" title="${it.name} (Phím ${hotkey}): ${it.shortDesc}">
+    const itemsHtml = activeItems
+      .map((itemId, idx) => {
+        const it = BATTLE_ITEMS.find((b) => b.id === itemId) || BATTLE_ITEMS[0];
+        const hotkey = String(idx + 1);
+        return `
+        <button class="item-btn" data-bag-slot="${idx}" data-item="${it.id}" title="Ô ${hotkey} — ${it.name} (Phím ${hotkey}): ${it.shortDesc} [1 lần dùng]">
           <span class="item-key">${hotkey}</span>
           <div class="item-icon-strip" style="background-image: url('./assets/ui/item.png'); background-position: 0px ${-26 * it.stripIndex}px"></div>
-          <span class="item-count" id="item-cnt-${it.id}">0</span>
+          <span class="item-count" id="slot-cnt-${idx}">1</span>
         </button>
       `;
-    }).join('');
+      })
+      .join('');
 
     this.uiRoot.innerHTML = `
       <!-- Thanh trên: Thông tin Map/Lượt, Sức Gió & Đồng Hồ Đếm Ngược, Nút Tiện Ích -->
@@ -896,12 +1106,14 @@ class GameApp {
       </div>
     `;
 
-    const itemBtns = new Map<BattleItemId, { btn: HTMLButtonElement; countEl: HTMLElement }>();
-    this.uiRoot.querySelectorAll<HTMLButtonElement>('[data-item]').forEach((btn) => {
+    const slotBtns: Array<{ btn: HTMLButtonElement; countEl: HTMLElement; itemId: BattleItemId }> =
+      [];
+    this.uiRoot.querySelectorAll<HTMLButtonElement>('[data-bag-slot]').forEach((btn) => {
+      const slotIdx = parseInt(btn.dataset.bagSlot || '0', 10);
       const id = btn.dataset.item as BattleItemId;
-      const countEl = document.getElementById(`item-cnt-${id}`)!;
-      itemBtns.set(id, { btn, countEl });
-      btn.addEventListener('click', () => this.battle?.useItem(id));
+      const countEl = document.getElementById(`slot-cnt-${slotIdx}`)!;
+      slotBtns.push({ btn, countEl, itemId: id });
+      btn.addEventListener('click', () => this.battle?.useBagSlot(slotIdx));
     });
 
     document.getElementById('btn-ultron-clone')?.addEventListener('click', () => {
@@ -928,7 +1140,7 @@ class GameApp {
       powText: document.getElementById('hud-pow-text')!,
       powBtn: document.getElementById('btn-pow') as HTMLButtonElement,
       fireBtn: document.getElementById('btn-fire') as HTMLButtonElement,
-      itemBtns,
+      slotBtns,
     };
 
     this.uiRoot.querySelectorAll<HTMLButtonElement>('[data-hold]').forEach((btn) => {
@@ -995,8 +1207,12 @@ class GameApp {
     }
 
     const u = snap.activeUnit;
+    const displayUnitName =
+      u && u.baseHeroId === 'loki' && u.morphedHeroName
+        ? `${u.name} [Biến: ${u.morphedHeroName}]`
+        : u?.name ?? '';
     r.turnInfo.textContent = u
-      ? `Lượt ${snap.turnNumber}: ${u.name}`
+      ? `Lượt ${snap.turnNumber}: ${displayUnitName}`
       : `Lượt ${snap.turnNumber}`;
     r.turnInfo.style.color = u?.isPlayerControlled ? '#7dd3fc' : '#fda4af';
 
@@ -1076,14 +1292,18 @@ class GameApp {
           ? '💥 GIỮ NHẢY'
           : '🎯 GIỮ BẮN';
 
-      for (const [id, entry] of r.itemBtns.entries()) {
-        const cnt = u.inventory[id] ?? 0;
-        entry.countEl.textContent = String(cnt);
-        entry.btn.disabled = !canControl || cnt <= 0;
+      r.slotBtns.forEach((entry, idx) => {
+        const slotState = u.bagSlots?.[idx];
+        const available = slotState ? !slotState.used : (u.inventory[entry.itemId] ?? 0) > 0;
+        entry.countEl.textContent = available ? '1' : '0';
+        entry.btn.disabled = !canControl || !available;
         const armed =
-          snap.activeItemArmed === id || (id === 'double' && snap.doubleArmed);
+          snap.armedBagSlotIdx === idx ||
+          (snap.armedBagSlotIdx === null &&
+            (snap.activeItemArmed === entry.itemId ||
+              (entry.itemId === 'double' && snap.doubleArmed)));
         entry.btn.classList.toggle('armed', armed);
-      }
+      });
     }
   }
 
@@ -1223,9 +1443,7 @@ class GameApp {
         if (code.startsWith('Digit')) {
           const num = parseInt(code.replace('Digit', ''), 10);
           if (num >= 1 && num <= 6) {
-            const activeItems = this.battle.setup.selectedItems || this.selectedItems;
-            const itemId = activeItems[num - 1];
-            if (itemId) this.battle.useItem(itemId);
+            this.battle.useBagSlot(num - 1);
           }
         }
       }

@@ -22,10 +22,16 @@ export interface UltronClone {
   offsetY: number;
 }
 
+export interface BagSlotState {
+  itemId: BattleItemId;
+  used: boolean;
+}
+
 export interface Fighter {
   id: string;
   name: string;
   baseHeroId?: string;
+  morphedHeroName?: string;
   team: 0 | 1; // 0 = phe Trái (Host / Người Chơi), 1 = phe Phải (Địch / Boss / Guest)
   isPlayerControlled: boolean;
   isRemoteOnline?: boolean;
@@ -59,6 +65,7 @@ export interface Fighter {
   animTick: number;
   hurtTimer: number;
   inventory: Record<BattleItemId, number>;
+  bagSlots?: BagSlotState[];
   ultronTurnCount?: number;
   ultronCloneCooldown?: number;
   isClone?: boolean;
@@ -83,11 +90,13 @@ interface Projectile {
   holeMask: string;
   holeScale: number;
   damage: number;
+  baseDamage?: number;
   blastRadius: number;
   windScale: number;
   age: number;
   scale?: number;
   isSuperHighAngle?: boolean;
+  isVampireShot?: boolean;
   special?:
     | 'teleport'
     | 'digger'
@@ -106,9 +115,12 @@ interface Projectile {
     | 'boomerang_curve'
     | 'freeze'
     | 'poison'
-    | 'nuke';
+    | 'nuke'
+    | 'airstrike';
   diggerCharges?: number;
   isBounced?: boolean;
+  bounceCount?: number;
+  maxBounces?: number;
   immuneFighterId?: string;
   immuneTicks?: number;
   droppedEgg?: boolean;
@@ -180,7 +192,9 @@ export interface HudSnapshot {
   chargePower2?: number;
   powArmed: boolean;
   activeItemArmed: BattleItemId | null;
+  armedBagSlotIdx?: number | null;
   doubleArmed: boolean;
+  vampireArmed?: boolean;
   hawkeyeGiantArmed?: boolean;
   turnNumber: number;
   mapName: string;
@@ -218,7 +232,9 @@ export class BattleEngine {
   private charge2WaitRelease = false;
   public powArmed = false;
   public activeItemArmed: BattleItemId | null = null;
+  public armedBagSlotIdx: number | null = null;
   public doubleArmed = false;
+  public vampireArmed = false;
   public hawkeyeGiantArmed = false;
   public itemsUsedThisTurn = 0;
   private usedInstantItemCount = 0;
@@ -302,8 +318,10 @@ export class BattleEngine {
   private defaultInventory(isBoss = false): Record<BattleItemId, number> {
     const inv: Record<BattleItemId, number> = {
       heal: 0,
+      team_heal: 0,
       teleport: 0,
       double: 0,
+      vampire: 0,
       mouse: 0,
       shield: 0,
       windstop: 0,
@@ -311,7 +329,9 @@ export class BattleEngine {
       web: 0,
       freeze: 0,
       poison: 0,
+      airstrike: 0,
       nuke: 0,
+      suicide: 0,
       stealth: 0,
     };
     if (isBoss) {
@@ -326,10 +346,19 @@ export class BattleEngine {
       this.setup.selectedItems && this.setup.selectedItems.length > 0
         ? this.setup.selectedItems.slice(0, 6)
         : (['heal', 'teleport', 'double', 'mouse', 'shield', 'freeze'] as BattleItemId[]);
+    // Mỗi ô trong túi đồ chỉ dùng được 1 lần; muốn dùng nhiều lần có thể lắp nhiều item giống nhau!
     selected.forEach((id) => {
-      inv[id] = id === 'teleport' || id === 'mouse' || id === 'nuke' ? 1 : 2;
+      inv[id] = (inv[id] ?? 0) + 1;
     });
     return inv;
+  }
+
+  private defaultBagSlots(): BagSlotState[] {
+    const selected =
+      this.setup.selectedItems && this.setup.selectedItems.length > 0
+        ? this.setup.selectedItems.slice(0, 6)
+        : (['heal', 'teleport', 'double', 'mouse', 'shield', 'freeze'] as BattleItemId[]);
+    return selected.map((itemId) => ({ itemId, used: false }));
   }
 
   private spawnFighters(): void {
@@ -340,32 +369,228 @@ export class BattleEngine {
 
       const hostHero = getHeroById(hostHeroId);
       const guestHero = getHeroById(guestHeroId);
+      const coopStage = this.setup.onlineCoopStage;
 
+      if (coopStage) {
+        // Tổ Đội Săn Boss Online 2 Người: Cả Chủ Phòng và Khách đều thuộc Team 0 cùng đánh Boss Team 1!
+        const p1Pos = this.terrain.findSpawnPoint(this.map.width * 0.16);
+        const p2Pos = this.terrain.findSpawnPoint(this.map.width * 0.28);
+
+        this.fighters.push({
+          id: 'online_host',
+          name: isHost ? `Bạn (${hostHero.name})` : `Đồng Đội (${hostHero.name})`,
+          team: 0,
+          isPlayerControlled: isHost,
+          isRemoteOnline: !isHost,
+          botDifficulty: 'normal',
+          unitKind: 'hero',
+          isBoss: false,
+          hero: hostHero,
+          x: p1Pos.x,
+          y: p1Pos.y,
+          vx: 0,
+          vy: 0,
+          facingLeft: false,
+          aimAngleDeg: Math.max(28, hostHero.minAngle),
+          hp: hostHero.hp,
+          maxHp: hostHero.hp,
+          attack: hostHero.attack,
+          pow: 25,
+          stamina: hostHero.staminaMax,
+          maxStamina: hostHero.staminaMax,
+          alive: true,
+          grounded: true,
+          shieldTurns: 0,
+          webbedTurns: 0,
+          lastPower: 0,
+          lastAngle: 35,
+          scale: 1,
+          animMode: 'idle',
+          animTick: 0,
+          hurtTimer: 0,
+          inventory: this.defaultInventory(false),
+          bagSlots: this.defaultBagSlots(),
+        });
+
+        this.fighters.push({
+          id: 'online_guest',
+          name: !isHost ? `Bạn (${guestHero.name})` : `Đồng Đội (${guestHero.name})`,
+          team: 0,
+          isPlayerControlled: !isHost,
+          isRemoteOnline: isHost,
+          botDifficulty: 'normal',
+          unitKind: 'hero',
+          isBoss: false,
+          hero: guestHero,
+          x: p2Pos.x,
+          y: p2Pos.y,
+          vx: 0,
+          vy: 0,
+          facingLeft: false,
+          aimAngleDeg: Math.max(28, guestHero.minAngle),
+          hp: guestHero.hp,
+          maxHp: guestHero.hp,
+          attack: guestHero.attack,
+          pow: 25,
+          stamina: guestHero.staminaMax,
+          maxStamina: guestHero.staminaMax,
+          alive: true,
+          grounded: true,
+          shieldTurns: 0,
+          webbedTurns: 0,
+          lastPower: 0,
+          lastAngle: 35,
+          scale: 1,
+          animMode: 'idle',
+          animTick: 10,
+          hurtTimer: 0,
+          inventory: this.defaultInventory(false),
+          bagSlots: this.defaultBagSlots(),
+        });
+
+        coopStage.enemies.forEach((spec, idx) => {
+          const eh = getHeroById(spec.heroId);
+          const isFlying = spec.unitKind !== 'hero';
+          const groundSpawn = this.terrain.findSpawnPoint(this.map.width * spec.spawnXRatio);
+          const sx = isFlying ? Math.round(this.map.width * spec.spawnXRatio) : groundSpawn.x;
+          const sy = isFlying ? (spec.spawnY ?? 150) : groundSpawn.y;
+
+          this.fighters.push({
+            id: `enemy_${idx + 1}`,
+            name: spec.name,
+            team: 1,
+            isPlayerControlled: false,
+            isRemoteOnline: !isHost, // Host điều khiển AI Boss và đồng bộ sang Guest
+            botDifficulty: spec.difficulty,
+            unitKind: spec.unitKind,
+            isBoss: Boolean(spec.isBoss),
+            hero: eh,
+            x: sx,
+            y: sy,
+            vx: 0,
+            vy: 0,
+            facingLeft: true,
+            aimAngleDeg: isFlying ? -25 : Math.max(35, eh.minAngle),
+            hp: spec.hp,
+            maxHp: spec.hp,
+            attack: spec.attack,
+            pow: spec.isBoss ? 50 : 15,
+            stamina: eh.staminaMax,
+            maxStamina: eh.staminaMax,
+            alive: true,
+            grounded: isFlying,
+            shieldTurns: 0,
+            webbedTurns: 0,
+            lastPower: 0,
+            lastAngle: 40,
+            scale: spec.scale ?? 1,
+            animMode: 'idle',
+            animTick: idx * 9,
+            hurtTimer: 0,
+            inventory: this.defaultInventory(spec.isBoss),
+          });
+        });
+      } else {
+        const p1Pos = this.terrain.findSpawnPoint(this.map.width * 0.18);
+        const p2Pos = this.terrain.findSpawnPoint(this.map.width * 0.82);
+
+        this.fighters.push({
+          id: 'online_host',
+          name: isHost ? `Bạn (${hostHero.name})` : `Đối Thủ (${hostHero.name})`,
+          team: 0,
+          isPlayerControlled: isHost,
+          isRemoteOnline: !isHost,
+          botDifficulty: 'normal',
+          unitKind: 'hero',
+          isBoss: false,
+          hero: hostHero,
+          x: p1Pos.x,
+          y: p1Pos.y,
+          vx: 0,
+          vy: 0,
+          facingLeft: false,
+          aimAngleDeg: Math.max(28, hostHero.minAngle),
+          hp: hostHero.hp,
+          maxHp: hostHero.hp,
+          attack: hostHero.attack,
+          pow: 20,
+          stamina: hostHero.staminaMax,
+          maxStamina: hostHero.staminaMax,
+          alive: true,
+          grounded: true,
+          shieldTurns: 0,
+          webbedTurns: 0,
+          lastPower: 0,
+          lastAngle: 35,
+          scale: 1,
+          animMode: 'idle',
+          animTick: 0,
+          hurtTimer: 0,
+          inventory: this.defaultInventory(false),
+          bagSlots: this.defaultBagSlots(),
+        });
+
+        this.fighters.push({
+          id: 'online_guest',
+          name: !isHost ? `Bạn (${guestHero.name})` : `Đối Thủ (${guestHero.name})`,
+          team: 1,
+          isPlayerControlled: !isHost,
+          isRemoteOnline: isHost,
+          botDifficulty: 'normal',
+          unitKind: 'hero',
+          isBoss: false,
+          hero: guestHero,
+          x: p2Pos.x,
+          y: p2Pos.y,
+          vx: 0,
+          vy: 0,
+          facingLeft: true,
+          aimAngleDeg: Math.max(28, guestHero.minAngle),
+          hp: guestHero.hp,
+          maxHp: guestHero.hp,
+          attack: guestHero.attack,
+          pow: 20,
+          stamina: guestHero.staminaMax,
+          maxStamina: guestHero.staminaMax,
+          alive: true,
+          grounded: true,
+          shieldTurns: 0,
+          webbedTurns: 0,
+          lastPower: 0,
+          lastAngle: 35,
+          scale: 1,
+          animMode: 'idle',
+          animTick: 10,
+          hurtTimer: 0,
+          inventory: this.defaultInventory(false),
+          bagSlots: this.defaultBagSlots(),
+        });
+      }
+    } else {
+      const playerHero = getHeroById(this.setup.playerHeroId);
       const p1Pos = this.terrain.findSpawnPoint(this.map.width * 0.18);
-      const p2Pos = this.terrain.findSpawnPoint(this.map.width * 0.82);
 
       this.fighters.push({
-        id: 'online_host',
-        name: isHost ? `Bạn (${hostHero.name})` : `Đối Thủ (${hostHero.name})`,
+        id: 'player_1',
+        name: `Bạn (${playerHero.name})`,
         team: 0,
-        isPlayerControlled: isHost,
-        isRemoteOnline: !isHost,
+        isPlayerControlled: true,
         botDifficulty: 'normal',
         unitKind: 'hero',
         isBoss: false,
-        hero: hostHero,
+        hero: playerHero,
         x: p1Pos.x,
         y: p1Pos.y,
         vx: 0,
         vy: 0,
         facingLeft: false,
-        aimAngleDeg: Math.max(28, hostHero.minAngle),
-        hp: hostHero.hp,
-        maxHp: hostHero.hp,
-        attack: hostHero.attack,
+        aimAngleDeg: Math.max(25, playerHero.minAngle),
+        hp: playerHero.hp,
+        maxHp: playerHero.hp,
+        attack: playerHero.attack,
         pow: 20,
-        stamina: hostHero.staminaMax,
-        maxStamina: hostHero.staminaMax,
+        stamina: playerHero.staminaMax,
+        maxStamina: playerHero.staminaMax,
         alive: true,
         grounded: true,
         shieldTurns: 0,
@@ -377,125 +602,55 @@ export class BattleEngine {
         animTick: 0,
         hurtTimer: 0,
         inventory: this.defaultInventory(false),
+        bagSlots: this.defaultBagSlots(),
       });
 
-      this.fighters.push({
-        id: 'online_guest',
-        name: !isHost ? `Bạn (${guestHero.name})` : `Đối Thủ (${guestHero.name})`,
-        team: 1,
-        isPlayerControlled: !isHost,
-        isRemoteOnline: isHost,
-        botDifficulty: 'normal',
-        unitKind: 'hero',
-        isBoss: false,
-        hero: guestHero,
-        x: p2Pos.x,
-        y: p2Pos.y,
-        vx: 0,
-        vy: 0,
-        facingLeft: true,
-        aimAngleDeg: Math.max(28, guestHero.minAngle),
-        hp: guestHero.hp,
-        maxHp: guestHero.hp,
-        attack: guestHero.attack,
-        pow: 20,
-        stamina: guestHero.staminaMax,
-        maxStamina: guestHero.staminaMax,
-        alive: true,
-        grounded: true,
-        shieldTurns: 0,
-        webbedTurns: 0,
-        lastPower: 0,
-        lastAngle: 35,
-        scale: 1,
-        animMode: 'idle',
-        animTick: 10,
-        hurtTimer: 0,
-        inventory: this.defaultInventory(false),
-      });
-    } else {
-    const playerHero = getHeroById(this.setup.playerHeroId);
-    const p1Pos = this.terrain.findSpawnPoint(this.map.width * 0.18);
+      // Đồng đội (Đấu Bot 2v2 hoặc Ải có đồng đội AI/Người chơi điều khiển)
+      const allyHeroId =
+        this.setup.mode === 'campaign'
+          ? this.setup.stage?.allyHeroId
+          : this.setup.teamSize === 2
+          ? this.setup.allyHeroId || 'rocketer'
+          : null;
 
-    this.fighters.push({
-      id: 'player_1',
-      name: `Bạn (${playerHero.name})`,
-      team: 0,
-      isPlayerControlled: true,
-      botDifficulty: 'normal',
-      unitKind: 'hero',
-      isBoss: false,
-      hero: playerHero,
-      x: p1Pos.x,
-      y: p1Pos.y,
-      vx: 0,
-      vy: 0,
-      facingLeft: false,
-      aimAngleDeg: Math.max(25, playerHero.minAngle),
-      hp: playerHero.hp,
-      maxHp: playerHero.hp,
-      attack: playerHero.attack,
-      pow: 20,
-      stamina: playerHero.staminaMax,
-      maxStamina: playerHero.staminaMax,
-      alive: true,
-      grounded: true,
-      shieldTurns: 0,
-      webbedTurns: 0,
-      lastPower: 0,
-      lastAngle: 35,
-      scale: 1,
-      animMode: 'idle',
-      animTick: 0,
-      hurtTimer: 0,
-      inventory: this.defaultInventory(false),
-    });
-
-    // Đồng đội (Đấu Bot 2v2 hoặc Ải có đồng đội AI/Người chơi điều khiển)
-    const allyHeroId =
-      this.setup.mode === 'campaign'
-        ? this.setup.stage?.allyHeroId
-        : this.setup.teamSize === 2
-        ? this.setup.allyHeroId || 'rocketer'
-        : null;
-
-    if (allyHeroId) {
-      const allyHero = getHeroById(allyHeroId);
-      const p2Pos = this.terrain.findSpawnPoint(this.map.width * 0.3);
-      this.fighters.push({
-        id: 'ally_2',
-        name: `Đồng Đội (${allyHero.name})`,
-        team: 0,
-        isPlayerControlled: this.setup.mode === 'skirmish',
-        botDifficulty: 'normal',
-        unitKind: 'hero',
-        isBoss: false,
-        hero: allyHero,
-        x: p2Pos.x,
-        y: p2Pos.y,
-        vx: 0,
-        vy: 0,
-        facingLeft: false,
-        aimAngleDeg: Math.max(30, allyHero.minAngle),
-        hp: allyHero.hp,
-        maxHp: allyHero.hp,
-        attack: allyHero.attack,
-        pow: 15,
-        stamina: allyHero.staminaMax,
-        maxStamina: allyHero.staminaMax,
-        alive: true,
-        grounded: true,
-        shieldTurns: 0,
-        webbedTurns: 0,
-        lastPower: 0,
-        lastAngle: 35,
-        scale: 1,
-        animMode: 'idle',
-        animTick: 12,
-        hurtTimer: 0,
-        inventory: this.defaultInventory(false),
-      });
-    }
+      if (allyHeroId) {
+        const allyHero = getHeroById(allyHeroId);
+        const p2Pos = this.terrain.findSpawnPoint(this.map.width * 0.3);
+        this.fighters.push({
+          id: 'ally_2',
+          name: `Đồng Đội (${allyHero.name})`,
+          team: 0,
+          isPlayerControlled: this.setup.mode === 'skirmish',
+          botDifficulty: 'normal',
+          unitKind: 'hero',
+          isBoss: false,
+          hero: allyHero,
+          x: p2Pos.x,
+          y: p2Pos.y,
+          vx: 0,
+          vy: 0,
+          facingLeft: false,
+          aimAngleDeg: Math.max(30, allyHero.minAngle),
+          hp: allyHero.hp,
+          maxHp: allyHero.hp,
+          attack: allyHero.attack,
+          pow: 15,
+          stamina: allyHero.staminaMax,
+          maxStamina: allyHero.staminaMax,
+          alive: true,
+          grounded: true,
+          shieldTurns: 0,
+          webbedTurns: 0,
+          lastPower: 0,
+          lastAngle: 35,
+          scale: 1,
+          animMode: 'idle',
+          animTick: 12,
+          hurtTimer: 0,
+          inventory: this.defaultInventory(false),
+          bagSlots: this.defaultBagSlots(),
+        });
+      }
 
     if (this.setup.mode === 'campaign' && this.setup.stage) {
       this.setup.stage.enemies.forEach((spec, idx) => {
@@ -804,6 +959,7 @@ export class BattleEngine {
         if (f) {
           const picked = getHeroById(action.morphHeroId);
           f.hero = picked;
+          f.morphedHeroName = picked.name;
           f.aimAngleDeg = Math.max(picked.minAngle, Math.min(picked.maxAngle, f.aimAngleDeg));
           if (this.assets.manifest.effects.loki) {
             this.spawnEffect(f.x, f.y - 18, this.assets.manifest.effects.loki, 1.15);
@@ -812,9 +968,9 @@ export class BattleEngine {
           this.spawnFloatingText(
             f.x,
             f.y - 54,
-            `LOKI BIẾN HÌNH: ${picked.name.toUpperCase()}!`,
+            `LOKI BIẾN HÌNH -> ${picked.name.toUpperCase()}!`,
             '#10b981',
-            1.25
+            1.28
           );
           this.emitHud();
         }
@@ -832,6 +988,7 @@ export class BattleEngine {
     this.powArmed = !this.powArmed;
     if (this.powArmed) {
       this.activeItemArmed = null;
+      this.armedBagSlotIdx = null;
       sound.playPow();
       this.spawnFloatingText(u.x, u.y - 46, 'NỘ POW!', '#facc15', 1.25);
     } else {
@@ -845,10 +1002,18 @@ export class BattleEngine {
     this.emitHud();
   }
 
-  public useItem(itemId: BattleItemId): void {
+  public useBagSlot(slotIndex: number): void {
+    const u = this.getActiveUnit();
+    if (!u || !u.isPlayerControlled || this.phase !== 'aiming' || !u.bagSlots) return;
+    const slot = u.bagSlots[slotIndex];
+    if (!slot || slot.used) return;
+    this.useItem(slot.itemId, slotIndex);
+  }
+
+  public useItem(itemId: BattleItemId, slotIndex?: number): void {
     const u = this.getActiveUnit();
     if (!u || !u.isPlayerControlled || this.phase !== 'aiming') return;
-    if (this.applyUnitItem(u, itemId)) {
+    if (this.applyUnitItem(u, itemId, slotIndex)) {
       this.onOnlineAction?.({
         action: 'use_item',
         unitId: u.id,
@@ -856,6 +1021,22 @@ export class BattleEngine {
       });
     }
     this.emitHud();
+  }
+
+  private consumeBagSlot(u: Fighter, itemId: BattleItemId, preferredSlotIdx?: number | null): void {
+    if (!u.bagSlots) return;
+    if (
+      preferredSlotIdx !== undefined &&
+      preferredSlotIdx !== null &&
+      u.bagSlots[preferredSlotIdx] &&
+      !u.bagSlots[preferredSlotIdx].used &&
+      u.bagSlots[preferredSlotIdx].itemId === itemId
+    ) {
+      u.bagSlots[preferredSlotIdx].used = true;
+      return;
+    }
+    const found = u.bagSlots.find((s) => !s.used && s.itemId === itemId);
+    if (found) found.used = true;
   }
 
   public summonUltronClone(caller?: Fighter): boolean {
@@ -916,7 +1097,9 @@ export class BattleEngine {
       hurtTimer: 0,
       inventory: {
         heal: 1,
+        team_heal: 0,
         double: 1,
+        vampire: 0,
         teleport: 0,
         mouse: 0,
         shield: 1,
@@ -925,7 +1108,9 @@ export class BattleEngine {
         web: 0,
         freeze: 0,
         poison: 0,
+        airstrike: 0,
         nuke: 0,
+        suicide: 0,
         stealth: 0,
       },
       isClone: true,
@@ -973,7 +1158,7 @@ export class BattleEngine {
     }
   }
 
-  private applyUnitItem(u: Fighter, itemId: BattleItemId): boolean {
+  private applyUnitItem(u: Fighter, itemId: BattleItemId, slotIndex?: number): boolean {
     if ((u.inventory[itemId] ?? 0) <= 0) return false;
 
     // Không được dùng item khi đang nộ POW
@@ -991,11 +1176,12 @@ export class BattleEngine {
     // Kỹ năng đặc biệt của Hawkeye: Dùng Item máu và dịch chuyển sẽ hoạt động bình thường!
     // Các item chiến đấu khác sẽ nạp trạng thái kỹ năng và chỉ kích hoạt khi nâng góc lên 89°!
     if (u.hero.weapon === 'hawkeye_bow') {
-      if (itemId === 'heal' || itemId === 'teleport') {
-        // Hồi máu và Dịch chuyển hoạt động bình thường, không tính để kích hoạt kỹ năng đặc biệt
+      if (itemId === 'heal' || itemId === 'team_heal' || itemId === 'teleport' || itemId === 'suicide') {
+        // Hồi máu, Hồi máu đội, Dịch chuyển, Cảm tử hoạt động bình thường
       } else {
         if (this.hawkeyeGiantArmed) return false;
         u.inventory[itemId]--;
+        this.consumeBagSlot(u, itemId, slotIndex);
         this.itemsUsedThisTurn++;
         this.hawkeyeGiantArmed = true;
         this.activeItemArmed = itemId;
@@ -1015,6 +1201,7 @@ export class BattleEngine {
     if (itemId === 'heal') {
       if (this.usedInstantItemCount >= 1) return false;
       u.inventory.heal--;
+      this.consumeBagSlot(u, itemId, slotIndex);
       this.itemsUsedThisTurn++;
       this.usedInstantItemCount++;
       const healAmt = Math.min(u.maxHp - u.hp, 350);
@@ -1030,9 +1217,42 @@ export class BattleEngine {
       return true;
     }
 
+    if (itemId === 'team_heal') {
+      if (this.usedInstantItemCount >= 1) return false;
+      u.inventory.team_heal--;
+      this.consumeBagSlot(u, itemId, slotIndex);
+      this.itemsUsedThisTurn++;
+      this.usedInstantItemCount++;
+      sound.playItemUse();
+      for (const ally of this.fighters) {
+        if (ally.alive && ally.team === u.team) {
+          const gain = Math.min(ally.maxHp - ally.hp, 300);
+          ally.hp += gain;
+          this.spawnFloatingText(
+            ally.x,
+            ally.y - 44,
+            `+${gain > 0 ? gain : 300} HP (HỒI MÁU ĐỘI)`,
+            '#22c55e',
+            1.2
+          );
+        }
+      }
+      return true;
+    }
+
+    if (itemId === 'suicide') {
+      u.inventory.suicide--;
+      this.consumeBagSlot(u, itemId, slotIndex);
+      this.itemsUsedThisTurn++;
+      this.usedInstantItemCount++;
+      this.detonateSuicideBomb(u);
+      return true;
+    }
+
     if (itemId === 'shield') {
       if (u.shieldTurns > 0) return false;
       u.inventory.shield--;
+      this.consumeBagSlot(u, itemId, slotIndex);
       this.itemsUsedThisTurn++;
       u.shieldTurns = 2;
       sound.playItemUse();
@@ -1042,6 +1262,7 @@ export class BattleEngine {
 
     if (itemId === 'windstop') {
       u.inventory.windstop--;
+      this.consumeBagSlot(u, itemId, slotIndex);
       this.itemsUsedThisTurn++;
       this.wind = 0;
       sound.playItemUse();
@@ -1052,6 +1273,7 @@ export class BattleEngine {
     if (itemId === 'stealth') {
       if (u.stealthTurns && u.stealthTurns > 0) return false;
       u.inventory.stealth--;
+      this.consumeBagSlot(u, itemId, slotIndex);
       this.itemsUsedThisTurn++;
       u.stealthTurns = 2;
       sound.playItemUse();
@@ -1065,10 +1287,22 @@ export class BattleEngine {
     if (itemId === 'double') {
       if (this.doubleArmed) return false;
       u.inventory.double--;
+      this.consumeBagSlot(u, itemId, slotIndex);
       this.itemsUsedThisTurn++;
       this.doubleArmed = true;
       sound.playItemUse();
       this.spawnFloatingText(u.x, u.y - 42, 'ĐẠN ĐÔI x2!', '#fb923c', 1.15);
+      return true;
+    }
+
+    if (itemId === 'vampire') {
+      if (this.vampireArmed) return false;
+      u.inventory.vampire--;
+      this.consumeBagSlot(u, itemId, slotIndex);
+      this.itemsUsedThisTurn++;
+      this.vampireArmed = true;
+      sound.playItemUse();
+      this.spawnFloatingText(u.x, u.y - 42, '🧛 ĐẠN HÚT MÁU (50% ST -> HP)!', '#f43f5e', 1.18);
       return true;
     }
 
@@ -1079,22 +1313,26 @@ export class BattleEngine {
       itemId === 'web' ||
       itemId === 'freeze' ||
       itemId === 'poison' ||
+      itemId === 'airstrike' ||
       itemId === 'nuke'
     ) {
-      if (this.activeItemArmed === itemId) {
+      if (this.activeItemArmed === itemId && (slotIndex === undefined || this.armedBagSlotIdx === slotIndex)) {
         this.activeItemArmed = null;
+        this.armedBagSlotIdx = null;
         sound.playClick();
       } else {
         this.activeItemArmed = itemId;
+        this.armedBagSlotIdx = slotIndex ?? null;
         this.powArmed = false;
         sound.playItemUse();
         const labelMap: Record<string, string> = {
           teleport: 'NGỌC DỊCH CHUYỂN',
           digger: 'BOM PHÁ ĐẤT',
           mouse: 'CHUỘT GẮN BOM',
-          web: 'ĐẠN TƠ NHỆN',
+          web: 'ĐẠN TƠ NHỆN ĐỊA HÌNH',
           freeze: 'ĐẠN ĐÓNG BĂNG',
           poison: 'KHÓI ĐỘC AXIT',
+          airstrike: '✈️ MÁY BAY RẢI BOM',
           nuke: 'BOM NGUYÊN TỬ',
         };
         this.spawnFloatingText(u.x, u.y - 42, labelMap[itemId] || itemId, '#c084fc', 1.1);
@@ -1103,6 +1341,63 @@ export class BattleEngine {
     }
 
     return false;
+  }
+
+  private detonateSuicideBomb(u: Fighter): void {
+    sound.stopCharge();
+    sound.playExplosion(1.65);
+    this.shakeIntensity = 18;
+    const ix = u.x;
+    const iy = u.y - 12;
+
+    this.terrain.carveCrater(ix, iy, 'h55x50.png', 1.85);
+    if (this.assets.manifest.effects.nuke) {
+      this.spawnEffect(ix, iy, this.assets.manifest.effects.nuke, 1.55);
+    }
+    this.spawnEffect(ix, iy - 16, this.assets.manifest.effects.bigExplosion, 1.45);
+    this.spawnFloatingText(ix, iy - 48, '💥 BOM CẢM TỬ TỰ SÁT!!', '#ef4444', 1.38);
+
+    const blastRadius = 96;
+    const maxDmg = 680;
+    for (const target of this.fighters) {
+      if (!target.alive || target.id === u.id) continue;
+      const centerY = target.isBoss ? target.y - 24 : target.y - 16;
+      const bodyRadius = target.isBoss ? 28 : 12;
+      const dist = Math.max(0, Math.hypot(target.x - ix, centerY - iy) - bodyRadius);
+      if (dist > blastRadius) continue;
+
+      const falloff = Math.max(0.35, 1 - (dist / blastRadius) * 0.65);
+      let dmg = maxDmg * falloff;
+      if (target.team === u.team) dmg *= 0.35;
+      if (target.shieldTurns > 0) dmg *= 0.45;
+      const finalDmg = Math.max(1, Math.round(dmg));
+      target.hp = Math.max(0, target.hp - finalDmg);
+      target.hurtTimer = 28;
+      if (u.isPlayerControlled && target.team !== u.team) {
+        this.totalDamageDealt += finalDmg;
+      }
+      this.spawnFloatingText(
+        target.x,
+        centerY - 22,
+        `-${finalDmg} 💥 CẢM TỬ!`,
+        '#fbbf24',
+        1.32
+      );
+      if (target.hp <= 0) {
+        target.alive = false;
+        if (target.team === 1) this.enemiesDefeated++;
+        this.spawnEffect(target.x, centerY, this.assets.manifest.effects.bigExplosion, 1.35);
+        this.spawnFloatingText(target.x, centerY - 38, 'HẠ GỤC!', '#fde047', 1.35);
+      }
+    }
+
+    // Hy sinh bản thân sau vụ nổ cảm tử
+    u.hp = 0;
+    u.alive = false;
+    this.checkUltronClonesAlive();
+    this.phase = 'settling';
+    this.settleTicks = 45;
+    this.emitHud();
   }
 
   public skipTurn(): void {
@@ -1140,7 +1435,9 @@ export class BattleEngine {
     if (aliveTeam0 && aliveTeam1) return null;
 
     const myTeam =
-      this.setup.mode === 'online' && this.setup.onlineRole === 'guest' ? 1 : 0;
+      this.setup.mode === 'online' && this.setup.onlineRole === 'guest' && !this.setup.onlineCoopStage
+        ? 1
+        : 0;
     const aliveMyTeam = myTeam === 0 ? aliveTeam0 : aliveTeam1;
     const aliveEnemyTeam = myTeam === 0 ? aliveTeam1 : aliveTeam0;
 
@@ -1153,7 +1450,7 @@ export class BattleEngine {
       damageDealt: Math.round(this.totalDamageDealt),
       enemiesDefeated: this.enemiesDefeated,
       mode: this.setup.mode,
-      stageId: this.setup.stage?.id,
+      stageId: (this.setup.stage ?? this.setup.onlineCoopStage)?.id,
     };
   }
 
@@ -1178,7 +1475,7 @@ export class BattleEngine {
     this.activeUnitId = active.id;
     if (!initial) this.turnNumber++;
 
-    // 1. Kỹ năng của LOKI: Biến hình thành 1 nhân vật ngẫu nhiên mỗi lượt 1 lần và sử dụng kỹ năng của chúng!
+    // 1. Kỹ năng của LOKI: Biến hình thành 1 nhân vật ngẫu nhiên mỗi lượt 1 lần và note rõ tên nhân vật được biến thành!
     if (active.baseHeroId === 'loki') {
       const morphPool = HEROES.filter((h) => h.id !== 'loki');
       const seedVal = Math.abs(this.setup.seed ?? 12345);
@@ -1188,6 +1485,7 @@ export class BattleEngine {
           : Math.floor(Math.random() * morphPool.length);
       const picked = morphPool[pickIdx];
       active.hero = picked;
+      active.morphedHeroName = picked.name;
       active.aimAngleDeg = Math.max(
         picked.minAngle,
         Math.min(picked.maxAngle, active.aimAngleDeg)
@@ -1198,9 +1496,9 @@ export class BattleEngine {
       this.spawnFloatingText(
         active.x,
         active.y - 54,
-        `LOKI BIẾN HÌNH: ${picked.name.toUpperCase()}!`,
+        `LOKI BIẾN HÌNH -> ${picked.name.toUpperCase()}!`,
         '#10b981',
-        1.22
+        1.25
       );
       if (this.setup.mode === 'online' && active.isPlayerControlled) {
         this.onOnlineAction?.({
@@ -1231,14 +1529,14 @@ export class BattleEngine {
       active.poisonTurns--;
       const poisonDmg = 75;
       active.hp = Math.max(1, active.hp - poisonDmg);
-      this.spawnFloatingText(active.x, active.y - 38, `-${poisonDmg} HP (ĐỘC)`, '#84cc16', 1.15);
+      this.spawnFloatingText(active.x, active.y - 38, `-${poisonDmg} HP (ĐỘC AXIT)`, '#84cc16', 1.15);
       if (this.assets.manifest.effects.poison) {
         this.spawnEffect(active.x, active.y - 18, this.assets.manifest.effects.poison, 1.0);
       }
     }
     if (active.frozenTurns && active.frozenTurns > 0) {
       active.frozenTurns--;
-      this.spawnFloatingText(active.x, active.y - 48, 'BỊ ĐÓNG BĂNG! MẤT LƯỢT', '#38bdf8', 1.25);
+      this.spawnFloatingText(active.x, active.y - 48, '❄️ BỊ ĐÓNG BĂNG! MẤT LƯỢT', '#38bdf8', 1.25);
       sound.playPow();
       this.phase = 'settling';
       this.settleTicks = 35;
@@ -1248,7 +1546,7 @@ export class BattleEngine {
     if (active.webbedTurns > 0) {
       active.webbedTurns--;
       active.stamina = 0;
-      this.spawnFloatingText(active.x, active.y - 46, 'BỊ TRÓI TƠ NHỆN!', '#e2e8f0', 1.15);
+      this.spawnFloatingText(active.x, active.y - 46, '🕸️ BỊ TRÓI TƠ NHỆN!', '#e2e8f0', 1.15);
     } else {
       active.stamina = active.maxStamina;
     }
@@ -1294,7 +1592,9 @@ export class BattleEngine {
     this.charge2WaitRelease = false;
     this.powArmed = false;
     this.activeItemArmed = null;
+    this.armedBagSlotIdx = null;
     this.doubleArmed = false;
+    this.vampireArmed = false;
     this.hawkeyeGiantArmed = false;
     this.itemsUsedThisTurn = 0;
     this.usedInstantItemCount = 0;
@@ -1474,23 +1774,19 @@ export class BattleEngine {
         }
       }
 
-      // Iron Man & Ultron: bay tự do 4 hướng (Trái/Phải/Lên/Xuống) lơ lửng trên map, giới hạn bởi thể lực!
+      // Nhân vật bay (Iron Man & Ultron): có thể bay xuyên tường tự do 4 hướng (Trái/Phải/Lên/Xuống), giới hạn bởi thể lực!
       if (u.hero.canFly) {
         if (u.stamina > 0) {
           if (this.keys.flyUp || this.keys.up) {
             const nextY = Math.max(26, u.y - u.hero.moveSpeed * 1.05);
-            if (!this.terrain.isSolid(u.x, nextY - 14)) {
-              u.y = nextY;
-              u.stamina = Math.max(0, u.stamina - 0.62);
-              moved = true;
-            }
+            u.y = nextY;
+            u.stamina = Math.max(0, u.stamina - 0.62);
+            moved = true;
           } else if (this.keys.flyDown || this.keys.down) {
             const nextY = Math.min(this.terrain.waterY - 14, u.y + u.hero.moveSpeed * 1.05);
-            if (!this.terrain.isSolid(u.x, nextY)) {
-              u.y = nextY;
-              u.stamina = Math.max(0, u.stamina - 0.62);
-              moved = true;
-            }
+            u.y = nextY;
+            u.stamina = Math.max(0, u.stamina - 0.62);
+            moved = true;
           }
         }
 
@@ -1584,6 +1880,11 @@ export class BattleEngine {
   }
 
   private updateBotTurn(u: Fighter): void {
+    const syncCoopBot =
+      this.setup.mode === 'online' &&
+      Boolean(this.setup.onlineCoopStage) &&
+      this.setup.onlineRole !== 'guest';
+
     if (!this.botPlan) {
       this.executeFire(u, 55, false);
       return;
@@ -1596,13 +1897,17 @@ export class BattleEngine {
 
     if (this.botPlan.useHeal) {
       this.botPlan.useHeal = false;
-      this.applyUnitItem(u, 'heal');
+      if (this.applyUnitItem(u, 'heal') && syncCoopBot) {
+        this.onOnlineAction?.({ action: 'use_item', unitId: u.id, itemId: 'heal' });
+      }
       this.botThinkTicks = 18;
       return;
     }
     if (this.botPlan.useDouble) {
       this.botPlan.useDouble = false;
-      this.applyUnitItem(u, 'double');
+      if (this.applyUnitItem(u, 'double') && syncCoopBot) {
+        this.onOnlineAction?.({ action: 'use_item', unitId: u.id, itemId: 'double' });
+      }
       this.botThinkTicks = 16;
       return;
     }
@@ -1616,6 +1921,9 @@ export class BattleEngine {
         '#facc15',
         1.25
       );
+      if (syncCoopBot) {
+        this.onOnlineAction?.({ action: 'toggle_pow', unitId: u.id, active: true });
+      }
       this.botThinkTicks = 18;
       return;
     }
@@ -1638,6 +1946,17 @@ export class BattleEngine {
         const ok = this.tryWalkStep(u, dir * u.hero.moveSpeed);
         u.animMode = ok ? 'walk' : 'idle';
         if (!ok) this.botPlan.moveTargetX = u.x;
+      }
+      if (syncCoopBot && this.globalTick % 4 === 0) {
+        this.onOnlineAction?.({
+          action: 'sync_pos',
+          unitId: u.id,
+          x: u.x,
+          y: u.y,
+          facingLeft: u.facingLeft,
+          aimAngle: u.aimAngleDeg,
+          stamina: u.stamina,
+        });
       }
       return;
     }
@@ -1666,13 +1985,11 @@ export class BattleEngine {
 
   private tryWalkStep(u: Fighter, stepX: number): boolean {
     const nextX = Math.max(18, Math.min(this.terrain.width - 18, u.x + stepX));
-    // Iron Man & Ultron: bay tự do lơ lửng trên map, không cần điểm tựa địa hình bên dưới!
+    // Nhân vật bay (Iron Man & Ultron): có thể bay xuyên tường ngang tự do trên map!
     if (u.hero.canFly) {
-      if (!this.terrain.isSolid(nextX, u.y - 6) && !this.terrain.isSolid(nextX, u.y - 18)) {
-        u.x = nextX;
-        u.stamina = Math.max(0, u.stamina - Math.abs(stepX) * 0.65);
-        return true;
-      }
+      u.x = nextX;
+      u.stamina = Math.max(0, u.stamina - Math.abs(stepX) * 0.65);
+      return true;
     }
     for (let climb = -9; climb <= 8; climb++) {
       const testY = u.y + climb;
@@ -1796,7 +2113,15 @@ export class BattleEngine {
     this.phase = 'firing';
     this.manualCamTimer = 0;
 
-    if (!fromRemote && u.isPlayerControlled && this.setup.mode === 'online') {
+    const shouldSyncFireOnline =
+      !fromRemote &&
+      this.setup.mode === 'online' &&
+      (u.isPlayerControlled ||
+        (Boolean(this.setup.onlineCoopStage) &&
+          this.setup.onlineRole !== 'guest' &&
+          !u.isRemoteOnline));
+
+    if (shouldSyncFireOnline) {
       const nextWind = this.rollNextWind();
       this.pendingNextWind = nextWind;
       this.onOnlineAction?.({
@@ -1823,6 +2148,8 @@ export class BattleEngine {
     // 1. Item bắn đặc biệt: Dịch Chuyển (stripIndex 1)
     if (this.activeItemArmed === 'teleport') {
       u.inventory.teleport = Math.max(0, u.inventory.teleport - 1);
+      this.consumeBagSlot(u, 'teleport', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
       this.queueProjectile(0, () => {
         sound.playShoot(false);
         this.spawnBullet(u, u.aimAngleDeg, power, {
@@ -1842,6 +2169,8 @@ export class BattleEngine {
     // 2. Item Bom Phá Đất / Đạn Khoan Đất (stripIndex 9)
     if (this.activeItemArmed === 'digger') {
       u.inventory.digger = Math.max(0, u.inventory.digger - 1);
+      this.consumeBagSlot(u, 'digger', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
       this.queueProjectile(0, () => {
         sound.playShoot(true);
         this.spawnBullet(u, u.aimAngleDeg, power, {
@@ -1862,6 +2191,8 @@ export class BattleEngine {
     // 3. Item Chuột Gắn Bom (stripIndex 5, chuotBull.png)
     if (this.activeItemArmed === 'mouse') {
       u.inventory.mouse = Math.max(0, u.inventory.mouse - 1);
+      this.consumeBagSlot(u, 'mouse', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
       this.queueProjectile(0, () => {
         sound.playShoot(false);
         this.spawnBullet(u, u.aimAngleDeg, Math.min(65, power), {
@@ -1878,16 +2209,18 @@ export class BattleEngine {
       return;
     }
 
-    // 4. Item Đạn Tơ Nhện (stripIndex 10, web.png)
+    // 4. Item Đạn Tơ Nhện (stripIndex 10, web.png) — tạo ra 1 cục tơ nhện tính thành địa hình!
     if (this.activeItemArmed === 'web') {
       u.inventory.web = Math.max(0, u.inventory.web - 1);
+      this.consumeBagSlot(u, 'web', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
       this.queueProjectile(0, () => {
         sound.playShoot(false);
         this.spawnBullet(u, u.aimAngleDeg, power, {
           spriteKey: 'web',
           effectKey: 'smoke',
           holeMask: 'h36x30.png',
-          holeScale: 0.9,
+          holeScale: 0.5,
           damage: u.attack * 0.75,
           blastRadius: 46,
           special: 'web',
@@ -1900,6 +2233,8 @@ export class BattleEngine {
     // 5. Item Đạn Đóng Băng (stripIndex 4, freeze.png)
     if (this.activeItemArmed === 'freeze') {
       u.inventory.freeze = Math.max(0, u.inventory.freeze - 1);
+      this.consumeBagSlot(u, 'freeze', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
       this.queueProjectile(0, () => {
         sound.playShoot(false);
         this.spawnBullet(u, u.aimAngleDeg, power, {
@@ -1919,6 +2254,8 @@ export class BattleEngine {
     // 6. Item Khói Độc Axit (stripIndex 3, axit.png)
     if (this.activeItemArmed === 'poison') {
       u.inventory.poison = Math.max(0, u.inventory.poison - 1);
+      this.consumeBagSlot(u, 'poison', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
       this.queueProjectile(0, () => {
         sound.playShoot(false);
         this.spawnBullet(u, u.aimAngleDeg, power, {
@@ -1935,9 +2272,33 @@ export class BattleEngine {
       return;
     }
 
+    // 6b. Item Máy Bay Thả Bom (airstrike)
+    if (this.activeItemArmed === 'airstrike') {
+      u.inventory.airstrike = Math.max(0, u.inventory.airstrike - 1);
+      this.consumeBagSlot(u, 'airstrike', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(true);
+        this.spawnFloatingText(u.x, u.y - 46, '✈️ GỌI PHI ĐỘI MÁY BAY RẢI BOM!', '#f97316', 1.22);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'special',
+          effectKey: 'smoke',
+          holeMask: 'smallhole.png',
+          holeScale: 0.4,
+          damage: 0,
+          blastRadius: 12,
+          special: 'airstrike',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
     // 7. Item Bom Nguyên Tử (stripIndex 13, thienthach.png/bomnguyentu.png)
     if (this.activeItemArmed === 'nuke') {
       u.inventory.nuke = Math.max(0, u.inventory.nuke - 1);
+      this.consumeBagSlot(u, 'nuke', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
       this.queueProjectile(0, () => {
         sound.playShoot(true);
         this.spawnBullet(u, u.aimAngleDeg, power, {
@@ -1962,6 +2323,21 @@ export class BattleEngine {
     }
     if (u.unitKind === 'mech') {
       this.scheduleBossMechPattern(u, power, usePow);
+      this.emitHud();
+      return;
+    }
+    if (u.unitKind === 'spider') {
+      this.scheduleBossSpiderPattern(u, power, usePow);
+      this.emitHud();
+      return;
+    }
+    if (u.unitKind === 'dragon') {
+      this.scheduleBossDragonPattern(u, power, usePow);
+      this.emitHud();
+      return;
+    }
+    if (u.unitKind === 'fortress') {
+      this.scheduleBossFortressPattern(u, power, usePow);
       this.emitHud();
       return;
     }
@@ -2201,24 +2577,54 @@ export class BattleEngine {
 
       // ================= VŨ KHÍ ĐẶC TRƯNG BIỆT ĐỘI MARVEL =================
       case 'vibranium_shield': {
-        // Captain America: Ném Khiên va chạm địa hình bật nảy 1 lần nữa, hoàn thành hoặc trúng mục tiêu sẽ quay về với Cap!
-        const shots = usePow ? [-2.5, 2.5] : [0];
-        shots.forEach((da, i) => {
-          this.queueProjectile(baseDelay + i * 10, () => {
+        if (usePow) {
+          // Kỹ năng POW của Captain America: Ném Khiên Khổng Lồ, bật nảy 3 lần và gây sát thương lớn!
+          this.queueProjectile(baseDelay, () => {
+            sound.playPow();
+            this.spawnFloatingText(
+              u.x,
+              u.y - 48,
+              '🛡️ KHIÊN VIBRANIUM KHỔNG LỒ (BẬT NẢY 3 LẦN)!',
+              '#38bdf8',
+              1.28
+            );
+            const baseDmg = Math.round(u.attack * 1.48);
+            this.spawnBullet(u, u.aimAngleDeg, power, {
+              spriteKey: 'shield',
+              effectKey: 'nuke',
+              holeMask: 'h55x50.png',
+              holeScale: 1.32,
+              damage: baseDmg,
+              baseDamage: baseDmg,
+              blastRadius: 58,
+              windScale: 0.4,
+              special: 'shield_bounce',
+              bounceCount: 0,
+              maxBounces: 3,
+              scale: 1.85,
+            });
+          });
+        } else {
+          // Bắn thường của Captain America: Khiên bật nảy 2 lần (nảy lần 1 +10% ST, lần 2 +20% ST)!
+          this.queueProjectile(baseDelay, () => {
             sound.playShoot(true);
-            this.spawnBullet(u, u.aimAngleDeg + da, power, {
+            const baseDmg = Math.round(u.attack * 0.85);
+            this.spawnBullet(u, u.aimAngleDeg, power, {
               spriteKey: 'shield',
               effectKey: 'electric',
               holeMask: 'hrangcua.png',
-              holeScale: 1.15,
-              damage: u.attack * (usePow ? 0.68 : 0.85),
+              holeScale: 1.12,
+              damage: baseDmg,
+              baseDamage: baseDmg,
               blastRadius: 44,
               windScale: 0.5,
               special: 'shield_bounce',
-              diggerCharges: 2,
+              bounceCount: 0,
+              maxBounces: 2,
+              scale: 1.08,
             });
           });
-        });
+        }
         break;
       }
 
@@ -2453,6 +2859,114 @@ export class BattleEngine {
     });
   }
 
+  private scheduleBossSpiderPattern(u: Fighter, power: number, usePow: boolean): void {
+    this.spawnFloatingText(
+      u.x,
+      u.y - 58,
+      usePow ? '🕷️ NHỆN CHÚA PHUN TƠ ĐỘC ĐỊA NGỤC!' : '🕷️ PHUN TƠ NHỆN & NỌC ĐỘC!',
+      '#a3e635',
+      1.25
+    );
+    const angles = usePow ? [-6, -2, 2, 6] : [-3, 0, 3];
+    angles.forEach((da, i) => {
+      this.queueProjectile(i * 8, () => {
+        sound.playShoot(true);
+        const isWebBall = i % 2 === 0;
+        this.spawnBullet(u, u.aimAngleDeg + da, power, {
+          spriteKey: isWebBall ? 'web' : 'acid',
+          effectKey: isWebBall ? 'smoke' : 'poison',
+          holeMask: 'h40x35.png',
+          holeScale: 0.95,
+          damage: u.attack * (usePow ? 0.42 : 0.45),
+          blastRadius: 46,
+          special: isWebBall ? 'web' : 'poison',
+        });
+      });
+    });
+  }
+
+  private scheduleBossDragonPattern(u: Fighter, power: number, usePow: boolean): void {
+    this.spawnFloatingText(
+      u.x,
+      u.y - 62,
+      usePow ? '🐉 HẮC LONG HƠI THỞ THIÊN THẠCH HỦY DIỆT!' : '🐉 LỬA RỒNG THIÊN THẠCH!',
+      '#f97316',
+      1.28
+    );
+    const angles = usePow ? [-8, -4, 0, 4, 8] : [-4.5, 0, 4.5];
+    angles.forEach((da, i) => {
+      this.queueProjectile(i * 7, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg + da, power, {
+          spriteKey: 'meteor',
+          effectKey: usePow ? 'nuke' : 'bigExplosion',
+          holeMask: usePow ? 'h55x50.png' : 'h44x39.png',
+          holeScale: usePow ? 1.2 : 1.05,
+          damage: u.attack * (usePow ? 0.44 : 0.46),
+          blastRadius: 48,
+          scale: 1.22,
+        });
+      });
+    });
+  }
+
+  private scheduleBossFortressPattern(u: Fighter, power: number, usePow: boolean): void {
+    this.spawnFloatingText(
+      u.x,
+      u.y - 62,
+      usePow ? '🛸 PHÁO ĐÀI BAY: SẤM SÉT HỦY DIỆT!' : '🛸 PHÁO ĐÀI PHÓNG ĐẠN CHÙM!',
+      '#38bdf8',
+      1.28
+    );
+    const angles = usePow ? [-6, -2, 2, 6] : [-3, 3];
+    angles.forEach((da, i) => {
+      this.queueProjectile(i * 9, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg + da, power, {
+          spriteKey: usePow ? 'stormbreaker' : 'bomb',
+          effectKey: usePow ? 'electric' : 'bigExplosion',
+          holeMask: usePow ? 'h55x50.png' : 'h44x39.png',
+          holeScale: 1.15,
+          damage: u.attack * (usePow ? 0.45 : 0.55),
+          blastRadius: 50,
+          special: usePow ? 'sky_lightning' : 'cluster',
+          diggerCharges: 3,
+        });
+      });
+    });
+  }
+
+  private spawnAirstrikeCarpet(u: Fighter | undefined, centerX: number): void {
+    const ownerId = u?.id ?? this.activeUnitId;
+    const team = u?.team ?? 0;
+    const baseAtk = u?.attack ?? 250;
+    const offsets = [-88, -44, 0, 44, 88];
+    offsets.forEach((dx, idx) => {
+      this.queueProjectile(idx * 6, () => {
+        sound.playShoot(true);
+        const bx = Math.max(24, Math.min(this.terrain.width - 24, centerX + dx));
+        this.projectiles.push({
+          x: bx,
+          y: 16,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: 5.2 + idx * 0.35,
+          ownerId,
+          team,
+          spriteKey: 'bomb',
+          effectKey: 'bigExplosion',
+          holeMask: 'h44x39.png',
+          holeScale: 1.12,
+          damage: baseAtk * 0.56,
+          blastRadius: 46,
+          windScale: 0.15,
+          age: 10,
+          isVampireShot: this.vampireArmed,
+          trail: [],
+        });
+      });
+    });
+  }
+
   private queueProjectile(delayTicks: number, fire: () => void): void {
     this.queuedShots.push({ delayTicks, fire });
   }
@@ -2467,10 +2981,13 @@ export class BattleEngine {
       holeMask: string;
       holeScale: number;
       damage: number;
+      baseDamage?: number;
       blastRadius: number;
       windScale?: number;
       special?: Projectile['special'];
       diggerCharges?: number;
+      bounceCount?: number;
+      maxBounces?: number;
       eggDropTick?: number;
       leapStartY?: number;
       boomerangTurnDir?: 1 | -1;
@@ -2511,13 +3028,17 @@ export class BattleEngine {
       holeMask: opts.holeMask,
       holeScale: opts.holeScale,
       damage: opts.damage,
+      baseDamage: opts.baseDamage ?? opts.damage,
       blastRadius: opts.blastRadius,
       windScale: opts.windScale ?? 1,
       age: 0,
       scale: opts.scale,
       isSuperHighAngle,
+      isVampireShot: this.vampireArmed,
       special: opts.special,
       diggerCharges: opts.diggerCharges,
+      bounceCount: opts.bounceCount,
+      maxBounces: opts.maxBounces,
       eggDropTick: opts.eggDropTick,
       boomerangTurnDir: opts.boomerangTurnDir,
       leapStartY: opts.leapStartY,
@@ -2708,22 +3229,21 @@ export class BattleEngine {
             blastRadius: 42,
             windScale: 0.05,
             age: 4,
+            isVampireShot: p.isVampireShot,
             trail: [],
           });
         }
       }
 
-      // 7. Apache: Khi viên Kim Cương bay lên đạt đỉnh (age >= 24 hoặc vy >= -0.2), dừng lại trên trời và bắn Tia Laze Khúc Xạ Tam Giác!
+      // 7. Apache: Khi viên Kim Cương bay lên đạt đỉnh (age >= 24 || vy >= -0.2), dừng lại trên trời và bắn Tia Laze Khúc Xạ Tam Giác!
       if (p.special === 'apache_diamond' && !p.hoveringDiamond && (p.age >= 24 || p.vy >= -0.2)) {
         p.hoveringDiamond = true;
         p.hoverTicks = 24;
-        // Tìm điểm cuối của tia laze khúc xạ (ưu tiên hướng xuống theo quỹ đạo hoặc kẻ địch phía trước)
         const dirSign = p.vx >= 0 ? 1 : -1;
         let rayX = p.x;
         let rayY = p.y;
         const stepX = dirSign * 3.2;
         const stepY = 5.2;
-        // Nếu có kẻ địch gần đường khúc xạ phía dưới, hội tụ tia laze về phía khu vực đó
         const enemyAhead = this.fighters
           .filter((f) => f.alive && f.team !== p.team && Math.sign(f.x - p.x) === dirSign)
           .sort((a, b) => Math.abs(a.x - (p.x + dirSign * 110)) - Math.abs(b.x - (p.x + dirSign * 110)))[0];
@@ -2805,29 +3325,35 @@ export class BattleEngine {
         }
       }
 
-      if (directFighterHit && p.special !== 'teleport') {
+      if (directFighterHit && p.special !== 'teleport' && p.special !== 'airstrike') {
         if (p.special === 'shield_bounce') {
-          if (!p.isBounced) {
-            // Khiên trúng người mà chưa nảy sẽ nảy lần nữa!
-            this.detonateProjectile(p, p.x, p.y);
+          const curBounce = p.bounceCount ?? 0;
+          const maxB = p.maxBounces ?? 2;
+          const baseDmg = p.baseDamage ?? p.damage;
+          this.detonateProjectile(p, p.x, p.y);
+          if (curBounce < maxB) {
+            p.bounceCount = curBounce + 1;
             p.isBounced = true;
-            // Sát thương khiên bật nảy cao hơn 30% so với ném trực tiếp
-            p.damage = Math.round(p.damage * 1.3);
-            p.diggerCharges = 0;
-            // Đảm bảo không lỗi khi khiên nảy lại bị chặn bởi người vừa bị trúng gây ra x2 lần dame
+            const bonusPct = p.bounceCount * 10;
+            p.damage = Math.round(baseDmg * (1 + p.bounceCount * 0.1));
+            // Miễn nhiễm mục tiêu vừa trúng để không bị kẹt x2 dame
             p.immuneFighterId = directFighterHit.id;
             p.immuneTicks = 16;
             const bounceDir = p.vx >= 0 ? 1 : -1;
             p.x = directFighterHit.x + bounceDir * 18;
             p.y = directFighterHit.y - 30;
-            p.vx = -bounceDir * Math.max(4.2, Math.abs(p.vx) * 0.8);
+            p.vx = -bounceDir * Math.max(4.4, Math.abs(p.vx) * 0.82);
             p.vy = -Math.max(6.2, Math.abs(p.vy) * 0.88);
             sound.playShoot(true);
-            this.spawnFloatingText(p.x, p.y - 20, '🛡️ KHIÊN BẬT NẢY (+30% SÁT THƯƠNG)!', '#38bdf8', 1.25);
+            this.spawnFloatingText(
+              p.x,
+              p.y - 22,
+              `🛡️ KHIÊN NẢY LẦN ${p.bounceCount} (+${bonusPct}% ST)!`,
+              '#38bdf8',
+              1.22
+            );
             continue;
           } else {
-            // Lần trúng sau khi đã bật nảy: gây sát thương cao hơn 30% rồi quay về với Cap
-            this.detonateProjectile(p, p.x, p.y);
             p.returningToOwner = true;
             continue;
           }
@@ -2859,23 +3385,34 @@ export class BattleEngine {
           p.y = hitLand.y + p.vy * 0.8;
           p.vx *= 0.82;
           p.vy *= 0.82;
-        } else if (p.special === 'shield_bounce' && !p.isBounced) {
-          // Khiên va chạm địa hình bật nảy thêm 1 lần: Tăng 30% sát thương cho lần nảy!
-          p.isBounced = true;
-          p.damage = Math.round(p.damage * 1.3);
-          p.diggerCharges = 0;
-          this.detonateProjectile(p, hitLand.x, hitLand.y, true);
-          p.x = hitLand.x;
-          p.y = hitLand.y - 6;
-          p.vx *= 0.82;
-          p.vy = -Math.max(5.5, Math.abs(p.vy) * 0.75);
-          this.spawnFloatingText(p.x, p.y - 20, '🛡️ KHIÊN BẬT NẢY (+30% SÁT THƯƠNG)!', '#38bdf8', 1.25);
         } else if (p.special === 'shield_bounce') {
-          // Sau khi hoàn thành lần nảy thứ 2, Khiên quay trở lại tay Captain America!
-          this.detonateProjectile(p, hitLand.x, hitLand.y, false);
-          p.x = hitLand.x;
-          p.y = hitLand.y - 8;
-          p.returningToOwner = true;
+          const curBounce = p.bounceCount ?? 0;
+          const maxB = p.maxBounces ?? 2;
+          const baseDmg = p.baseDamage ?? p.damage;
+          if (curBounce < maxB) {
+            this.detonateProjectile(p, hitLand.x, hitLand.y, true);
+            p.bounceCount = curBounce + 1;
+            p.isBounced = true;
+            const bonusPct = p.bounceCount * 10;
+            p.damage = Math.round(baseDmg * (1 + p.bounceCount * 0.1));
+            p.x = hitLand.x;
+            p.y = hitLand.y - 7;
+            p.vx *= 0.84;
+            p.vy = -Math.max(5.8, Math.abs(p.vy) * 0.78);
+            sound.playShoot(true);
+            this.spawnFloatingText(
+              p.x,
+              p.y - 22,
+              `🛡️ KHIÊN NẢY LẦN ${p.bounceCount} (+${bonusPct}% ST)!`,
+              '#38bdf8',
+              1.22
+            );
+          } else {
+            this.detonateProjectile(p, hitLand.x, hitLand.y, false);
+            p.x = hitLand.x;
+            p.y = hitLand.y - 8;
+            p.returningToOwner = true;
+          }
         } else {
           this.detonateProjectile(p, hitLand.x, hitLand.y, false);
           this.projectiles.splice(i, 1);
@@ -2896,6 +3433,15 @@ export class BattleEngine {
         sound.playItemUse();
         this.spawnFloatingText(owner.x, owner.y - 40, 'DỊCH CHUYỂN!', '#c084fc', 1.1);
       }
+      return;
+    }
+
+    // 1a. Máy Bay Thả Bom (Airstrike flare)
+    if (p.special === 'airstrike') {
+      const owner = this.fighters.find((f) => f.id === p.ownerId);
+      this.spawnEffect(ix, iy, this.assets.manifest.effects.smoke, 1.15);
+      this.spawnFloatingText(ix, iy - 28, '✈️ MÁY BAY THẢ BOM RẢI THẢM!', '#f97316', 1.25);
+      this.spawnAirstrikeCarpet(owner, ix);
       return;
     }
 
@@ -2926,8 +3472,11 @@ export class BattleEngine {
       }
     }
 
-    // 2. Khoét hố đạn (Hulk đáp đất không phá địa hình) + rung màn hình + hiệu ứng nổ gốc
-    if (p.special !== 'hulk_leap') {
+    // 2. Khoét hố đạn hoặc Tạo Cục Tơ Nhện Địa Hình!
+    if (p.special === 'web') {
+      this.terrain.addWebTerrain(ix, iy, 26);
+      this.spawnFloatingText(ix, iy - 28, '🕸️ CỤC TƠ NHỆN ĐỊA HÌNH!', '#e2e8f0', 1.18);
+    } else if (p.special !== 'hulk_leap') {
       this.terrain.carveCrater(ix, iy, p.holeMask, p.holeScale);
     }
     this.shakeIntensity = Math.min(14, Math.max(this.shakeIntensity, p.blastRadius * 0.18));
@@ -2994,6 +3543,7 @@ export class BattleEngine {
           blastRadius: 32,
           windScale: 0.6,
           age: 10,
+          isVampireShot: p.isVampireShot,
           trail: [],
         });
       }
@@ -3049,12 +3599,12 @@ export class BattleEngine {
 
       if (p.special === 'web' && target.team !== p.team) {
         target.webbedTurns = 1;
-        this.spawnFloatingText(target.x, centerY - 32, 'TRÓI TƠ NHỆN!', '#e2e8f0', 1.15);
+        this.spawnFloatingText(target.x, centerY - 32, '🕸️ TRÓI TƠ NHỆN!', '#e2e8f0', 1.15);
       }
 
       if (p.special === 'freeze' && target.team !== p.team) {
         target.frozenTurns = 1;
-        this.spawnFloatingText(target.x, centerY - 32, 'ĐÓNG BĂNG (MẤT 1 LƯỢT)!', '#38bdf8', 1.25);
+        this.spawnFloatingText(target.x, centerY - 32, '❄️ ĐÓNG BĂNG (MẤT 1 LƯỢT)!', '#38bdf8', 1.25);
         if (this.assets.manifest.effects.freeze) {
           this.spawnEffect(target.x, centerY, this.assets.manifest.effects.freeze, 1.1);
         }
@@ -3062,7 +3612,7 @@ export class BattleEngine {
 
       if (p.special === 'poison' && target.team !== p.team) {
         target.poisonTurns = 2;
-        this.spawnFloatingText(target.x, centerY - 32, 'DÍNH ĐỘC AXIT (2 LƯỢT)!', '#84cc16', 1.2);
+        this.spawnFloatingText(target.x, centerY - 32, '☠️ DÍNH ĐỘC AXIT (2 LƯỢT)!', '#84cc16', 1.2);
         if (this.assets.manifest.effects.poison) {
           this.spawnEffect(target.x, centerY, this.assets.manifest.effects.poison, 1.1);
         }
@@ -3080,6 +3630,19 @@ export class BattleEngine {
       target.hp = Math.max(0, target.hp - finalDmg);
       target.hurtTimer = 24;
 
+      // Hiệu ứng Đạn Hút Máu (Vampire): Hồi 50% sát thương gây ra thành HP cho người bắn!
+      if (p.isVampireShot && shooter && shooter.alive && target.team !== shooter.team) {
+        const vampHeal = Math.max(1, Math.round(finalDmg * 0.5));
+        shooter.hp = Math.min(shooter.maxHp, shooter.hp + vampHeal);
+        this.spawnFloatingText(
+          shooter.x,
+          shooter.y - 46,
+          `+${vampHeal} HP (HÚT MÁU)`,
+          '#4ade80',
+          1.15
+        );
+      }
+
       target.pow = Math.min(100, target.pow + Math.round((finalDmg / target.maxHp) * 85));
       if (shooter && target.team !== shooter.team) {
         shooter.pow = Math.min(100, shooter.pow + Math.round((finalDmg / target.maxHp) * 55));
@@ -3093,7 +3656,11 @@ export class BattleEngine {
       if (p.special === 'sky_lightning') {
         label = `-${finalDmg} 🪓 RÌU!`;
       } else if (p.special === 'shield_bounce') {
-        label = p.isBounced ? `-${finalDmg} 🛡️ BẬT NẢY (+30%)!` : `-${finalDmg} 🛡️ TRỰC TIẾP!`;
+        const bCount = p.bounceCount ?? 0;
+        label =
+          bCount > 0
+            ? `-${finalDmg} 🛡️ NẢY LẦN ${bCount} (+${bCount * 10}%)!`
+            : `-${finalDmg} 🛡️ TRỰC TIẾP!`;
       } else if (p.special === 'ironman_plasma') {
         label = `-${finalDmg} ⚡ PLASMA!`;
       }
@@ -3417,6 +3984,9 @@ export class BattleEngine {
         animTick: f.animTick,
         isPowReady: f.pow >= 100,
         hasShield: f.shieldTurns > 0,
+        isFrozen: (f.frozenTurns ?? 0) > 0,
+        isPoisoned: (f.poisonTurns ?? 0) > 0,
+        isWebbed: f.webbedTurns > 0,
         scale: f.scale,
       });
 
@@ -3434,21 +4004,34 @@ export class BattleEngine {
       const barH = f.isBoss ? 7 : 5;
       const hpRatio = Math.max(0, Math.min(1, f.hp / f.maxHp));
 
+      // Khi Loki biến hình sẽ note tên nhân vật được biến thành ngay trên đầu!
+      const displayName =
+        f.baseHeroId === 'loki' && f.morphedHeroName
+          ? `${f.name} [Biến: ${f.morphedHeroName}]`
+          : f.name;
+
       ctx.save();
       ctx.translate(f.x, f.y + headOffsetY);
 
       ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
       ctx.fillRect(-barW / 2 - 1, -1, barW + 2, barH + 2);
 
-      ctx.fillStyle = f.isPlayerControlled ? '#22c55e' : f.isBoss ? '#f43f5e' : '#ef4444';
+      ctx.fillStyle = f.isPlayerControlled ? '#22c55e' : f.isBoss ? '#f43f5e' : f.team === 0 ? '#38bdf8' : '#ef4444';
       ctx.fillRect(-barW / 2, 0, barW * hpRatio, barH);
 
       ctx.font = f.isBoss ? 'bold 10px system-ui, sans-serif' : '600 9px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#020617';
-      ctx.fillText(f.name, 1, -4);
-      ctx.fillStyle = f.isPlayerControlled ? '#bae6fd' : f.isBoss ? '#fde047' : '#fecaca';
-      ctx.fillText(f.name, 0, -5);
+      ctx.fillText(displayName, 1, -4);
+      ctx.fillStyle =
+        f.baseHeroId === 'loki' && f.morphedHeroName
+          ? '#6ee7b7'
+          : f.isPlayerControlled
+          ? '#bae6fd'
+          : f.isBoss
+          ? '#fde047'
+          : '#fecaca';
+      ctx.fillText(displayName, 0, -5);
 
       if (active && active.id === f.id && turnImg) {
         const bounce = Math.sin(this.globalTick * 0.18) * 3;
@@ -3778,7 +4361,9 @@ export class BattleEngine {
   private emitHud(): void {
     const modeLabel =
       this.setup.mode === 'online'
-        ? `Solo Trực Tuyến 1v1`
+        ? this.setup.onlineCoopStage
+          ? `Tổ Đội Săn Boss Online: ${this.setup.onlineCoopStage.name}`
+          : `Solo Trực Tuyến 1v1`
         : this.setup.mode === 'campaign' && this.setup.stage
         ? this.setup.stage.name
         : `Đấu Bot ${this.setup.teamSize}v${this.setup.teamSize}`;
@@ -3795,7 +4380,9 @@ export class BattleEngine {
       chargePower2: Math.round(this.chargePower2),
       powArmed: this.powArmed,
       activeItemArmed: this.activeItemArmed,
+      armedBagSlotIdx: this.armedBagSlotIdx,
       doubleArmed: this.doubleArmed,
+      vampireArmed: this.vampireArmed,
       hawkeyeGiantArmed: this.hawkeyeGiantArmed,
       turnNumber: this.turnNumber,
       mapName: this.map.name,

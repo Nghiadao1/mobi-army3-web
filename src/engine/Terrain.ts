@@ -110,8 +110,10 @@ export class Terrain {
 
   /**
    * Khoét hố đạn bằng alpha mask gốc (res/hole/*.png) + viền cháy đen (res/hole2/*.png).
+   * Giảm 30% khả năng đào đất theo yêu cầu cân bằng mới.
    */
   public carveCrater(cx: number, cy: number, maskFile = 'h40x35.png', radiusScale = 1): void {
+    const effectiveScale = radiusScale * 0.7;
     const holeImg =
       this.assets.getImage(`./assets/holes/${maskFile}`) ??
       this.assets.getImage('./assets/holes/h40x35.png');
@@ -124,19 +126,19 @@ export class Terrain {
 
     // 1. Phủ viền cháy sém lên phần đất còn tồn tại xung quanh miệng hố
     if (scorchImg) {
-      const sw = scorchImg.width * radiusScale;
-      const sh = scorchImg.height * radiusScale;
+      const sw = scorchImg.width * effectiveScale;
+      const sh = scorchImg.height * effectiveScale;
       this.ctx.globalCompositeOperation = 'source-atop';
       this.ctx.globalAlpha = 0.85;
       this.ctx.drawImage(scorchImg, px - sw / 2, py - sh / 2, sw, sh);
     }
 
     // 2. Đục thủng địa hình theo đúng hình dáng hố đạn gốc (holeImg ở 1x nên nhân this.scale)
-    let logicalW = 44 * radiusScale;
-    let logicalH = 40 * radiusScale;
+    let logicalW = 44 * effectiveScale;
+    let logicalH = 40 * effectiveScale;
     if (holeImg) {
-      logicalW = holeImg.width * radiusScale;
-      logicalH = holeImg.height * radiusScale;
+      logicalW = holeImg.width * effectiveScale;
+      logicalH = holeImg.height * effectiveScale;
       const hw = logicalW * this.scale;
       const hh = logicalH * this.scale;
       this.ctx.globalCompositeOperation = 'destination-out';
@@ -146,7 +148,7 @@ export class Terrain {
       this.ctx.globalCompositeOperation = 'destination-out';
       this.ctx.globalAlpha = 1;
       this.ctx.beginPath();
-      this.ctx.arc(px, py, 22 * radiusScale * this.scale, 0, Math.PI * 2);
+      this.ctx.arc(px, py, 22 * effectiveScale * this.scale, 0, Math.PI * 2);
       this.ctx.fill();
     }
 
@@ -158,6 +160,76 @@ export class Terrain {
       cy - logicalH / 2 - pad,
       logicalW + pad * 2,
       logicalH + pad * 2
+    );
+  }
+
+  /**
+   * Tạo cục tơ nhện đặc dính vào địa hình (tính thành địa hình rắn chắn đạn & cản đường, có thể bị phá hủy).
+   */
+  public addWebTerrain(cx: number, cy: number, radius = 25): void {
+    const px = cx * this.scale;
+    const py = cy * this.scale;
+    const pr = radius * this.scale;
+
+    this.ctx.save();
+    this.ctx.globalCompositeOperation = 'source-over';
+
+    // Nền kén tơ nhện đặc (alpha > 45 để tính là solid = 1)
+    const grad = this.ctx.createRadialGradient(px, py, pr * 0.1, px, py, pr);
+    grad.addColorStop(0, 'rgba(248, 250, 252, 0.96)');
+    grad.addColorStop(0.65, 'rgba(226, 232, 240, 0.90)');
+    grad.addColorStop(0.92, 'rgba(203, 213, 225, 0.78)');
+    grad.addColorStop(1, 'rgba(148, 163, 184, 0.0)');
+
+    this.ctx.fillStyle = grad;
+    this.ctx.beginPath();
+    const lobes = 10;
+    for (let i = 0; i <= lobes * 4; i++) {
+      const a = (i / (lobes * 4)) * Math.PI * 2;
+      const wave = 0.88 + 0.12 * Math.cos(a * lobes);
+      const rx = px + Math.cos(a) * pr * wave;
+      const ry = py + Math.sin(a) * pr * wave;
+      if (i === 0) this.ctx.moveTo(rx, ry);
+      else this.ctx.lineTo(rx, ry);
+    }
+    this.ctx.closePath();
+    this.ctx.fill();
+
+    // Vẽ các vòng tơ đồng tâm & sợi tơ hướng tâm
+    this.ctx.strokeStyle = 'rgba(100, 116, 139, 0.65)';
+    this.ctx.lineWidth = 1.6 * this.scale;
+    for (const ringRatio of [0.32, 0.58, 0.82]) {
+      this.ctx.beginPath();
+      this.ctx.arc(px, py, pr * ringRatio, 0, Math.PI * 2);
+      this.ctx.stroke();
+    }
+
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+    this.ctx.lineWidth = 1.4 * this.scale;
+    const spokes = 8;
+    for (let i = 0; i < spokes; i++) {
+      const a = (i / spokes) * Math.PI * 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(px, py);
+      this.ctx.lineTo(px + Math.cos(a) * pr * 0.94, py + Math.sin(a) * pr * 0.94);
+      this.ctx.stroke();
+    }
+
+    // Viền kén tơ nhện
+    this.ctx.strokeStyle = 'rgba(148, 163, 184, 0.85)';
+    this.ctx.lineWidth = 1.8 * this.scale;
+    this.ctx.beginPath();
+    this.ctx.arc(px, py, pr * 0.88, 0, Math.PI * 2);
+    this.ctx.stroke();
+
+    this.ctx.restore();
+
+    const pad = 6;
+    this.syncSolidRect(
+      cx - radius - pad,
+      cy - radius - pad,
+      (radius + pad) * 2,
+      (radius + pad) * 2
     );
   }
 
