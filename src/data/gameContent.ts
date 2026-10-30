@@ -215,7 +215,7 @@ export const HEROES: HeroDef[] = [
     id: 'ironman',
     name: 'Iron Man',
     title: 'Chiến Giáp Mark XLII [MARVEL]',
-    description: 'Có thể BAY TỰ DO lơ lửng, bắn Tia Plasma Xuyên Tường không bị cản bởi địa hình. POW phóng Bão Tên Lửa Jericho.',
+    description: 'Có thể BAY TỰ DO lơ lửng, bắn Tia Plasma 4 viên thẳng hàng không xuyên tường. POW phóng Bão Tên Lửa Jericho.',
     powName: 'Bão Tên Lửa Jericho Micro & Tia Plasma',
     color: '#f97316',
     faction: 'marvel',
@@ -229,13 +229,13 @@ export const HEROES: HeroDef[] = [
     weapon: 'repulsor',
     holeMask: 'h40x35.png',
     powHoleMask: 'h55x50.png',
-    equipment: { hat: 294, legs: 296, body: 295, gun: -1, glass: -1, back: -1 },
+    equipment: { hat: 204, legs: 296, body: 295, gun: -1, glass: -1, back: -1 },
   },
   {
     id: 'hulk',
     name: 'Hulk',
     title: 'Người Khổng Lồ Xanh [MARVEL]',
-    description: 'BẬT NHẢY trực tiếp tới đích gây chấn động lên kẻ địch (không phá địa hình & không tự gây sát thương)! Máu siêu trâu (2150 HP), sức mạnh cú nhảy rung chuyển chiến trường.',
+    description: 'BẬT NHẢY trực tiếp tới đích không bị cản bởi gió, ngắm bắn thẳng góc 90°! Dẫm trúng người không phá đất, dẫm không trúng sẽ chấn động phá đất! Máu siêu trâu (2150 HP).',
     powName: 'Cú Nhảy Hủy Diệt Thế Giới (Siêu Chấn Động)',
     color: '#22c55e',
     faction: 'marvel',
@@ -244,7 +244,7 @@ export const HEROES: HeroDef[] = [
     moveSpeed: 1.6,
     staminaMax: 130,
     minAngle: -25,
-    maxAngle: 89,
+    maxAngle: 90,
     weapon: 'hulk_leap',
     holeMask: 'h55x50.png',
     powHoleMask: 'h55x50.png',
@@ -325,7 +325,7 @@ export const HEROES: HeroDef[] = [
     weapon: 'loki_morph',
     holeMask: 'h40x35.png',
     powHoleMask: 'h55x50.png',
-    equipment: { hat: 220, legs: 222, body: 221, gun: -1, glass: -1, back: -1 },
+    equipment: { hat: 198, legs: 222, body: 221, gun: -1, glass: -1, back: -1 },
   },
 ];
 
@@ -1355,9 +1355,9 @@ export const BOSS_HUNT_STAGES: CampaignStage[] = [
   {
     id: 101,
     name: 'Săn Boss: Đĩa Bay Plasma UFO',
-    subtitle: 'Trùm Ngoài Hành Tinh',
-    description: 'Tổ đội 2 người phối hợp tiêu diệt Đĩa Bay UFO mang lượng máu cực trâu cùng pháo Plasma sấm sét!',
-    mapId: 17, // Khu năng lượng
+    subtitle: 'Trùm Ngoài Hành Tinh (Map Siêu Rộng)',
+    description: 'Tổ đội 2 người phối hợp trên Đấu trường Siêu rộng 1100x850 tiêu diệt Đĩa Bay UFO mang lượng máu cực trâu cùng pháo Plasma sấm sét!',
+    mapId: 50, // Boss Bao vây (1100x850)
     allyHeroId: 'thor',
     windMax: 22,
     rewardTitle: 'Thợ Săn Đĩa Bay Huyền Thoại',
@@ -1388,9 +1388,9 @@ export const BOSS_HUNT_STAGES: CampaignStage[] = [
   {
     id: 102,
     name: 'Săn Boss: Cỗ Máy Hủy Diệt Pháo Đài',
-    subtitle: 'Pháo Đài Cơ Khí Tối Thượng',
-    description: 'Thách thức sức mạnh trước Đại Boss Cơ Khí bọc thép hạng nặng cùng dàn tên lửa đa nòng!',
-    mapId: 39, // Đền tế 2
+    subtitle: 'Pháo Đài Cơ Khí Tối Thượng (Hai Tòa Tháp 1150x700)',
+    description: 'Thách thức sức mạnh trước Đại Boss Cơ Khí bọc thép hạng nặng cùng dàn tên lửa đa nòng giữa Hai Tòa Tháp khổng lồ!',
+    mapId: 51, // Boss Hai tòa tháp (1150x700)
     allyHeroId: 'ironman',
     windMax: 25,
     rewardTitle: 'Thợ Săn Cơ Khí Bất Tử',
@@ -1422,9 +1422,9 @@ export const BOSS_HUNT_STAGES: CampaignStage[] = [
   {
     id: 103,
     name: 'Săn Boss: Song Long Hỗn Chiến',
-    subtitle: 'Song Đại Boss UFO & Mech',
-    description: 'Trận săn boss đỉnh cao nhất: Đứng trước cả 2 Đại Boss cùng lúc! Đòi hỏi tính toán góc bắn và phối hợp đồng đội chuẩn xác 100%.',
-    mapId: 34, // Thiên đường
+    subtitle: 'Đại Chiến Khí Cầu Vũ Trụ (1200x800)',
+    description: 'Trận săn boss đỉnh cao trên bản đồ Khí Cầu cực rộng 1200x800: Đứng trước cả 2 Đại Boss cùng lúc! Đòi hỏi tính toán góc bắn chuẩn xác.',
+    mapId: 52, // Boss Khí cầu (1200x800)
     allyHeroId: 'captain',
     windMax: 28,
     rewardTitle: 'Chiến Thần Diệt Boss',
@@ -1458,9 +1458,9 @@ export const BOSS_HUNT_STAGES: CampaignStage[] = [
   {
     id: 104,
     name: 'Săn Boss: Hạm Đội Oanh Tạc Vũ Trụ',
-    subtitle: 'ĐẠI BOSS MECH CHIẾN TRƯỜNG',
-    description: 'Thách thức phối hợp tổ đội 2 người đối đầu cỗ máy hủy diệt 6500 HP được hỗ trợ bởi 2 phi cơ oanh tạc hạng nặng!',
-    mapId: 25, // Chiến trường
+    subtitle: 'ĐẠI BOSS MECH CHIẾN TRƯỜNG (Đặt Bom 1000x800)',
+    description: 'Thách thức phối hợp tổ đội 2 người đối đầu cỗ máy hủy diệt 6500 HP được hỗ trợ bởi 2 phi cơ oanh tạc hạng nặng trên map Đặt Bom 1000x800!',
+    mapId: 53, // Boss Đặt bom (1000x800)
     allyHeroId: 'ironman',
     windMax: 30,
     rewardTitle: 'Chúa Tể Chiến Trường Vũ Trụ',
@@ -1502,9 +1502,9 @@ export const BOSS_HUNT_STAGES: CampaignStage[] = [
   {
     id: 105,
     name: 'Săn Boss: Tận Thế Tam Đại Trùm',
-    subtitle: 'TAM ĐẠI TRÙM TẬN THẾ',
-    description: 'Trận săn Boss quy mô khủng khiếp nhất toàn cõi Mobi Army! Cả 3 Đại Boss tối thượng đồng loạt xuất trận mang tổng lượng máu hơn 12.000 HP!',
-    mapId: 41, // Bong bóng 2
+    subtitle: 'TAM ĐẠI TRÙM TẬN THẾ (Đại Đảo Rùa 1000x800)',
+    description: 'Trận săn Boss quy mô khủng khiếp nhất toàn cõi Mobi Army trên map Rùa 1000x800! Cả 3 Đại Boss tối thượng đồng loạt xuất trận mang tổng lượng máu hơn 12.000 HP!',
+    mapId: 54, // Boss Rùa (1000x800)
     allyHeroId: 'ultron',
     windMax: 32,
     rewardTitle: 'CHIẾN THẦN BẤT TỬ HUYỀN THOẠI',
@@ -1547,16 +1547,16 @@ export const BOSS_HUNT_STAGES: CampaignStage[] = [
   },
   {
     id: 106,
-    name: 'Săn Boss: Cự Thú Kim Tự Tháp Cổ',
-    subtitle: 'CỰ THÚ SA MẠC',
-    description: 'Địa hình kim tự tháp dốc đứng. Đối đầu Cỗ máy Mech Cổ Đại 6000 HP cùng phi cơ ném bom bão cát.',
-    mapId: 22, // Kim tự tháp 2
+    name: 'Săn Boss: Cự Thú Rồng Thiêng Cổ Đại',
+    subtitle: 'CỰ THÚ HỎA LONG (Bản Đồ Rồng 1000x800)',
+    description: 'Địa hình lòng rồng uốn lượn 1000x800. Đối đầu Cỗ máy Mech Cổ Đại 6000 HP cùng phi cơ ném bom bão lửa.',
+    mapId: 55, // Boss Rồng (1000x800)
     allyHeroId: 'hulk',
     windMax: 26,
-    rewardTitle: 'Kẻ Trừng Phạt Sa Mạc',
+    rewardTitle: 'Kẻ Trừng Phạt Rồng Thiêng',
     enemies: [
       {
-        name: 'ĐẠI CỰ THÚ KIM TỰ THÁP',
+        name: 'ĐẠI CỰ THÚ HỎA LONG',
         unitKind: 'mech',
         heroId: 'rocketer',
         hp: 6000,
@@ -1581,34 +1581,37 @@ export const BOSS_HUNT_STAGES: CampaignStage[] = [
   },
   {
     id: 107,
-    name: 'Săn Boss: Bão Tố Thang Mây',
-    subtitle: 'ĐĨA BAY LÔI ĐIỆN VŨ TRỤ',
-    description: 'Đĩa Bay Sấm Sét 5800 HP lơ lửng đỉnh thang mây, liên tục phóng các chùm tia sấm giáng từ trên cao!',
-    mapId: 28, // Thang mây
+    name: 'Săn Boss: Bạo Chúa Công Nghệ Tối Thượng',
+    subtitle: 'TRÙM CÔNG NGHỆ (1000x800)',
+    description: 'Bản đồ Bạo Chúa Công Nghệ 1000x800 kiên cố với nền sắt ngầm. Đại Boss Công Nghệ 7500 HP liên tục phóng chùm tia Plasma và tên lửa hủy diệt!',
+    mapId: 56, // Boss Bạo chúa công nghệ (1000x800)
     allyHeroId: 'thor',
     windMax: 28,
-    rewardTitle: 'Chúa Tể Bão Tố',
+    rewardTitle: 'Chúa Tể Công Nghệ Tối Thượng',
     enemies: [
+      {
+        name: 'BẠO CHÚA CÔNG NGHỆ TỐI THƯỢNG',
+        unitKind: 'mech',
+        heroId: 'rocketer',
+        hp: 7500,
+        attack: 310,
+        difficulty: 'hard',
+        spawnXRatio: 0.8,
+        spawnY: 150,
+        isBoss: true,
+        scale: 1.35,
+      },
       {
         name: 'TRÙM ĐĨA BAY LÔI ĐIỆN',
         unitKind: 'ufo',
         heroId: 'electrician',
-        hp: 5800,
-        attack: 285,
+        hp: 4200,
+        attack: 270,
         difficulty: 'hard',
-        spawnXRatio: 0.75,
+        spawnXRatio: 0.65,
         spawnY: 135,
         isBoss: true,
-        scale: 1.25,
-      },
-      {
-        name: 'Chiến Binh Bão Tố',
-        unitKind: 'hero',
-        heroId: 'thor',
-        hp: 1500,
-        attack: 260,
-        difficulty: 'hard',
-        spawnXRatio: 0.88,
+        scale: 1.2,
       },
     ],
   },

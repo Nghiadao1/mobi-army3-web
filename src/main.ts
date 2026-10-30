@@ -33,6 +33,9 @@ class GameApp {
   // Trạng thái phòng & Giao diện chuẩn ảnh Mobi Army 3
   private activeModal: 'none' | 'hero' | 'bag' | 'map' | 'mode' | 'menu' | 'chat' | 'online_room' | 'guide' = 'none';
   private selectingSlotForHero: 'player' | 'ally' = 'player';
+  private lobbyView: 'room' | 'board' = 'room';
+  private boardTab: 'boss_hunt' | 'campaign' | 'online' | 'maps' = 'boss_hunt';
+  private chatTickerTimeout: any = null;
   private lobbyChatMessages: Array<{ sender: string; text: string; time: string; isSelf?: boolean }> = [
     { sender: 'Hệ Thống', text: 'Chào mừng các xạ thủ đến với Mobi Army 3 Web!', time: '12:00' }
   ];
@@ -208,6 +211,7 @@ class GameApp {
 
           this.updatePedestalBubbles();
           this.updateChatDrawer();
+          this.showChatTicker(packet.senderName || 'Đối Thủ', packet.text);
 
           if (this.battle) {
             const remoteFighter = this.battle.fighters.find(
@@ -291,6 +295,25 @@ class GameApp {
       .replace(/'/g, '&#039;');
   }
 
+  public showChatTicker(sender: string, text: string): void {
+    const bar = document.getElementById('chatTickerBar');
+    const textEl = document.getElementById('chatTickerText');
+    if (!bar || !textEl) return;
+    textEl.textContent = `📢 [${sender}]: ${text}`;
+    bar.classList.remove('hidden');
+    // Khởi động lại animation trượt chữ
+    textEl.style.animation = 'none';
+    void textEl.offsetWidth;
+    textEl.style.animation = 'ticker-scroll 12s linear infinite';
+
+    if (this.chatTickerTimeout) {
+      clearTimeout(this.chatTickerTimeout);
+    }
+    this.chatTickerTimeout = setTimeout(() => {
+      bar.classList.add('hidden');
+    }, 12000);
+  }
+
   private sendChatMessage(text: string): void {
     if (!text || !text.trim()) return;
     const trimmed = text.trim();
@@ -312,6 +335,7 @@ class GameApp {
     sound.playClick();
     this.updatePedestalBubbles();
     this.updateChatDrawer();
+    this.showChatTicker('Bạn', trimmed);
 
     if (this.online.isConnected) {
       this.online.send({
@@ -358,6 +382,172 @@ class GameApp {
   }
 
   // ==================== AUTHENTIC MOBI ARMY 3 LOBBY ROOM ====================
+
+  private renderLobbyBoardHtml(): string {
+    const tabs: Array<{ id: 'boss_hunt' | 'campaign' | 'online' | 'maps'; label: string }> = [
+      { id: 'boss_hunt', label: '👑 Săn Boss Tổ Đội (7 Ải Boss Khủng)' },
+      { id: 'campaign', label: '🗺️ Vượt Ải Chiến Dịch (25 Ải)' },
+      { id: 'online', label: '🌐 Phòng Đấu Solo Online' },
+      { id: 'maps', label: '⚔️ Tất Cả 50 Map Gốc' },
+    ];
+
+    const tabHtml = tabs
+      .map(
+        (t) => `
+      <button class="board-tab-btn ${this.boardTab === t.id ? 'active' : ''}" data-board-tab="${t.id}">
+        ${t.label}
+      </button>
+    `
+      )
+      .join('');
+
+    let rowsHtml = '';
+    if (this.boardTab === 'boss_hunt') {
+      rowsHtml = BOSS_HUNT_STAGES.map((s) => {
+        const mapDef = this.assets.maps.find((m) => m.mapId === s.mapId);
+        const mapName = mapDef?.name ?? `Map ${s.mapId}`;
+        const mapSize = mapDef ? `${mapDef.width}m x ${mapDef.height}m` : '1000m x 800m';
+        const bossEnemy = s.enemies[0];
+        const diff = bossEnemy?.difficulty ?? 'hard';
+        const isSelected = this.selectedCoopBossStageId === s.id;
+        return `
+          <tr class="board-row" data-enter-boss-stage="${s.id}">
+            <td class="board-cell">
+              <div class="board-cell-stage">
+                <span class="board-badge boss">Ải ${s.id}</span>
+                <div>
+                  <div class="board-stage-title">${s.name}</div>
+                  <div class="board-stage-sub">${s.subtitle}</div>
+                </div>
+              </div>
+            </td>
+            <td class="board-cell">
+              <div style="font-weight:700;color:#facc15">${mapName}</div>
+              <div style="font-size:0.72rem;color:#94a3b8">Kích thước: ${mapSize}</div>
+            </td>
+            <td class="board-cell">
+              <div style="font-weight:800;color:#f43f5e">${bossEnemy.name}</div>
+              <div style="font-size:0.72rem;color:#cbd5e1">HP: ${bossEnemy.hp} | Công: ${bossEnemy.attack}</div>
+            </td>
+            <td class="board-cell">
+              <span class="board-badge ${diff === 'hard' ? 'boss' : 'campaign'}">${diff.toUpperCase()}</span>
+              <div style="font-size:0.72rem;color:#94a3b8;margin-top:2px">Gió tối đa: ${s.windMax}</div>
+            </td>
+            <td class="board-cell" style="text-align:right">
+              <button class="board-btn-enter" data-enter-boss-stage="${s.id}">
+                ${isSelected ? '⚔️ Bắt Đầu' : '🎯 Chọn Ải'}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } else if (this.boardTab === 'campaign') {
+      rowsHtml = CAMPAIGN_STAGES.map((s) => {
+        const mapDef = this.assets.maps.find((m) => m.mapId === s.mapId);
+        const mapName = mapDef?.name ?? `Map ${s.mapId}`;
+        const mapSize = mapDef ? `${mapDef.width}m x ${mapDef.height}m` : '1000m x 700m';
+        const isLocked = s.id > this.unlockedStage;
+        const isCurrent = s.id === this.unlockedStage;
+        return `
+          <tr class="board-row ${isLocked ? 'locked' : ''}" data-enter-campaign-stage="${s.id}" style="${isLocked ? 'opacity:0.5' : ''}">
+            <td class="board-cell">
+              <div class="board-cell-stage">
+                <span class="board-badge campaign">Ải ${s.id}</span>
+                <div>
+                  <div class="board-stage-title">${s.name}</div>
+                  <div class="board-stage-sub">${s.subtitle}</div>
+                </div>
+              </div>
+            </td>
+            <td class="board-cell">
+              <div style="font-weight:700;color:#facc15">${mapName}</div>
+              <div style="font-size:0.72rem;color:#94a3b8">${mapSize}</div>
+            </td>
+            <td class="board-cell">
+              <div style="font-weight:700;color:#cbd5e1">${s.enemies.map((e) => e.name).join(', ')}</div>
+              <div style="font-size:0.72rem;color:#94a3b8">${s.enemies.length} Kẻ Địch</div>
+            </td>
+            <td class="board-cell">
+              <span class="board-badge ${isLocked ? 'boss' : 'campaign'}">${isLocked ? '🔒 Khóa' : isCurrent ? '⭐ Đang Đến' : '✅ Đã Vượt'}</span>
+            </td>
+            <td class="board-cell" style="text-align:right">
+              <button class="board-btn-enter" data-enter-campaign-stage="${s.id}" ${isLocked ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>
+                ${isLocked ? 'Chưa Mở' : '⚔️ Chiến Ngay'}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } else if (this.boardTab === 'online') {
+      rowsHtml = `
+        <tr class="board-row">
+          <td class="board-cell" colspan="5" style="text-align:center;padding:24px 12px">
+            <div style="font-size:1.1rem;font-weight:900;color:#facc15;margin-bottom:8px">🌐 PHÒNG ĐẤU TRỰC TUYẾN REALTIME</div>
+            <div style="font-size:0.85rem;color:#cbd5e1;margin-bottom:16px">${this.onlineStatusText}</div>
+            <div style="display:flex;justify-content:center;gap:12px">
+              <button class="board-btn-enter" id="board-btn-create-online" style="padding:10px 22px;font-size:0.9rem">➕ Tạo Phòng 1v1 Mới</button>
+              <button class="board-btn-enter" id="board-btn-join-online" style="padding:10px 22px;font-size:0.9rem;background:linear-gradient(180deg,#38bdf8,#0284c7)">🔑 Nhập Mã Phòng</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    } else {
+      // 50 official maps
+      rowsHtml = this.assets.maps.map((m) => {
+        const isSelected = this.selectedMapId === m.mapId;
+        const isBossMap = m.name.startsWith('Boss');
+        return `
+          <tr class="board-row" data-select-board-map="${m.mapId}">
+            <td class="board-cell">
+              <div class="board-cell-stage">
+                <span class="board-badge ${isBossMap ? 'boss' : 'campaign'}">${isBossMap ? '👑 Boss' : 'Map'} #${m.mapId}</span>
+                <div class="board-stage-title">${m.name}</div>
+              </div>
+            </td>
+            <td class="board-cell">
+              <div style="font-weight:700;color:#facc15">${m.width}m x ${m.height}m</div>
+              <div style="font-size:0.72rem;color:#94a3b8">Mực nước: ${m.waterY}px</div>
+            </td>
+            <td class="board-cell">
+              <div style="color:#cbd5e1">${m.bricks.length} Khối Địa Hình</div>
+            </td>
+            <td class="board-cell">
+              <span class="board-badge ${isBossMap ? 'boss' : 'campaign'}">${isBossMap ? 'Map Boss Khủng' : 'Chiến Trường Tiêu Chuẩn'}</span>
+            </td>
+            <td class="board-cell" style="text-align:right">
+              <button class="board-btn-enter" data-select-board-map="${m.mapId}">
+                ${isSelected ? '✅ Đang Chọn' : '🎯 Chọn Map Này'}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    return `
+      <div class="lobby-board-view">
+        <div class="board-tab-row">
+          ${tabHtml}
+        </div>
+        <div class="board-table-container">
+          <table class="board-table">
+            <thead>
+              <tr>
+                <th>Ải / Bản Đồ</th>
+                <th>Kích Thước</th>
+                <th>Thông Số Đối Thủ</th>
+                <th>Độ Khó / Trạng Thái</th>
+                <th style="text-align:right">Hành Động</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
 
   private renderLobby(): void {
     if (this.battle) {
@@ -418,15 +608,19 @@ class GameApp {
 
     this.uiRoot.innerHTML = `
       <div class="room-lobby-screen">
-        <!-- Thanh Trên: Nút Chat, Bản Đồ Giữa, Vàng & Lực Cân Bằng, Nút Mode/Âm Thanh -->
+        <!-- Thanh Trên: Nút Chat, Bản Đồ Giữa, View Switch, Nút Mode/Âm Thanh -->
         <div class="room-top-bar">
-          <div style="display:flex;align-items:center;gap:10px">
+          <div style="display:flex;align-items:center;gap:8px">
             <button class="room-btn-circle" id="btn-room-chat" title="Mở Khung Chat">💬</button>
             <div style="text-shadow:0 1px 3px rgba(0,0,0,0.85)">
               <div style="font-weight:900;font-size:0.86rem;color:#fef08a">MOBI ARMY 3 WEB</div>
               <div style="font-size:0.72rem;color:#cbd5e1">${
-                this.online.roomCode ? `Phòng #${this.online.roomCode}` : 'Bản Đồ Chiến Đấu'
+                this.online.roomCode ? `Phòng #${this.online.roomCode}` : 'Sảnh Chờ Chiến Đấu'
               }</div>
+            </div>
+            <div class="lobby-view-toggle" style="margin-left:4px">
+              <button class="lobby-toggle-btn ${this.lobbyView === 'room' ? 'active' : ''}" id="btn-view-room" title="Chế độ Phòng Chờ 8 Bệ">🏟️ Bệ Phòng</button>
+              <button class="lobby-toggle-btn ${this.lobbyView === 'board' ? 'active' : ''}" id="btn-view-board" title="Chế độ Bảng Danh Sách Phòng & Ải">📋 Bảng Phòng & Ải</button>
             </div>
           </div>
 
@@ -450,6 +644,9 @@ class GameApp {
           </div>
         </div>
 
+        ${
+          this.lobbyView === 'room'
+            ? `
         <!-- 8 Bệ Đứng Chiến Binh (4 Phe Xanh Bên Trái vs 4 Phe Đỏ Bên Phải) -->
         <div class="room-pedestals-stage">
           <!-- Phe Trái (Team 1) -->
@@ -538,6 +735,9 @@ class GameApp {
             </div>
           </div>
         </div>
+        `
+            : this.renderLobbyBoardHtml()
+        }
 
         <!-- Thanh Đáy: Nút Menu, 6 Ô Túi Đồ, Nút Bắt Đầu -->
         <div class="room-bottom-bar">
@@ -553,8 +753,10 @@ class GameApp {
       </div>
     `;
 
-    // Vẽ các Tướng lên bệ đứng
-    this.renderPedestalHeroes();
+    // Vẽ các Tướng lên bệ đứng nếu đang ở chế độ bệ phòng
+    if (this.lobbyView === 'room') {
+      this.renderPedestalHeroes();
+    }
 
     // Vẽ thumbnail bản đồ thu nhỏ
     const mapThumbCanvas = document.getElementById('room-map-thumb') as HTMLCanvasElement | null;
@@ -563,6 +765,81 @@ class GameApp {
     }
 
     // Gắn sự kiện các nút chính
+    document.getElementById('btn-view-room')?.addEventListener('click', () => {
+      sound.playClick();
+      this.lobbyView = 'room';
+      this.renderLobby();
+    });
+
+    document.getElementById('btn-view-board')?.addEventListener('click', () => {
+      sound.playClick();
+      this.lobbyView = 'board';
+      this.renderLobby();
+    });
+
+    // Sự kiện chuyển Tab trên Bảng Danh Sách Phòng & Ải
+    this.uiRoot.querySelectorAll<HTMLElement>('[data-board-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        sound.playClick();
+        this.boardTab = btn.dataset.boardTab as any;
+        this.renderLobby();
+      });
+    });
+
+    // Chọn & vào ải Săn Boss từ Bảng
+    this.uiRoot.querySelectorAll<HTMLElement>('[data-enter-boss-stage]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const stageId = parseInt(el.dataset.enterBossStage || '101', 10);
+        sound.playClick();
+        this.activeTab = 'boss_hunt';
+        this.selectedCoopBossStageId = stageId;
+        const st = BOSS_HUNT_STAGES.find((s) => s.id === stageId);
+        if (st) this.selectedMapId = st.mapId;
+        this.lobbyView = 'room';
+        this.renderLobby();
+      });
+    });
+
+    // Chọn ải Chiến Dịch từ Bảng
+    this.uiRoot.querySelectorAll<HTMLElement>('[data-enter-campaign-stage]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const stageId = parseInt(el.dataset.enterCampaignStage || '1', 10);
+        if (stageId > this.unlockedStage) return;
+        sound.playClick();
+        this.activeTab = 'campaign';
+        const st = CAMPAIGN_STAGES.find((s) => s.id === stageId);
+        if (st) this.selectedMapId = st.mapId;
+        this.lobbyView = 'room';
+        this.renderLobby();
+      });
+    });
+
+    // Chọn Bản Đồ từ Bảng
+    this.uiRoot.querySelectorAll<HTMLElement>('[data-select-board-map]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mapId = parseInt(el.dataset.selectBoardMap || '1', 10);
+        sound.playClick();
+        this.selectedMapId = mapId;
+        this.lobbyView = 'room';
+        this.renderLobby();
+      });
+    });
+
+    document.getElementById('board-btn-create-online')?.addEventListener('click', () => {
+      sound.playClick();
+      this.activeModal = 'online_room';
+      this.renderLobby();
+    });
+
+    document.getElementById('board-btn-join-online')?.addEventListener('click', () => {
+      sound.playClick();
+      this.activeModal = 'online_room';
+      this.renderLobby();
+    });
+
     document.getElementById('btn-room-chat')?.addEventListener('click', () => {
       sound.playClick();
       this.activeModal = 'chat';
@@ -1383,6 +1660,9 @@ class GameApp {
         }
       }
     );
+    this.battle.onChatMessage = (msg) => {
+      this.showChatTicker(msg.sender, msg.text);
+    };
     this.battle.start();
   }
 

@@ -207,6 +207,7 @@ export class BattleEngine {
   public readonly terrain: Terrain;
   public readonly charRenderer: CharacterRenderer;
   public fighters: Fighter[] = [];
+  public onChatMessage?: (msg: { sender: string; text: string }) => void;
 
   private projectiles: Projectile[] = [];
   private queuedShots: QueuedShot[] = [];
@@ -1194,6 +1195,7 @@ export class BattleEngine {
     u.chatText = text;
     u.chatTimer = 220; // ~4s
     sound.playClick();
+    this.onChatMessage?.({ sender: u.name, text });
     if (this.setup.mode === 'online' && !fighterId && u.isPlayerControlled) {
       this.onOnlineAction?.({
         action: 'chat',
@@ -2793,7 +2795,7 @@ export class BattleEngine {
 
       case 'hulk_leap':
       case 'hulk_smash': {
-        // Hulk: Thay vì bắn súng, Hulk BẬT NHẢY trực tiếp tới đích và gây sát thương khi nhảy trúng mục tiêu! Nhảy càng cao sát thương càng to!
+        // Hulk: Thay vì bắn súng, Hulk BẬT NHẢY trực tiếp tới đích và gây sát thương khi nhảy trúng mục tiêu! Không bị ảnh hưởng bởi gió!
         this.queueProjectile(baseDelay, () => {
           sound.playShoot(true);
           this.spawnFloatingText(u.x, u.y - 46, 'HULK BẬT NHẢY!!', '#ef4444', 1.25);
@@ -2804,7 +2806,7 @@ export class BattleEngine {
             holeScale: usePow ? 1.38 : 1.18,
             damage: u.attack * (usePow ? 1.25 : 0.92),
             blastRadius: 56,
-            windScale: 0.4,
+            windScale: 0,
             special: 'hulk_leap',
             leapStartY: u.y,
           });
@@ -3282,7 +3284,8 @@ export class BattleEngine {
           }
         }
       } else {
-        p.vx += this.wind * PHYSICS.WIND_FACTOR * p.windScale;
+        const effectiveWind = p.special === 'hulk_leap' ? 0 : this.wind;
+        p.vx += effectiveWind * PHYSICS.WIND_FACTOR * p.windScale;
         p.vy += PHYSICS.GRAVITY;
       }
 
@@ -3539,7 +3542,8 @@ export class BattleEngine {
       return;
     }
 
-    // 1b. Hulk Bật Nhảy: Khi đáp đất sẽ KHÔNG phá địa hình và KHÔNG tự gây sát thương lên chính mình!
+    // 1b. Hulk Bật Nhảy: Khi dẫm trúng người sẽ KHÔNG phá đất, nhưng khi không trúng người sẽ CÓ hiệu ứng phá đất!
+    let hulkHitEnemy = false;
     if (p.special === 'hulk_leap') {
       const owner = this.fighters.find((f) => f.id === p.ownerId && f.alive);
       const heightBonus = Math.min(1.4, Math.max(0.05, (p.leapPeakHeight ?? 0) / 155));
@@ -3564,13 +3568,36 @@ export class BattleEngine {
           1.22
         );
       }
+
+      // Kiểm tra xem có trúng mục tiêu (đối phương) hay không
+      for (const target of this.fighters) {
+        if (!target.alive || target.id === p.ownerId) continue;
+        const centerY = target.isBoss ? target.y - 24 : target.y - 16;
+        const bodyRadius = target.isBoss ? 26 : 12;
+        const dist = Math.max(0, Math.hypot(target.x - ix, centerY - iy) - bodyRadius);
+        if (dist <= p.blastRadius) {
+          hulkHitEnemy = true;
+          break;
+        }
+      }
+
+      if (hulkHitEnemy) {
+        this.spawnFloatingText(ix, iy - 32, '🎯 DẬM TRÚNG MỤC TIÊU (GIỮ ĐỊA HÌNH)', '#22c55e', 1.25);
+      } else {
+        this.spawnFloatingText(ix, iy - 32, '💥 ĐỊA CHẤN HỦY DIỆT ĐẤT', '#ef4444', 1.25);
+      }
     }
 
     // 2. Khoét hố đạn hoặc Tạo Cục Tơ Nhện Địa Hình!
     if (p.special === 'web') {
       this.terrain.addWebTerrain(ix, iy, 26);
       this.spawnFloatingText(ix, iy - 28, '🕸️ CỤC TƠ NHỆN ĐỊA HÌNH!', '#e2e8f0', 1.18);
-    } else if (p.special !== 'hulk_leap') {
+    } else if (p.special === 'hulk_leap') {
+      // Khi dẫm trúng người: KHÔNG phá đất; khi không trúng người: CÓ hiệu ứng phá đất!
+      if (!hulkHitEnemy) {
+        this.terrain.carveCrater(ix, iy, p.holeMask, p.holeScale);
+      }
+    } else {
       this.terrain.carveCrater(ix, iy, p.holeMask, p.holeScale);
     }
     this.shakeIntensity = Math.min(14, Math.max(this.shakeIntensity, p.blastRadius * 0.18));

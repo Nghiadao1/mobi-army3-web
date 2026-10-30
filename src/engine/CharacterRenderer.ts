@@ -210,28 +210,26 @@ export class CharacterRenderer {
     poseIdx: number,
     facingLeft: boolean
   ): void {
-    // Các bộ giáp Marvel / Tướng đặc biệt (body >= 220 hoặc Ironman / Loki) dùng pose 0/1 để khớp hoàn hảo đầu-thân-chân
+    // Các bộ giáp Marvel / Tướng đặc biệt dùng pose 0/1 để khớp hoàn hảo đầu-thân-chân
     let effectivePoseIdx = poseIdx;
-    if ((eq.body >= 220 || eq.hat === 294 || eq.hat === 220 || eq.hat === 198) && poseIdx >= 11) {
+    if ((eq.body >= 220 || eq.hat === 204 || eq.hat === 294 || eq.hat === 220 || eq.hat === 198) && poseIdx >= 11) {
       effectivePoseIdx = poseIdx >= 23 ? 1 : 0;
     }
 
     const pose = this.assets.poses[effectivePoseIdx] ?? this.assets.poses[0];
     if (!pose) return;
 
-    // Thứ tự vẽ chuẩn từ sau ra trước theo $gvm.$Clu (lines 17888..17916):
-    // 1. Súng (slot 3) -> 2. Balo/Cánh (slot 5) -> 3. Đầu/Mũ (slot 0) + Kính (slot 4) -> 4. Chân (slot 1) -> 5. Áo giáp (slot 2)
-    if (eq.gun !== -1) {
-      this.drawPartSlot(ctx, eq.gun, pose[3], facingLeft);
-    }
+    // Thứ tự ghép lớp tối ưu: Cánh/Balo (5) -> Chân (1) -> Thân (2) -> Mũ/Đầu (0/4) -> Súng/Vũ khí (3)
     if (eq.back !== -1) {
       this.drawPartSlot(ctx, eq.back, pose[5], facingLeft);
     }
+    if (eq.legs !== -1) {
+      this.drawPartSlot(ctx, eq.legs, pose[1], facingLeft);
+    }
+    if (eq.body !== -1) {
+      this.drawPartSlot(ctx, eq.body, pose[2], facingLeft);
+    }
     if (eq.hat !== -1) {
-      if (eq.hat === 198) {
-        // Loki: Mũ 198 là sừng vàng Asgard đội lên đầu chuẩn part 59
-        this.drawPartSlot(ctx, 59, pose[0], facingLeft);
-      }
       this.drawPartSlot(ctx, eq.hat, pose[0], facingLeft);
     } else if (eq.glass !== -1) {
       // Tướng đeo mặt nạ/mũ đặc biệt (Granos, Chicky, Apache) dùng đầu nền part 59 + slot 4.
@@ -241,11 +239,8 @@ export class CharacterRenderer {
       }
       this.drawPartSlot(ctx, eq.glass, pose[4], facingLeft);
     }
-    if (eq.legs !== -1) {
-      this.drawPartSlot(ctx, eq.legs, pose[1], facingLeft);
-    }
-    if (eq.body !== -1) {
-      this.drawPartSlot(ctx, eq.body, pose[2], facingLeft);
+    if (eq.gun !== -1) {
+      this.drawPartSlot(ctx, eq.gun, pose[3], facingLeft);
     }
   }
 
@@ -284,29 +279,8 @@ export class CharacterRenderer {
 
       const lw = smallImg.width / 2;
       const lh = smallImg.height / 2;
-      let frameDx = partId === 198 ? -4 : frame.dx;
-      let frameDy = partId === 198 ? -6 : frame.dy;
-      if (partId === 295) {
-        // Iron Man Body (2Small3319.png) căn chuẩn tâm ngực & khớp cổ mũ 3315
-        frameDx = -5;
-        frameDy = -6;
-      } else if (partId === 296) {
-        // Iron Man Legs (2Small3329.png) căn chuẩn hông & tiếp đất
-        frameDx = -4;
-        frameDy = -2;
-      } else if (partId === 220) {
-        // Loki Helmet (2Small1853.png) mũ hoàng gia Asgard
-        frameDx = 1;
-        frameDy = -5;
-      } else if (partId === 221) {
-        // Loki Body (2Small1854.png) áo giáp hoàng gia Asgard
-        frameDx = -5;
-        frameDy = -6;
-      } else if (partId === 222) {
-        // Loki Legs (2Small1866.png) quần & ủng chiến Asgard
-        frameDx = -4;
-        frameDy = -2;
-      }
+      const frameDx = frame.dx;
+      const frameDy = frame.dy;
       const dy = poseDy + frameDy;
       if (!facingLeft) {
         const dx = poseDx + frameDx;

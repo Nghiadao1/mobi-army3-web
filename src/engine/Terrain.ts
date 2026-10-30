@@ -47,7 +47,13 @@ export class Terrain {
     const indestBrickIds = new Set([195, 197, 211, 212, 214, 215, 231]);
 
     for (const placement of this.map.bricks) {
-      const img = this.assets.getImage(`./assets/bricks/${placement.brickId}.png`);
+      let img = this.assets.getImage(`./assets/bricks/${placement.brickId}.png`);
+      if (!img) {
+        const bId = placement.brickId ?? 173;
+        const fallbackId = bId >= 173 ? bId : (173 + (bId % 82));
+        img = this.assets.getImage(`./assets/bricks/${fallbackId}.png`) ||
+              this.assets.getImage('./assets/bricks/173.png');
+      }
       if (!img) continue;
       const bx = placement.x * this.scale;
       const by = placement.y * this.scale;
@@ -218,10 +224,10 @@ export class Terrain {
 
   /**
    * Khoét hố đạn bằng alpha mask gốc (res/hole/*.png) + viền cháy đen (res/hole2/*.png).
-   * Giảm 30% khả năng đào đất theo yêu cầu cân bằng mới.
+   * Giảm thêm 20% khả năng phá đất của tất cả nhân vật theo yêu cầu cân bằng mới (0.7 * 0.8 = 0.56).
    */
   public carveCrater(cx: number, cy: number, maskFile = 'h40x35.png', radiusScale = 1): void {
-    const effectiveScale = radiusScale * 0.7;
+    const effectiveScale = radiusScale * 0.56;
     const holeImg =
       this.assets.getImage(`./assets/holes/${maskFile}`) ??
       this.assets.getImage('./assets/holes/h40x35.png');
