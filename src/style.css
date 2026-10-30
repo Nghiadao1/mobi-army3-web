@@ -895,7 +895,7 @@ body,
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: calc(8px + env(safe-area-inset-top, 0px)) 12px calc(8px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
   overflow: hidden;
   user-select: none;
@@ -907,6 +907,30 @@ body,
   justify-content: space-between;
   width: 100%;
   z-index: 10;
+  gap: 8px;
+}
+
+.room-top-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 0;
+}
+
+.room-top-title-block {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+}
+
+.room-top-brand-title {
+  font-weight: 900;
+  font-size: 0.86rem;
+  color: #fef08a;
+}
+
+.room-top-brand-sub {
+  font-size: 0.72rem;
+  color: #cbd5e1;
 }
 
 .room-btn-circle {
@@ -922,6 +946,7 @@ body,
   justify-content: center;
   cursor: pointer;
   transition: transform 0.1s ease;
+  flex-shrink: 0;
 }
 
 .room-btn-circle:active {
@@ -934,6 +959,7 @@ body,
   align-items: center;
   gap: 2px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+  flex-shrink: 0;
 }
 
 .room-map-thumbnail {
@@ -947,6 +973,12 @@ body,
   cursor: pointer;
 }
 
+.room-map-info-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .room-map-name {
   font-size: 0.88rem;
   font-weight: 800;
@@ -958,6 +990,12 @@ body,
   font-size: 0.78rem;
   font-weight: 800;
   color: #fef08a;
+}
+
+.room-top-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .room-gold-badge {
@@ -986,18 +1024,27 @@ body,
   border: 1px solid rgba(0, 0, 0, 0.5);
 }
 
+.room-top-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1 1 0;
+}
+
 /* Khu vực 8 bệ đứng chiến binh (4 Phe Xanh vs 4 Phe Đỏ) */
 .room-pedestals-stage {
   flex: 1;
   display: flex;
-  justify-content: space-between;
+  justify-content: space-around;
   align-items: center;
   padding: 0 10px;
   gap: 12px;
-  max-width: 1100px;
+  max-width: 1050px;
   width: 100%;
   margin: 0 auto;
   position: relative;
+  box-sizing: border-box;
 }
 
 .pedestal-team-column {
@@ -1007,6 +1054,7 @@ body,
   gap: 16px 20px;
   justify-items: center;
   align-items: end;
+  align-content: center;
 }
 
 .pedestal-slot {
@@ -1016,6 +1064,7 @@ body,
   position: relative;
   cursor: pointer;
   transition: transform 0.15s ease;
+  width: 82px;
 }
 
 .pedestal-slot:hover {
@@ -1032,10 +1081,11 @@ body,
 .pedestal-badge {
   font-size: 0.7rem;
   font-weight: 800;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 6px;
   border: 1px solid rgba(0, 0, 0, 0.4);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
 }
 
 .pedestal-badge.host {
@@ -1055,7 +1105,8 @@ body,
 }
 
 .pedestal-brick {
-  width: 82px;
+  width: 100%;
+  max-width: 82px;
   height: 22px;
   background: linear-gradient(180deg, #84cc16 0%, #65a30d 30%, #a16207 35%, #78350f 100%);
   border: 2px solid #451a03;
@@ -1064,6 +1115,7 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .pedestal-sm-text {
@@ -1125,7 +1177,8 @@ body,
   justify-content: space-between;
   width: 100%;
   z-index: 10;
-  gap: 12px;
+  gap: 8px;
+  box-sizing: border-box;
 }
 
 .room-pill-btn {
@@ -1134,13 +1187,14 @@ body,
   color: #451a03;
   font-weight: 900;
   font-size: 1.05rem;
-  padding: 10px 26px;
+  padding: 8px 24px;
   border-radius: 24px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.38), inset 0 1px 1px rgba(255, 255, 255, 0.6);
   cursor: pointer;
   letter-spacing: 0.4px;
   transition: all 0.12s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .room-pill-btn:hover {
@@ -1156,11 +1210,13 @@ body,
 .room-bag-slots-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   background: rgba(15, 23, 42, 0.45);
-  padding: 6px 12px;
+  padding: 5px 12px;
   border-radius: 14px;
   border: 1px solid rgba(250, 204, 21, 0.4);
+  max-width: 100%;
 }
 
 .room-item-box {
@@ -1176,6 +1232,7 @@ body,
   position: relative;
   cursor: pointer;
   transition: transform 0.12s ease;
+  flex-shrink: 0;
 }
 
 .room-item-box:hover {
@@ -1628,4 +1685,505 @@ body,
 .board-btn-enter:hover {
   filter: brightness(1.12);
   transform: scale(1.04);
+}
+
+/* ==================== RESPONSIVE DESIGN: MOBILE PHONE & TABLET ==================== */
+
+/* --- Mobile Portrait & Compact Screens (<= 768px) --- */
+@media (max-width: 768px) {
+  .room-lobby-screen {
+    padding: calc(6px + env(safe-area-inset-top, 0px)) 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    gap: 6px;
+  }
+
+  /* 1. Header trên cùng gọn gàng 2 tầng: Tầng 1 nút tiện ích & chế độ, Tầng 2 thông tin bản đồ & số dư */
+  .room-top-bar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "left spacer right"
+      "center center center";
+    row-gap: 5px;
+    column-gap: 6px;
+    align-items: center;
+    width: 100%;
+    padding: 0 2px;
+  }
+
+  .room-top-left {
+    grid-area: left;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: unset;
+  }
+
+  .room-btn-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    font-size: 1rem;
+    border-width: 1.5px;
+  }
+
+  .room-top-title-block {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .room-top-brand-title {
+    font-size: 0.78rem;
+    letter-spacing: 0.2px;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .room-top-brand-sub {
+    font-size: 0.65rem;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .room-top-right {
+    grid-area: right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    flex: unset;
+  }
+
+  .lobby-view-toggle {
+    background: rgba(15, 23, 42, 0.75);
+    padding: 2px;
+    border-radius: 12px;
+    display: flex;
+    gap: 2px;
+  }
+
+  .lobby-toggle-btn {
+    font-size: 0.66rem;
+    padding: 3px 6px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+
+  .pedestal-badge#btn-room-mode-tag {
+    font-size: 0.66rem;
+    padding: 3px 6px;
+    border-radius: 6px;
+  }
+
+  /* Tầng 2: Xem trước Map + Tên Map + Vàng/Tỉ lệ cân bằng */
+  .room-top-center {
+    grid-area: center;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(250, 204, 21, 0.3);
+    border-radius: 10px;
+    padding: 3px 8px;
+    width: 100%;
+    box-sizing: border-box;
+    backdrop-filter: blur(4px);
+  }
+
+  .room-map-thumbnail {
+    width: 60px;
+    height: 26px;
+    border-width: 1.5px;
+    flex-shrink: 0;
+  }
+
+  .room-map-info-text {
+    flex: 1 1 0;
+    min-width: 0;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .room-map-name {
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .room-title-code {
+    font-size: 0.64rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .room-top-stats-row {
+    flex-shrink: 0;
+    gap: 4px;
+    display: flex;
+    align-items: center;
+  }
+
+  .room-gold-badge {
+    font-size: 0.72rem;
+    padding: 2px 4px;
+  }
+
+  .room-balance-bar {
+    gap: 3px;
+    font-size: 0.65rem;
+  }
+
+  .room-balance-track {
+    width: 38px;
+    height: 5px;
+  }
+
+  /* 2. Khu vực 8 bệ đứng chiến binh trên điện thoại: co giãn mượt mà, không bị tách rời tạo khoảng trống vô lý */
+  .room-pedestals-stage {
+    padding: 0 4px;
+    gap: 6px;
+    align-items: center;
+    justify-content: space-around;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .pedestal-team-column {
+    gap: clamp(10px, 3vh, 22px) clamp(3px, 1.2vw, 8px);
+    align-content: center;
+  }
+
+  .pedestal-slot,
+  .pedestal-empty-box {
+    width: clamp(56px, 16.5vw, 78px);
+  }
+
+  .pedestal-char-canvas {
+    width: clamp(48px, 14vw, 68px);
+    height: auto;
+    aspect-ratio: 80 / 85;
+  }
+
+  .pedestal-brick {
+    height: clamp(18px, 4.2vw, 22px);
+    border-radius: 4px;
+  }
+
+  .pedestal-sm-text {
+    font-size: clamp(0.64rem, 2.1vw, 0.74rem);
+  }
+
+  .pedestal-empty-box {
+    height: clamp(66px, 18vw, 88px);
+  }
+
+  .pedestal-badge {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+  }
+
+  .room-chat-bubble {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+    max-width: 110px;
+    white-space: normal;
+    text-align: center;
+    top: -26px;
+  }
+
+  /* 3. Thanh đáy: Đảm bảo nút Bắt Đầu / Sẵn Sàng KHÔNG BAO GIỜ bị ẩn hoặc tràn màn hình */
+  .room-bottom-bar {
+    gap: 4px;
+    padding: 0 2px;
+  }
+
+  .room-pill-btn {
+    padding: 7px 11px;
+    font-size: 0.82rem;
+    border-radius: 16px;
+    flex-shrink: 0;
+    min-width: 58px;
+    text-align: center;
+    border-width: 2px;
+  }
+
+  .room-bag-slots-row {
+    padding: 3px 5px;
+    gap: clamp(2px, 0.8vw, 4px);
+    border-radius: 10px;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .room-item-box {
+    width: clamp(26px, 7.8vw, 36px);
+    height: clamp(26px, 7.8vw, 36px);
+    border-radius: 7px;
+    border-width: 1.5px;
+    flex-shrink: 0;
+  }
+
+  .room-item-box .item-icon-strip {
+    transform: scale(clamp(0.68, 2.1vw, 0.88));
+    transform-origin: center center;
+  }
+
+  .room-item-box.empty span {
+    font-size: clamp(0.68rem, 2vw, 0.82rem) !important;
+  }
+
+  /* 4. Giao diện Bảng Phòng & Ải trên điện thoại */
+  .lobby-board-view {
+    padding: 8px;
+    border-radius: 12px;
+    margin: 4px auto;
+  }
+
+  .board-tab-row {
+    gap: 4px;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+  }
+
+  .board-tab-btn {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    border-radius: 8px;
+  }
+
+  .board-table {
+    border-spacing: 0 4px;
+  }
+
+  .board-table th,
+  .board-cell {
+    padding: 6px 6px;
+    font-size: 0.72rem;
+  }
+
+  /* Ẩn cột kích thước map và cột gió phụ trên mobile để không phải cuộn ngang */
+  .board-table th:nth-child(2),
+  .board-table td:nth-child(2),
+  .board-table th:nth-child(4),
+  .board-table td:nth-child(4) {
+    display: none;
+  }
+
+  .board-cell-stage {
+    gap: 6px;
+  }
+
+  .board-stage-thumb {
+    width: 36px;
+    height: 24px;
+  }
+
+  .board-stage-title {
+    font-size: 0.76rem;
+  }
+
+  .board-stage-sub {
+    font-size: 0.65rem;
+  }
+
+  .board-btn-enter {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    border-radius: 6px;
+  }
+
+  /* 5. Cửa sổ Modal Popup và Chat Drawer */
+  .army-modal-overlay {
+    padding: 6px;
+  }
+
+  .army-modal-box {
+    max-height: 96vh;
+    border-radius: 12px;
+  }
+
+  .army-modal-header {
+    padding: 8px 12px;
+  }
+
+  .army-modal-header h2 {
+    font-size: 0.95rem;
+  }
+
+  .army-modal-body {
+    padding: 10px 12px;
+  }
+
+  .army-modal-footer {
+    padding: 8px 12px;
+  }
+
+  .chat-drawer {
+    width: 300px;
+    max-width: 86vw;
+  }
+}
+
+/* --- Màn hình siêu nhỏ (<= 360px như iPhone SE 1st gen, Galaxy A series mini) --- */
+@media (max-width: 360px) {
+  .room-pill-btn {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+    min-width: 52px;
+  }
+
+  .room-item-box {
+    width: 25px;
+    height: 25px;
+  }
+
+  .room-item-box .item-icon-strip {
+    transform: scale(0.62);
+  }
+
+  .room-map-thumbnail {
+    width: 50px;
+    height: 24px;
+  }
+
+  .room-map-name {
+    font-size: 0.7rem;
+  }
+
+  .pedestal-slot,
+  .pedestal-empty-box {
+    width: 52px;
+  }
+
+  .pedestal-char-canvas {
+    width: 44px;
+  }
+}
+
+/* --- Mobile Landscape: Xoay ngang điện thoại (chiều cao hẹp <= 520px) --- */
+@media (max-height: 520px) {
+  .room-lobby-screen {
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 10px calc(4px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .room-top-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .room-btn-circle {
+    width: 32px;
+    height: 32px;
+    font-size: 0.95rem;
+  }
+
+  .room-top-brand-title {
+    font-size: 0.76rem;
+  }
+
+  .room-top-brand-sub {
+    display: none;
+  }
+
+  .room-top-center {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(250, 204, 21, 0.25);
+    border-radius: 8px;
+    padding: 2px 8px;
+  }
+
+  .room-map-thumbnail {
+    width: 58px;
+    height: 26px;
+  }
+
+  .room-map-name {
+    font-size: 0.75rem;
+  }
+
+  .room-title-code {
+    display: none;
+  }
+
+  .room-balance-track {
+    width: 50px;
+    height: 6px;
+  }
+
+  .room-pedestals-stage {
+    gap: 6px;
+    padding: 0 4px;
+    align-items: center;
+  }
+
+  .pedestal-team-column {
+    gap: 6px 12px;
+    align-content: center;
+  }
+
+  .pedestal-char-canvas {
+    width: 46px;
+    height: auto;
+    aspect-ratio: 80 / 85;
+  }
+
+  .pedestal-brick {
+    width: 100%;
+    max-width: 64px;
+    height: 16px;
+  }
+
+  .pedestal-sm-text {
+    font-size: 0.65rem;
+  }
+
+  .pedestal-empty-box {
+    width: 64px;
+    height: 66px;
+  }
+
+  .pedestal-badge {
+    font-size: 0.62rem;
+    padding: 1px 5px;
+  }
+
+  .room-bottom-bar {
+    gap: 6px;
+  }
+
+  .room-pill-btn {
+    padding: 5px 14px;
+    font-size: 0.8rem;
+  }
+
+  .room-bag-slots-row {
+    padding: 3px 8px;
+    gap: 4px;
+  }
+
+  .room-item-box {
+    width: 30px;
+    height: 30px;
+  }
+
+  .room-item-box .item-icon-strip {
+    transform: scale(0.7);
+  }
+
+  .lobby-board-view {
+    max-height: 82vh;
+  }
 }

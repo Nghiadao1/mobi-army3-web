@@ -610,37 +610,41 @@ class GameApp {
       <div class="room-lobby-screen">
         <!-- Thanh Trên: Nút Chat, Bản Đồ Giữa, View Switch, Nút Mode/Âm Thanh -->
         <div class="room-top-bar">
-          <div style="display:flex;align-items:center;gap:8px">
+          <div class="room-top-left">
             <button class="room-btn-circle" id="btn-room-chat" title="Mở Khung Chat">💬</button>
-            <div style="text-shadow:0 1px 3px rgba(0,0,0,0.85)">
-              <div style="font-weight:900;font-size:0.86rem;color:#fef08a">MOBI ARMY 3 WEB</div>
-              <div style="font-size:0.72rem;color:#cbd5e1">${
-                this.online.roomCode ? `Phòng #${this.online.roomCode}` : 'Sảnh Chờ Chiến Đấu'
+            <div class="room-top-title-block">
+              <div class="room-top-brand-title">MOBI ARMY 3</div>
+              <div class="room-top-brand-sub">${
+                this.online.roomCode ? `P #${this.online.roomCode}` : 'Sảnh Chờ'
               }</div>
-            </div>
-            <div class="lobby-view-toggle" style="margin-left:4px">
-              <button class="lobby-toggle-btn ${this.lobbyView === 'room' ? 'active' : ''}" id="btn-view-room" title="Chế độ Phòng Chờ 8 Bệ">🏟️ Bệ Phòng</button>
-              <button class="lobby-toggle-btn ${this.lobbyView === 'board' ? 'active' : ''}" id="btn-view-board" title="Chế độ Bảng Danh Sách Phòng & Ải">📋 Bảng Phòng & Ải</button>
             </div>
           </div>
 
           <div class="room-top-center">
             <canvas id="room-map-thumb" width="124" height="52" class="room-map-thumbnail" title="Nhấp để chọn Bản Đồ"></canvas>
-            <div class="room-map-name">${selectedMap.name}</div>
-            <div class="room-title-code">${modeTitle}</div>
-            <div class="room-gold-badge">🪙 1000</div>
-            <div class="room-balance-bar">
-              <span style="color:#38bdf8">49</span>
-              <div class="room-balance-track"></div>
-              <span style="color:#f43f5e">50</span>
+            <div class="room-map-info-text">
+              <div class="room-map-name">${selectedMap.name}</div>
+              <div class="room-title-code">${modeTitle}</div>
+            </div>
+            <div class="room-top-stats-row">
+              <div class="room-gold-badge">🪙 1000</div>
+              <div class="room-balance-bar">
+                <span style="color:#38bdf8">49</span>
+                <div class="room-balance-track"></div>
+                <span style="color:#f43f5e">50</span>
+              </div>
             </div>
           </div>
 
-          <div style="display:flex;align-items:center;gap:8px">
-            <button class="room-btn-circle" id="btn-room-sound" style="width:38px;height:38px;font-size:1.05rem" title="Bật/Tắt Âm Thanh">${
+          <div class="room-top-right">
+            <div class="lobby-view-toggle">
+              <button class="lobby-toggle-btn ${this.lobbyView === 'room' ? 'active' : ''}" id="btn-view-room" title="Chế độ Phòng Chờ 8 Bệ">🏟️ Bệ Phòng</button>
+              <button class="lobby-toggle-btn ${this.lobbyView === 'board' ? 'active' : ''}" id="btn-view-board" title="Chế độ Bảng Danh Sách Phòng & Ải">📋 Bảng Ải</button>
+            </div>
+            <button class="room-btn-circle" id="btn-room-sound" title="Bật/Tắt Âm Thanh">${
               sound.muted ? '🔇' : '🔊'
             }</button>
-            <button class="pedestal-badge ready" id="btn-room-mode-tag" style="padding:6px 12px;font-size:0.78rem;cursor:pointer" title="Nhấp để Đổi Chế Độ">${roomTagLabel} ▾</button>
+            <button class="pedestal-badge ready" id="btn-room-mode-tag" title="Nhấp để Đổi Chế Độ">${roomTagLabel} ▾</button>
           </div>
         </div>
 
