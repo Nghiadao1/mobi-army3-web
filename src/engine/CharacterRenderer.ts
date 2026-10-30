@@ -260,8 +260,25 @@ export class CharacterRenderer {
 
       const lw = smallImg.width / 2;
       const lh = smallImg.height / 2;
-      const frameDx = partId === 198 ? -4 : frame.dx;
-      const frameDy = partId === 198 ? -6 : frame.dy;
+      let frameDx = partId === 198 ? -4 : frame.dx;
+      let frameDy = partId === 198 ? -6 : frame.dy;
+      if (partId === 295) {
+        // Iron Man Body (2Small3319.png) căn chuẩn tâm ngực & khớp cổ mũ 3315
+        frameDx = -5;
+        frameDy = 1;
+      } else if (partId === 296) {
+        // Iron Man Legs (2Small3329.png) căn chuẩn hông & tiếp đất
+        frameDx = -4;
+        frameDy = -1;
+      } else if (partId === 221) {
+        // Loki Body (2Small1854.png) áo giáp hoàng gia Asgard
+        frameDx = -5;
+        frameDy = 1;
+      } else if (partId === 222) {
+        // Loki Legs (2Small1866.png) quần & ủng chiến Asgard
+        frameDx = -4;
+        frameDy = -1;
+      }
       const dy = poseDy + frameDy;
       if (!facingLeft) {
         const dx = poseDx + frameDx;

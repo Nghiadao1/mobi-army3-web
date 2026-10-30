@@ -60,6 +60,8 @@ export interface Fighter {
   hurtTimer: number;
   inventory: Record<BattleItemId, number>;
   ultronTurnCount?: number;
+  ultronCloneCooldown?: number;
+  isClone?: boolean;
   ultronClones?: UltronClone[];
 }
 
@@ -84,6 +86,7 @@ interface Projectile {
   windScale: number;
   age: number;
   scale?: number;
+  isSuperHighAngle?: boolean;
   special?:
     | 'teleport'
     | 'digger'
@@ -850,6 +853,93 @@ export class BattleEngine {
     this.emitHud();
   }
 
+  public summonUltronClone(caller?: Fighter): boolean {
+    const u = caller || this.getActiveUnit();
+    if (!u || !u.alive) return false;
+    if (u.hero.id !== 'ultron') return false;
+    if (this.phase !== 'aiming' && !caller) return false;
+    if ((u.ultronCloneCooldown ?? 0) > 0) {
+      this.spawnFloatingText(
+        u.x,
+        u.y - 36,
+        `Phân thân đang hồi chiêu (${u.ultronCloneCooldown} lượt)!`,
+        '#f87171',
+        1.1
+      );
+      return false;
+    }
+
+    u.ultronCloneCooldown = 2;
+
+    const cloneHero = { ...u.hero, name: 'Ultron Phân Thân' };
+    const spawnX = Math.max(
+      30,
+      Math.min(this.terrain.width - 30, u.x + (u.facingLeft ? -45 : 45))
+    );
+    const spawnPos = this.terrain.findSpawnPoint(spawnX);
+
+    const clone: Fighter = {
+      id: `ultron_clone_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      name: 'Phân Thân Ultron',
+      team: u.team,
+      isPlayerControlled: false,
+      botDifficulty: u.botDifficulty || 'normal',
+      unitKind: 'hero',
+      isBoss: false,
+      hero: cloneHero,
+      x: spawnPos.x,
+      y: spawnPos.y,
+      vx: 0,
+      vy: 0,
+      facingLeft: u.facingLeft,
+      aimAngleDeg: u.aimAngleDeg,
+      hp: Math.round(u.maxHp * 0.5),
+      maxHp: Math.round(u.maxHp * 0.5),
+      attack: Math.round(u.attack * 0.5),
+      pow: 20,
+      stamina: Math.round(u.maxStamina * 0.8),
+      maxStamina: Math.round(u.maxStamina * 0.8),
+      alive: true,
+      grounded: true,
+      shieldTurns: 0,
+      webbedTurns: 0,
+      lastPower: 0,
+      lastAngle: 35,
+      scale: 0.92,
+      animMode: 'idle',
+      animTick: 0,
+      hurtTimer: 0,
+      inventory: {
+        heal: 1,
+        double: 1,
+        teleport: 0,
+        mouse: 0,
+        shield: 1,
+        windstop: 0,
+        digger: 0,
+        web: 0,
+        freeze: 0,
+        poison: 0,
+        nuke: 0,
+        stealth: 0,
+      },
+      isClone: true,
+    };
+
+    this.fighters.push(clone);
+    this.spawnEffect(clone.x, clone.y, this.assets.manifest.effects.teleport, 1.2);
+    sound.playPow();
+    this.spawnFloatingText(
+      u.x,
+      u.y - 42,
+      '👥 PHÂN THÂN ULTRON XUẤT TRẬN (50% HP & CÔNG)!',
+      '#f43f5e',
+      1.25
+    );
+    this.emitHud();
+    return true;
+  }
+
   private applyUnitItem(u: Fighter, itemId: BattleItemId): boolean {
     if ((u.inventory[itemId] ?? 0) <= 0) return false;
 
@@ -865,22 +955,28 @@ export class BattleEngine {
       return false;
     }
 
-    // Kỹ năng đặc biệt của Hawkeye: Khi dùng bất kỳ Item nào -> nạp Mũi Tên Kỹ Năng với sát thương cố định 300!
+    // Kỹ năng đặc biệt của Hawkeye: Dùng Item máu và dịch chuyển sẽ hoạt động bình thường!
+    // Các item chiến đấu khác sẽ nạp trạng thái kỹ năng và chỉ kích hoạt khi nâng góc lên 89°!
     if (u.hero.weapon === 'hawkeye_bow') {
-      if (this.hawkeyeGiantArmed) return false;
-      u.inventory[itemId]--;
-      this.itemsUsedThisTurn++;
-      this.hawkeyeGiantArmed = true;
-      this.activeItemArmed = null;
-      sound.playPow();
-      this.spawnFloatingText(
-        u.x,
-        u.y - 46,
-        'ƯNG NHÃN: NẠP KỸ NĂNG VẬT PHẨM (300 DMG)!',
-        '#c084fc',
-        1.22
-      );
-      return true;
+      if (itemId === 'heal' || itemId === 'teleport') {
+        // Hồi máu và Dịch chuyển hoạt động bình thường, không tính để kích hoạt kỹ năng đặc biệt
+      } else {
+        if (this.hawkeyeGiantArmed) return false;
+        u.inventory[itemId]--;
+        this.itemsUsedThisTurn++;
+        this.hawkeyeGiantArmed = true;
+        this.activeItemArmed = itemId;
+        sound.playPow();
+        this.spawnFloatingText(
+          u.x,
+          u.y - 46,
+          'ƯNG NHÃN: NẠP KỸ NĂNG (GÓC 89° ĐỂ KÍCH HOẠT)!',
+          '#c084fc',
+          1.22
+        );
+        this.emitHud();
+        return true;
+      }
     }
 
     if (itemId === 'heal') {
@@ -1082,35 +1178,17 @@ export class BattleEngine {
       }
     }
 
-    // 2. Kỹ năng của ULTRON: Cứ mỗi 3 lượt của Ultron sẽ gọi ra 1 Ultron Nhân Bản tự động bắn khi Ultron tấn công!
+    // 2. Kỹ năng của ULTRON: Hồi chiêu phân thân (mỗi lượt cách nhau 2 turn)
     if (active.hero.id === 'ultron') {
-      active.ultronTurnCount = (active.ultronTurnCount ?? 0) + 1;
-      if (!active.ultronClones) active.ultronClones = [];
-      if (active.ultronTurnCount % 3 === 1 && active.ultronClones.length < 3) {
-        const cloneIdx = active.ultronClones.length;
-        const offsets = [
-          { offsetX: -34, offsetY: -36 },
-          { offsetX: 34, offsetY: -36 },
-          { offsetX: 0, offsetY: -56 },
-        ];
-        active.ultronClones.push({
-          id: cloneIdx + 1,
-          offsetX: offsets[cloneIdx].offsetX,
-          offsetY: offsets[cloneIdx].offsetY,
-        });
-        this.spawnEffect(
-          active.x + offsets[cloneIdx].offsetX,
-          active.y + offsets[cloneIdx].offsetY,
-          this.assets.manifest.effects.teleport,
-          0.95
-        );
-        this.spawnFloatingText(
-          active.x,
-          active.y - 52,
-          `TRIỆU HỒI ULTRON NHÂN BẢN #${cloneIdx + 1}!`,
-          '#f43f5e',
-          1.18
-        );
+      if (active.ultronCloneCooldown && active.ultronCloneCooldown > 0) {
+        active.ultronCloneCooldown--;
+      }
+      // Bot Ultron chủ động gọi phân thân nếu hồi chiêu đã sẵn sàng
+      if (!active.isPlayerControlled && !active.isRemoteOnline && (active.ultronCloneCooldown ?? 0) <= 0) {
+        const allyClones = this.fighters.filter((f) => f.alive && f.team === active.team && f.isClone);
+        if (allyClones.length < 2) {
+          this.summonUltronClone(active);
+        }
       }
     }
 
@@ -2133,33 +2211,53 @@ export class BattleEngine {
       }
 
       case 'repulsor': {
-        // Iron Man: 2 tia Laze Repulsor siêu tốc kháng gió + tên lửa tầm nhiệt Jericho
-        const laserCount = usePow ? 3 : 2;
-        for (let i = 0; i < laserCount; i++) {
-          this.queueProjectile(baseDelay + i * 5, () => {
-            sound.playShoot(false);
-            this.spawnBullet(u, u.aimAngleDeg + (i - (laserCount - 1) / 2) * 1.2, power, {
-              spriteKey: 'lightning',
-              effectKey: 'electric',
-              holeMask: 'h36x30.png',
-              holeScale: 0.95,
-              damage: u.attack * 0.36,
-              blastRadius: 36,
-              windScale: 0.25,
-              special: 'electric',
+        if (usePow) {
+          // Tuyệt kỹ POW của Iron Man: Phóng loạt 6 tên lửa nhỏ Jericho bay tới vị trí địch, bị cản bởi địa hình
+          sound.playPow();
+          this.spawnFloatingText(u.x, u.y - 48, '🔥 BÃO TÊN LỬA JERICHO MICRO!', '#f97316', 1.25);
+          const missileCount = 6;
+          for (let m = 0; m < missileCount; m++) {
+            const spreadAngle = (m - (missileCount - 1) / 2) * 5.2;
+            this.queueProjectile(baseDelay + m * 5, () => {
+              sound.playShoot(true);
+              this.spawnBullet(u, u.aimAngleDeg + spreadAngle, Math.max(50, power * 0.88), {
+                spriteKey: 'rocket',
+                effectKey: 'bigExplosion',
+                holeMask: 'h36x30.png',
+                holeScale: 0.9,
+                damage: u.attack * 0.42,
+                blastRadius: 36,
+                special: 'homing',
+                scale: 0.78,
+              });
             });
-          });
-        }
-        const missileCount = usePow ? 2 : 1;
-        for (let m = 0; m < missileCount; m++) {
-          this.queueProjectile(baseDelay + 12 + m * 6, () => {
+          }
+        } else {
+          // Bắn thường: 2 tia Laze Repulsor siêu tốc + 1 tên lửa Jericho
+          const laserCount = 2;
+          for (let i = 0; i < laserCount; i++) {
+            this.queueProjectile(baseDelay + i * 5, () => {
+              sound.playShoot(false);
+              this.spawnBullet(u, u.aimAngleDeg + (i - (laserCount - 1) / 2) * 1.2, power, {
+                spriteKey: 'lightning',
+                effectKey: 'electric',
+                holeMask: 'h36x30.png',
+                holeScale: 0.95,
+                damage: u.attack * 0.36,
+                blastRadius: 36,
+                windScale: 0.25,
+                special: 'electric',
+              });
+            });
+          }
+          this.queueProjectile(baseDelay + 12, () => {
             sound.playShoot(true);
-            this.spawnBullet(u, u.aimAngleDeg + (m === 0 ? 2 : -2), power, {
+            this.spawnBullet(u, u.aimAngleDeg, power, {
               spriteKey: 'rocket',
               effectKey: 'bigExplosion',
               holeMask: 'h44x39.png',
               holeScale: 1.05,
-              damage: u.attack * 0.42,
+              damage: u.attack * 0.45,
               blastRadius: 40,
               special: 'homing',
             });
@@ -2190,21 +2288,17 @@ export class BattleEngine {
       }
 
       case 'hawkeye_bow': {
-        // Hawkeye: Khi có POW HOẶC dùng Item HOẶC góc bắn nâng lên đúng 89°, bắn 1 Mũi Tên Kỹ Năng / Khổng Lồ (muiten_cn.png) tỉ lệ trúng đích 100%!
-        const isFromItem = this.hawkeyeGiantArmed;
-        const isSpecialSkill = usePow || isFromItem || Math.round(u.aimAngleDeg) === 89;
-        if (isSpecialSkill) {
+        // Hawkeye: CHỈ KHI nâng góc lên đúng 89° mới thực hiện kỹ năng đặc biệt (Mũi Tên Khổng Lồ 350 DMG)
+        const isAngle89 = Math.round(u.aimAngleDeg) === 89;
+        if (isAngle89) {
           this.hawkeyeGiantArmed = false;
-          // Sát thương kĩ năng khi dùng item giảm xuống còn 300; khi dùng POW hoặc góc 89 độ là sát thương chuẩn
-          const dmg = isFromItem ? 300 : u.attack * (usePow ? 1.75 : 1.45);
+          const dmg = 350; // Tăng dame kỹ năng đặc biệt của Hawkeye lên 350
           this.queueProjectile(baseDelay, () => {
             sound.playPow();
             this.spawnFloatingText(
               u.x,
               u.y - 48,
-              isFromItem
-                ? 'ƯNG NHÃN: KỸ NĂNG VẬT PHẨM (300 DMG)!'
-                : 'MŨI TÊN KHỔNG LỒ 100% TRÚNG ĐÍCH!!',
+              'MŨI TÊN KỸ NĂNG ƯNG NHÃN (350 DMG)!',
               '#c084fc',
               1.28
             );
@@ -2221,16 +2315,18 @@ export class BattleEngine {
             });
           });
         } else {
-          // Bắn cung thường: Chỉ bắn duy nhất 1 mũi tên thẳng hướng bắn!
+          // Góc dưới 89°: Bắn cung thường (chỉ bắn 1 mũi tên thẳng hướng bắn)
+          const hadItemEffect = this.hawkeyeGiantArmed;
+          this.hawkeyeGiantArmed = false;
           this.queueProjectile(baseDelay, () => {
-            sound.playShoot(false);
+            sound.playShoot(usePow);
             this.spawnBullet(u, u.aimAngleDeg, power, {
               spriteKey: 'muiten',
-              effectKey: 'explosion',
-              holeMask: 'h36x30.png',
-              holeScale: 0.95,
-              damage: u.attack,
-              blastRadius: 36,
+              effectKey: usePow ? 'bigExplosion' : 'explosion',
+              holeMask: usePow ? 'h55x50.png' : 'h36x30.png',
+              holeScale: usePow ? 1.25 : 0.95,
+              damage: u.attack * (usePow ? 1.75 : 1.0) * (hadItemEffect ? 1.15 : 1.0),
+              blastRadius: usePow ? 48 : 36,
               windScale: 0.35,
             });
           });
@@ -2239,7 +2335,7 @@ export class BattleEngine {
       }
 
       case 'ultron_beam': {
-        // Ultron: Phóng chùm cầu năng lượng Plasma + các Ultron Nhân Bản tự động bắn yểm trợ!
+        // Ultron: Phóng chùm cầu năng lượng Plasma hủy diệt
         const mainCount = usePow ? 3 : 2;
         for (let i = 0; i < mainCount; i++) {
           this.queueProjectile(baseDelay + i * 5, () => {
@@ -2247,46 +2343,12 @@ export class BattleEngine {
             this.spawnBullet(u, u.aimAngleDeg + (i - (mainCount - 1) / 2) * 1.8, power, {
               spriteKey: 'lightning',
               effectKey: 'electric',
-              holeMask: 'h40x35.png',
-              holeScale: 1.0,
-              damage: u.attack * (usePow ? 0.44 : 0.48),
-              blastRadius: 38,
+              holeMask: usePow ? 'h55x50.png' : 'h40x35.png',
+              holeScale: usePow ? 1.25 : 1.0,
+              damage: u.attack * (usePow ? 0.62 : 0.52),
+              blastRadius: usePow ? 46 : 38,
               windScale: 0.3,
               special: 'electric',
-            });
-          });
-        }
-        const clones = u.ultronClones ?? [];
-        if (clones.length > 0) {
-          this.spawnFloatingText(
-            u.x,
-            u.y - 52,
-            `${clones.length} ULTRON NHÂN BẢN ĐỒNG LOẠT TẤN CÔNG!`,
-            '#f43f5e',
-            1.15
-          );
-          clones.forEach((clone, cIdx) => {
-            this.queueProjectile(baseDelay + 12 + cIdx * 7, () => {
-              sound.playShoot(false);
-              const { vx, vy } = computeShotVelocity(u.facingLeft, u.aimAngleDeg, power);
-              this.projectiles.push({
-                x: u.x + clone.offsetX,
-                y: u.y + clone.offsetY,
-                vx,
-                vy,
-                ownerId: u.id,
-                team: u.team,
-                spriteKey: 'special',
-                effectKey: 'explosion',
-                holeMask: 'h36x30.png',
-                holeScale: 0.9,
-                damage: u.attack * 0.34,
-                blastRadius: 36,
-                windScale: 0.3,
-                age: 0,
-                special: 'homing',
-                trail: [],
-              });
             });
           });
         }
@@ -2388,8 +2450,10 @@ export class BattleEngine {
       leapStartY?: number;
       boomerangTurnDir?: 1 | -1;
       scale?: number;
+      isSuperHighAngle?: boolean;
     }
   ): void {
+    const isSuperHighAngle = opts.isSuperHighAngle ?? Math.abs(angleDeg) >= 75;
     const { vx, vy } = computeShotVelocity(u.facingLeft, angleDeg, power);
     let sx = u.x;
     let sy = u.y;
@@ -2426,6 +2490,7 @@ export class BattleEngine {
       windScale: opts.windScale ?? 1,
       age: 0,
       scale: opts.scale,
+      isSuperHighAngle,
       special: opts.special,
       diggerCharges: opts.diggerCharges,
       eggDropTick: opts.eggDropTick,
@@ -2873,6 +2938,18 @@ export class BattleEngine {
       const falloff = Math.max(0.28, 1 - (dist / p.blastRadius) * 0.72);
       let rawDmg = p.damage * falloff;
 
+      // Thưởng bắn góc siêu cao: Tăng 20% sát thương khi bắn góc siêu cao (>= 75 độ)
+      if (p.isSuperHighAngle && target.team !== p.team) {
+        rawDmg *= 1.2;
+        this.spawnFloatingText(
+          target.x,
+          centerY - 38,
+          '🎯 SIÊU CAO (+20% SÁT THƯƠNG)!',
+          '#facc15',
+          1.22
+        );
+      }
+
       if (p.special === 'electric' || p.special === 'sky_lightning') {
         rawDmg += p.special === 'sky_lightning' ? 32 : 18;
         this.spawnEffect(target.x, centerY, this.assets.manifest.effects.electric, 0.8);
@@ -3225,27 +3302,6 @@ export class BattleEngine {
         (this.phase === 'aiming' || this.phase === 'charging' || this.phase === 'charging_2')
       ) {
         this.drawAimReticle(ctx, f);
-      }
-
-      // Vẽ các Ultron Nhân Bản đang bay hộ tống quanh Ultron
-      if (f.ultronClones && f.ultronClones.length > 0) {
-        const ulHero = getHeroById('ultron');
-        for (const clone of f.ultronClones) {
-          const bob = Math.sin((this.globalTick + clone.id * 17) * 0.12) * 3.5;
-          this.charRenderer.drawUnit(ctx, {
-            unitKind: 'hero',
-            hero: ulHero,
-            x: f.x + clone.offsetX,
-            y: f.y + clone.offsetY + bob,
-            facingLeft: f.facingLeft,
-            aimAngleDeg: f.aimAngleDeg,
-            animMode: f.animMode,
-            animTick: f.animTick + clone.id * 9,
-            isPowReady: false,
-            hasShield: false,
-            scale: 0.76,
-          });
-        }
       }
 
       this.charRenderer.drawUnit(ctx, {

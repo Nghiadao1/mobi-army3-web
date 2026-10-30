@@ -206,6 +206,7 @@ class GameApp {
   // ==================== LOBBY / MAIN MENU ====================
 
   private renderLobby(): void {
+    const prevScrollTop = this.uiRoot.querySelector('.screen-overlay')?.scrollTop ?? 0;
     if (this.battle) {
       this.battle.destroy();
       this.battle = null;
@@ -719,6 +720,14 @@ class GameApp {
         selectedItems: this.selectedItems,
       });
     });
+
+    const overlay = this.uiRoot.querySelector('.screen-overlay');
+    if (overlay && prevScrollTop > 0) {
+      overlay.scrollTop = prevScrollTop;
+      requestAnimationFrame(() => {
+        if (overlay) overlay.scrollTop = prevScrollTop;
+      });
+    }
   }
 
   private toggleItemSelection(id: BattleItemId): void {
@@ -731,8 +740,11 @@ class GameApp {
     } else {
       if (this.selectedItems.length < 6) {
         this.selectedItems.push(id);
-        sound.playItemUse();
+      } else {
+        // Nếu đã đủ 6 món, bấm món mới sẽ thay thế món thứ 6
+        this.selectedItems[5] = id;
       }
+      sound.playItemUse();
     }
     localStorage.setItem(STORAGE_ITEMS_KEY, JSON.stringify(this.selectedItems));
     this.renderLobby();
@@ -877,6 +889,7 @@ class GameApp {
         </div>
 
         <div class="fire-cluster">
+          <button class="ctrl-btn" id="btn-ultron-clone" style="display:none;height:42px;padding:0 10px;font-size:0.8rem;background:rgba(244,63,94,0.25);border-color:#f43f5e;color:#fda4af;white-space:nowrap;font-weight:700" title="Gọi Phân Thân Ultron (Phím U) - Hồi chiêu 2 lượt">👥 Phân Thân</button>
           <button class="pow-btn" id="btn-pow" disabled title="Kích hoạt Tuyệt Kỹ Nộ (Phím P)">🔥 POW</button>
           <button class="fire-btn" id="btn-fire">🎯 GIỮ BẮN</button>
         </div>
@@ -889,6 +902,10 @@ class GameApp {
       const countEl = document.getElementById(`item-cnt-${id}`)!;
       itemBtns.set(id, { btn, countEl });
       btn.addEventListener('click', () => this.battle?.useItem(id));
+    });
+
+    document.getElementById('btn-ultron-clone')?.addEventListener('click', () => {
+      this.battle?.summonUltronClone();
     });
 
     this.hudRefs = {
@@ -1037,6 +1054,17 @@ class GameApp {
       r.powBtn.disabled = !powReady;
       r.powBtn.classList.toggle('ready', powReady);
       r.powBtn.classList.toggle('armed', snap.powArmed);
+
+      const btnUltron = document.getElementById('btn-ultron-clone') as HTMLButtonElement | null;
+      if (btnUltron) {
+        const isUltron = u.hero.id === 'ultron';
+        btnUltron.style.display = isUltron ? 'inline-flex' : 'none';
+        if (isUltron) {
+          const cd = u.ultronCloneCooldown ?? 0;
+          btnUltron.disabled = !canControl || cd > 0;
+          btnUltron.textContent = cd > 0 ? `👥 Hồi: ${cd}T` : '👥 Phân Thân';
+        }
+      }
 
       r.fireBtn.disabled =
         !u.isPlayerControlled ||
@@ -1189,6 +1217,7 @@ class GameApp {
 
       if (down && !e.repeat) {
         if (code === 'KeyP') this.battle.togglePow();
+        if (code === 'KeyU') this.battle.summonUltronClone();
         if (code === 'KeyC') this.battle.centerCameraOnActive();
         if (code === 'KeyF') this.battle.skipTurn();
         if (code.startsWith('Digit')) {
