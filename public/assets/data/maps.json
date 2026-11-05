@@ -3,7 +3,7 @@
     "mapId": 0,
     "name": "Cầu băng",
     "width": 1050,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 6,
     "bricks": [
@@ -168,7 +168,7 @@
     "mapId": 1,
     "name": "Đảo 2 cây dừa",
     "width": 1150,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 2,
     "bricks": [
@@ -223,7 +223,7 @@
     "mapId": 2,
     "name": "Nghĩa trang",
     "width": 900,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 11,
     "bricks": [
@@ -348,7 +348,7 @@
     "mapId": 3,
     "name": "Kim tự tháp",
     "width": 1100,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 1,
     "bricks": [
@@ -598,7 +598,7 @@
     "mapId": 4,
     "name": "Đảo nổi",
     "width": 750,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 7,
     "bricks": [
@@ -723,7 +723,7 @@
     "mapId": 5,
     "name": "Băng giá",
     "width": 1000,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 6,
     "bricks": [
@@ -808,7 +808,7 @@
     "mapId": 6,
     "name": "Đền tế",
     "width": 800,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 8,
     "bricks": [
@@ -1118,7 +1118,7 @@
     "mapId": 7,
     "name": "Trốn thoát",
     "width": 1000,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 14,
     "bricks": [
@@ -1298,7 +1298,7 @@
     "mapId": 8,
     "name": "Song sắt",
     "width": 930,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 15,
     "bricks": [
@@ -1463,7 +1463,7 @@
     "mapId": 9,
     "name": "Rào cản",
     "width": 1050,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 15,
     "bricks": [
@@ -1733,7 +1733,7 @@
     "mapId": 10,
     "name": "Thành Phố Sắt",
     "width": 1050,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 16,
     "bricks": [
@@ -1938,8 +1938,8 @@
     "mapId": 11,
     "name": "Cây cầu băng",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 622,
+    "waterY": 582,
     "bgId": 22,
     "bricks": [
       {
@@ -2208,7 +2208,7 @@
     "mapId": 12,
     "name": "Rừng đá",
     "width": 1000,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 7,
     "bricks": [
@@ -2443,7 +2443,7 @@
     "mapId": 13,
     "name": "Hang đá",
     "width": 900,
-    "height": 800,
+    "height": 804,
     "waterY": 764,
     "bgId": 14,
     "bricks": [
@@ -2643,7 +2643,7 @@
     "mapId": 14,
     "name": "Đảo bay",
     "width": 800,
-    "height": 900,
+    "height": 904,
     "waterY": 864,
     "bgId": 2,
     "bricks": [
@@ -2828,7 +2828,7 @@
     "mapId": 15,
     "name": "Cầu sắt",
     "width": 1050,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 6,
     "bricks": [
@@ -3018,7 +3018,7 @@
     "mapId": 16,
     "name": "Căn cứ thép",
     "width": 1000,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 16,
     "bricks": [
@@ -3203,8 +3203,8 @@
     "mapId": 17,
     "name": "Khu năng lượng",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 652,
+    "waterY": 612,
     "bgId": 23,
     "bricks": [
       {
@@ -3553,8 +3553,8 @@
     "mapId": 18,
     "name": "Căn cứ thép 2",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 665,
+    "waterY": 625,
     "bgId": 24,
     "bricks": [
       {
@@ -3943,8 +3943,8 @@
     "mapId": 19,
     "name": "Sân bay",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 635,
+    "waterY": 595,
     "bgId": 24,
     "bricks": [
       {
@@ -4343,8 +4343,8 @@
     "mapId": 20,
     "name": "Đảo uốn lượn",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 614,
+    "waterY": 574,
     "bgId": 20,
     "bricks": [
       {
@@ -4398,8 +4398,8 @@
     "mapId": 21,
     "name": "Sinh Tử",
     "width": 500,
-    "height": 500,
-    "waterY": 464,
+    "height": 515,
+    "waterY": 475,
     "bgId": 21,
     "bricks": [
       {
@@ -4563,8 +4563,8 @@
     "mapId": 22,
     "name": "Kim tự tháp 2",
     "width": 800,
-    "height": 400,
-    "waterY": 364,
+    "height": 443,
+    "waterY": 403,
     "bgId": 20,
     "bricks": [
       {
@@ -4893,8 +4893,8 @@
     "mapId": 23,
     "name": "Cầu vồng băng",
     "width": 800,
-    "height": 400,
-    "waterY": 364,
+    "height": 424,
+    "waterY": 384,
     "bgId": 22,
     "bricks": [
       {
@@ -4993,8 +4993,8 @@
     "mapId": 24,
     "name": "Vách núi",
     "width": 435,
-    "height": 600,
-    "waterY": 564,
+    "height": 677,
+    "waterY": 637,
     "bgId": 25,
     "bricks": [
       {
@@ -5213,8 +5213,8 @@
     "mapId": 25,
     "name": "Chiến trường",
     "width": 600,
-    "height": 620,
-    "waterY": 584,
+    "height": 676,
+    "waterY": 636,
     "bgId": 20,
     "bricks": [
       {
@@ -5283,8 +5283,8 @@
     "mapId": 26,
     "name": "Đảo vòng cung",
     "width": 800,
-    "height": 400,
-    "waterY": 364,
+    "height": 463,
+    "waterY": 423,
     "bgId": 20,
     "bricks": [
       {
@@ -5393,8 +5393,8 @@
     "mapId": 27,
     "name": "Đảo mây",
     "width": 850,
-    "height": 600,
-    "waterY": 564,
+    "height": 607,
+    "waterY": 567,
     "bgId": 21,
     "bricks": [
       {
@@ -5508,7 +5508,7 @@
     "mapId": 28,
     "name": "Thang mây",
     "width": 850,
-    "height": 600,
+    "height": 604,
     "waterY": 564,
     "bgId": 21,
     "bricks": [
@@ -5568,8 +5568,8 @@
     "mapId": 29,
     "name": "Không lối thoát",
     "width": 700,
-    "height": 500,
-    "waterY": 464,
+    "height": 539,
+    "waterY": 499,
     "bgId": 25,
     "bricks": [
       {
@@ -5708,8 +5708,8 @@
     "mapId": 30,
     "name": "Cầu sắt 2",
     "width": 800,
-    "height": 300,
-    "waterY": 264,
+    "height": 379,
+    "waterY": 339,
     "bgId": 27,
     "bricks": [
       {
@@ -6108,8 +6108,8 @@
     "mapId": 31,
     "name": "Bám trụ",
     "width": 500,
-    "height": 700,
-    "waterY": 664,
+    "height": 774,
+    "waterY": 734,
     "bgId": 27,
     "bricks": [
       {
@@ -6643,8 +6643,8 @@
     "mapId": 32,
     "name": "Lưới sắt",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 620,
+    "waterY": 580,
     "bgId": 27,
     "bricks": [
       {
@@ -7043,8 +7043,8 @@
     "mapId": 33,
     "name": "Thoát thân",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 620,
+    "waterY": 580,
     "bgId": 24,
     "bricks": [
       {
@@ -7598,7 +7598,7 @@
     "mapId": 34,
     "name": "Thiên đường",
     "width": 860,
-    "height": 500,
+    "height": 504,
     "waterY": 464,
     "bgId": 21,
     "bricks": [
@@ -7813,7 +7813,7 @@
     "mapId": 35,
     "name": "Miền đất hứa",
     "width": 900,
-    "height": 600,
+    "height": 604,
     "waterY": 564,
     "bgId": 21,
     "bricks": [
@@ -8028,8 +8028,8 @@
     "mapId": 36,
     "name": "Mê cung",
     "width": 900,
-    "height": 600,
-    "waterY": 564,
+    "height": 680,
+    "waterY": 640,
     "bgId": 28,
     "bricks": [
       {
@@ -8363,8 +8363,8 @@
     "mapId": 37,
     "name": "Hang đá 2",
     "width": 900,
-    "height": 400,
-    "waterY": 364,
+    "height": 438,
+    "waterY": 398,
     "bgId": 28,
     "bricks": [
       {
@@ -8558,8 +8558,8 @@
     "mapId": 38,
     "name": "Cây cầu dừa",
     "width": 905,
-    "height": 600,
-    "waterY": 564,
+    "height": 620,
+    "waterY": 580,
     "bgId": 26,
     "bricks": [
       {
@@ -8738,7 +8738,7 @@
     "mapId": 39,
     "name": "Đền tế 2",
     "width": 905,
-    "height": 600,
+    "height": 604,
     "waterY": 564,
     "bgId": 29,
     "bricks": [
@@ -8998,8 +8998,8 @@
     "mapId": 40,
     "name": "Bong bóng 1",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 633,
+    "waterY": 593,
     "bgId": 21,
     "bricks": [
       {
@@ -9148,8 +9148,8 @@
     "mapId": 41,
     "name": "Bong bóng 2",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 655,
+    "waterY": 615,
     "bgId": 21,
     "bricks": [
       {
@@ -9313,8 +9313,8 @@
     "mapId": 42,
     "name": "Cầu vồng",
     "width": 800,
-    "height": 600,
-    "waterY": 564,
+    "height": 669,
+    "waterY": 629,
     "bgId": 21,
     "bricks": [
       {
@@ -9538,7 +9538,7 @@
     "mapId": 50,
     "name": "Boss Bao vây",
     "width": 1100,
-    "height": 850,
+    "height": 854,
     "waterY": 814,
     "bgId": 15,
     "bricks": [
@@ -9853,7 +9853,7 @@
     "mapId": 51,
     "name": "Boss Hai tòa tháp",
     "width": 1150,
-    "height": 700,
+    "height": 704,
     "waterY": 664,
     "bgId": 15,
     "bricks": [
@@ -10133,7 +10133,7 @@
     "mapId": 52,
     "name": "Boss Khí cầu",
     "width": 1200,
-    "height": 800,
+    "height": 804,
     "waterY": 764,
     "bgId": 16,
     "bricks": [
@@ -10353,7 +10353,7 @@
     "mapId": 53,
     "name": "Boss Đặt bom",
     "width": 1000,
-    "height": 800,
+    "height": 804,
     "waterY": 764,
     "bgId": 17,
     "bricks": [
@@ -10523,7 +10523,7 @@
     "mapId": 54,
     "name": "Boss Rùa",
     "width": 1000,
-    "height": 800,
+    "height": 804,
     "waterY": 764,
     "bgId": 7,
     "bricks": [
@@ -10788,7 +10788,7 @@
     "mapId": 55,
     "name": "Boss Rồng",
     "width": 1000,
-    "height": 800,
+    "height": 804,
     "waterY": 764,
     "bgId": 2,
     "bricks": [
@@ -11048,7 +11048,7 @@
     "mapId": 56,
     "name": "Boss Bạo chúa công nghệ",
     "width": 1000,
-    "height": 800,
+    "height": 804,
     "waterY": 764,
     "bgId": 19,
     "bricks": [

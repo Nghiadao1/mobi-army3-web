@@ -32,6 +32,7 @@ class GameApp {
 
   // Trạng thái phòng & Giao diện chuẩn ảnh Mobi Army 3
   private activeModal: 'none' | 'hero' | 'bag' | 'map' | 'mode' | 'menu' | 'chat' | 'online_room' | 'guide' = 'none';
+  private heroModalFilter: 'all' | 'army' | 'marvel' = 'all';
   private selectingSlotForHero: 'player' | 'ally' = 'player';
   private lobbyView: 'room' | 'board' = 'room';
   private boardTab: 'boss_hunt' | 'campaign' | 'online' | 'maps' = 'boss_hunt';
@@ -1183,16 +1184,21 @@ class GameApp {
               <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
             </div>
             <div class="army-modal-body">
+              <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                <button class="ctrl-btn ${this.heroModalFilter === 'all' ? 'active' : ''}" data-filter-heroes="all" style="padding:4px 12px;font-size:0.82rem">🌟 Tất Cả (${HEROES.length})</button>
+                <button class="ctrl-btn ${this.heroModalFilter === 'army' ? 'active' : ''}" data-filter-heroes="army" style="padding:4px 12px;font-size:0.82rem">🎖️ Xạ Thủ Cơ Bản (10)</button>
+                <button class="ctrl-btn ${this.heroModalFilter === 'marvel' ? 'active' : ''}" data-filter-heroes="marvel" style="padding:4px 12px;font-size:0.82rem">🦸 Biệt Đội Avenger (17)</button>
+              </div>
               <div class="hero-grid" style="margin-bottom:14px">
-                ${HEROES.map(
+                ${HEROES.filter((h) => this.heroModalFilter === 'all' || h.faction === this.heroModalFilter).map(
                   (h) => `
                   <div class="hero-card ${h.faction === 'marvel' ? 'marvel-hero' : ''} ${
                     h.id === curHeroId ? 'selected' : ''
                   }" data-pick-hero="${h.id}">
-                    ${h.faction === 'marvel' ? '<span class="marvel-badge">MARVEL</span>' : ''}
+                    ${h.faction === 'marvel' ? '<span class="marvel-badge"><img src="./assets/ui/avenger.png" style="width:11px;height:11px;vertical-align:middle;margin-right:2px"/>AVENGER</span>' : ''}
                     <canvas id="modal-hero-${h.id}" width="72" height="72"></canvas>
                     <div class="hero-name" style="color:${h.color}">${h.name}</div>
-                    <div class="hero-role">${h.title.replace(' [MARVEL]', '')}</div>
+                    <div class="hero-role">${h.title.replace(' [MARVEL]', '').replace(' [AVENGER]', '')}</div>
                   </div>
                 `
                 ).join('')}
@@ -1201,6 +1207,8 @@ class GameApp {
                 <div>
                   <div style="font-weight:800;font-size:0.95rem;color:${curHero.color}">${curHero.name} — Tuyệt kỹ Nộ: <span style="color:#fde047">${curHero.powName}</span></div>
                   <div style="font-size:0.82rem;color:#cbd5e1;margin-top:2px">${curHero.description}</div>
+                  ${curHero.specialSkillName ? `<div style="font-size:0.8rem;color:#38bdf8;margin-top:4px">✨ <strong>Kỹ Năng:</strong> <span style="color:#fde047">${curHero.specialSkillName}</span> — ${curHero.specialSkillDesc ?? ''}</div>` : ''}
+                  ${curHero.passiveName ? `<div style="font-size:0.8rem;color:#facc15;margin-top:4px">🛡️ <strong>Nội Tại:</strong> <span style="color:#fde047">${curHero.passiveName}</span> — ${curHero.passiveDesc ?? ''}</div>` : ''}
                 </div>
                 <div class="stat-pills">
                   <span class="stat-pill">❤️ HP: ${curHero.hp}</span>
@@ -1307,7 +1315,7 @@ class GameApp {
                 `).join('')}
               </div>
 
-              <h3 style="margin:0 0 8px;font-size:0.92rem;color:#38bdf8">🗺️ Danh Sách 27 Bản Đồ Chiến Trường:</h3>
+              <h3 style="margin:0 0 8px;font-size:0.92rem;color:#38bdf8">🗺️ Danh Sách 43 Bản Đồ Chiến Trường Chính Thức (MobiArmy3):</h3>
               <div class="hero-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))">
                 ${this.assets.maps.map((m) => `
                   <div class="loadout-item-card ${m.mapId === this.selectedMapId ? 'selected' : ''}" data-pick-map="${m.mapId}" style="cursor:pointer;flex-direction:column;align-items:flex-start">
@@ -1502,6 +1510,14 @@ class GameApp {
           this.previewRenderer.drawHeroPreview(c, h, 12, false);
         }
       }
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-filter-heroes]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          sound.playClick();
+          this.heroModalFilter = (btn.dataset.filterHeroes as any) || 'all';
+          this.renderLobby();
+        });
+      });
+
       this.uiRoot.querySelectorAll<HTMLElement>('[data-pick-hero]').forEach((card) => {
         card.addEventListener('click', () => {
           sound.playClick();

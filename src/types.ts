@@ -92,15 +92,23 @@ export type WeaponPattern =
   | 'grenade'
   | 'chicky'
   | 'apache'
+  | 'magenta_orb'
   | 'repulsor'
+  | 'ironman_mark50'
   | 'vibranium_shield'
   | 'mjolnir'
+  | 'stormbreaker_axe'
   | 'hulk_smash'
   | 'hulk_leap'
+  | 'red_hulk_shockwave'
   | 'hawkeye_bow'
+  | 'hawkeye_tech'
   | 'winter_sniper'
+  | 'winter_sniper_mark'
   | 'ultron_beam'
+  | 'ultron_prime'
   | 'loki_morph'
+  | 'doctor_strange'
   | 'ufo_beam'
   | 'bomber_drop'
   | 'mech_barrage';
@@ -133,6 +141,10 @@ export interface HeroDef {
   holeMask: string;
   powHoleMask: string;
   equipment: HeroEquipment;
+  specialSkillName?: string;
+  specialSkillDesc?: string;
+  passiveName?: string;
+  passiveDesc?: string;
 }
 
 export type BattleItemId =

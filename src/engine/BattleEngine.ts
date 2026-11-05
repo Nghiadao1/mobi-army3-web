@@ -75,6 +75,11 @@ export interface Fighter {
   chatTimer?: number;
   hasBatShield?: boolean;
   stunTurns?: number;
+  shotCount?: number;
+  hasMagicShield?: boolean;
+  isMarked?: boolean;
+  weakenTurns?: number;
+  hasUsedDrain?: boolean;
 }
 
 interface QueuedShot {
@@ -120,7 +125,15 @@ interface Projectile {
     | 'freeze'
     | 'poison'
     | 'nuke'
-    | 'airstrike';
+    | 'airstrike'
+    | 'magenta_orb'
+    | 'ironman_beam'
+    | 'red_hulk_shockwave'
+    | 'stormbreaker_axe'
+    | 'doctor_strange_disc'
+    | 'piercing_terrain'
+    | 'hawkeye_tech_airstrike';
+  strangeDiscColor?: 'green' | 'yellow';
   diggerCharges?: number;
   isBounced?: boolean;
   bounceCount?: number;
@@ -1613,8 +1626,32 @@ export class BattleEngine {
       }
     }
 
+    // 1b. Kỹ năng của DOCTOR STRANGE: Sau 3 phát bắn thường tự bật Lá Chắn Ma Thuật
+    if (active.weakenTurns && active.weakenTurns > 0) active.weakenTurns--;
+    if ((active.baseHeroId === 'doctor_strange' || active.hero.id === 'doctor_strange') && (active.shotCount ?? 0) >= 3 && !active.hasMagicShield) {
+      active.hasMagicShield = true;
+      active.shotCount = 0;
+      this.spawnFloatingText(active.x, active.y - 54, '🔮 LÁ CHẮN MA THUẬT KÍCH HOẠT (CHẶN 100% ĐÒN TIẾP THEO)!', '#14b8a6', 1.32);
+    }
+
+    // 1c. Kỹ năng ULTRON TỐI THƯỢNG (Tăng Cường): Khi HP < 50%, hút bản sao nhiều máu nhất để hồi phục!
+    if ((active.baseHeroId === 'ultron_prime' || active.hero.id === 'ultron_prime') && active.hp < active.maxHp * 0.5 && !active.hasUsedDrain) {
+      const clones = this.fighters.filter(f => f.alive && f.isClone && f.ownerUltronId === active.id);
+      if (clones.length > 0) {
+        clones.sort((a, b) => b.hp - a.hp);
+        const bestClone = clones[0];
+        const healAmt = bestClone.hp;
+        bestClone.alive = false;
+        bestClone.hp = 0;
+        active.hp = Math.min(active.maxHp, active.hp + healAmt);
+        active.hasUsedDrain = true;
+        this.spawnEffect(bestClone.x, bestClone.y - 18, this.assets.manifest.effects.bigExplosion, 1.15);
+        this.spawnFloatingText(active.x, active.y - 52, `🩸 HÚT BẢN SAO HỒI +${healAmt} HP (TĂNG CƯỜNG)!`, '#e11d48', 1.35);
+      }
+    }
+
     // 2. Kỹ năng của ULTRON: Hồi chiêu phân thân (mỗi lượt cách nhau 2 turn)
-    if (active.hero.id === 'ultron') {
+    if (active.hero.id === 'ultron' || active.hero.id === 'ultron_prime') {
       if (active.ultronCloneCooldown && active.ultronCloneCooldown > 0) {
         active.ultronCloneCooldown--;
       }
@@ -1771,12 +1808,21 @@ export class BattleEngine {
   private getHeroWindScale(hero: HeroDef): number {
     switch (hero.weapon) {
       case 'electric':
+      case 'magenta_orb':
         return 0.45;
       case 'repulsor':
+      case 'ironman_mark50':
       case 'winter_sniper':
+      case 'winter_sniper_mark':
         return 0.25;
       case 'hawkeye_bow':
+      case 'hawkeye_tech':
+      case 'doctor_strange':
         return 0.35;
+      case 'hulk_leap':
+      case 'hulk_smash':
+      case 'red_hulk_shockwave':
+        return 0;
       default:
         return 1;
     }
@@ -2808,7 +2854,246 @@ export class BattleEngine {
         break;
       }
 
+      case 'magenta_orb': {
+        // Magenta (#10): Bắn chùm 4 quả cầu ma pháp tím lượn xoáy và hội tụ vào mục tiêu. POW: Đại Cầu Tinh Vân
+        const angles = usePow ? [-4.5, -2, 0, 2, 4.5] : [-3, -1, 1, 3];
+        const ratio = usePow ? 0.42 : 0.28;
+        angles.forEach((da, i) => {
+          this.queueProjectile(baseDelay + i * 5, () => {
+            sound.playShoot(usePow);
+            this.spawnBullet(u, u.aimAngleDeg + da, power, {
+              spriteKey: 'special',
+              effectKey: usePow ? 'nuke' : 'electric',
+              holeMask: usePow ? 'h55x50.png' : 'h36x30.png',
+              holeScale: usePow ? 1.25 : 1.0,
+              damage: u.attack * ratio,
+              blastRadius: usePow ? 46 : 36,
+              windScale: 0.35,
+              special: 'magenta_orb',
+              scale: usePow ? 1.35 : 1.15,
+            });
+          });
+        });
+        break;
+      }
+
       // ================= VŨ KHÍ ĐẶC TRƯNG BIỆT ĐỘI MARVEL =================
+      case 'ironman_mark50': {
+        u.shotCount = (u.shotCount ?? 0) + 1;
+        const isEnergyBeamReady = (u.shotCount >= 3) || usePow;
+        if (isEnergyBeamReady) {
+          if (!usePow) u.shotCount = 0;
+          this.queueProjectile(baseDelay, () => {
+            sound.playPow();
+            this.spawnFloatingText(u.x, u.y - 48, '⚡ PHÁO NĂNG LƯỢNG MARK 50 (150% ST XUYÊN THẤU)!', '#ea580c', 1.3);
+            this.spawnBullet(u, u.aimAngleDeg, power, {
+              spriteKey: 'lightning',
+              effectKey: 'nuke',
+              holeMask: 'h55x50.png',
+              holeScale: 1.3,
+              damage: u.attack * 1.5,
+              blastRadius: 52,
+              windScale: 0.05,
+              special: 'ironman_beam',
+              scale: 1.6,
+            });
+          });
+        } else {
+          this.spawnFloatingText(u.x, u.y - 44, `⚡ PHÁO PLASMA (${u.shotCount}/2 PHÁT SẠC)`, '#38bdf8', 1.1);
+          for (let i = 0; i < 4; i++) {
+            this.queueProjectile(baseDelay + i * 4, () => {
+              sound.playShoot(false);
+              this.spawnBullet(u, u.aimAngleDeg, power, {
+                spriteKey: 'lightning',
+                effectKey: 'electric',
+                holeMask: 'h36x30.png',
+                holeScale: 0.95,
+                damage: u.attack * 0.28,
+                blastRadius: 32,
+                windScale: 0.1,
+                special: 'ironman_plasma',
+                scale: 1.15,
+              });
+            });
+          }
+        }
+        break;
+      }
+
+      case 'red_hulk_shockwave': {
+        u.shotCount = (u.shotCount ?? 0) + 1;
+        const isShockwaveReady = (u.shotCount >= 3) || usePow;
+        if (isShockwaveReady) {
+          if (!usePow) u.shotCount = 0;
+          this.queueProjectile(baseDelay, () => {
+            sound.playPow();
+            this.spawnFloatingText(u.x, u.y - 48, '🌪️ CUỒNG PHONG XÉ GIÓ (150% ST VÙNG GIÓ)!', '#dc2626', 1.35);
+            this.spawnBullet(u, u.aimAngleDeg, power, {
+              spriteKey: 'meteor',
+              effectKey: 'nuke',
+              holeMask: 'h55x50.png',
+              holeScale: 1.35,
+              damage: u.attack * 1.5,
+              blastRadius: 65,
+              windScale: 0,
+              special: 'red_hulk_shockwave',
+              scale: 1.8,
+            });
+          });
+        } else {
+          this.queueProjectile(baseDelay, () => {
+            sound.playShoot(true);
+            this.spawnFloatingText(u.x, u.y - 46, `HULK ĐỎ BẬT NHẢY (${u.shotCount}/2 PHÁT SẠC)!`, '#ef4444', 1.2);
+            this.spawnBullet(u, u.aimAngleDeg, power, {
+              spriteKey: 'meteor',
+              effectKey: 'bigExplosion',
+              holeMask: 'h55x50.png',
+              holeScale: 1.18,
+              damage: u.attack * 0.95,
+              blastRadius: 56,
+              windScale: 0,
+              special: 'hulk_leap',
+              leapStartY: u.y,
+            });
+          });
+        }
+        break;
+      }
+
+      case 'stormbreaker_axe': {
+        u.shotCount = (u.shotCount ?? 0) + 1;
+        const isStormReady = (u.shotCount >= 3) || usePow;
+        if (isStormReady && !usePow) u.shotCount = 0;
+        this.queueProjectile(baseDelay, () => {
+          sound.playShoot(true);
+          if (isStormReady) {
+            this.spawnFloatingText(u.x, u.y - 48, '⚡ BÃO SÉT STORMBREAKER (150% ST VÙNG RƠI)!', '#38bdf8', 1.3);
+          }
+          this.spawnBullet(u, u.aimAngleDeg, power, {
+            spriteKey: 'stormbreaker',
+            effectKey: 'electric',
+            holeMask: isStormReady ? 'h55x50.png' : 'h44x39.png',
+            holeScale: isStormReady ? 1.3 : 1.15,
+            damage: u.attack * (isStormReady ? 1.5 : 1.12),
+            blastRadius: isStormReady ? 56 : 48,
+            windScale: 0.45,
+            special: isStormReady ? 'stormbreaker_axe' : 'sky_lightning',
+            scale: 1.15,
+          });
+        });
+        break;
+      }
+
+      case 'doctor_strange': {
+        u.shotCount = (u.shotCount ?? 0) + 1;
+        const discs: Array<'green' | 'yellow'> = ['green', 'yellow'];
+        discs.forEach((color, i) => {
+          this.queueProjectile(baseDelay + i * 8, () => {
+            sound.playShoot(true);
+            const isGreen = color === 'green';
+            this.spawnFloatingText(
+              u.x,
+              u.y - 44,
+              isGreen ? '🟢 ĐĨA PHÉP XANH (BỎ 20% THỦ)' : '🟡 ĐĨA PHÉP VÀNG (-10% CÔNG ĐỊCH)',
+              isGreen ? '#4ade80' : '#facc15',
+              1.15
+            );
+            this.spawnBullet(u, u.aimAngleDeg + (i === 0 ? -1.5 : 1.5), power, {
+              spriteKey: 'special',
+              effectKey: 'electric',
+              holeMask: usePow ? 'h55x50.png' : 'h44x39.png',
+              holeScale: usePow ? 1.25 : 1.05,
+              damage: u.attack * (usePow ? 0.85 : 0.6) * (isGreen ? 1.2 : 1.0),
+              blastRadius: 44,
+              windScale: 0.35,
+              special: 'doctor_strange_disc',
+              strangeDiscColor: color,
+              scale: 1.2,
+            });
+          });
+        });
+        break;
+      }
+
+      case 'winter_sniper_mark': {
+        const sniperCount = usePow ? 3 : 1;
+        for (let i = 0; i < sniperCount; i++) {
+          this.queueProjectile(baseDelay + i * 5, () => {
+            sound.playShoot(false);
+            this.spawnFloatingText(u.x, u.y - 46, '🎯 ĐẠN XUYÊN ĐỊA HÌNH ĐÁNH DẤU!', '#64748b', 1.15);
+            this.spawnBullet(u, u.aimAngleDeg + (i - (sniperCount - 1) / 2) * 0.8, power, {
+              spriteKey: 'ak',
+              effectKey: 'explosion',
+              holeMask: 'h36x30.png',
+              holeScale: 0.95,
+              damage: u.attack * (usePow ? 0.45 : 0.65),
+              blastRadius: 36,
+              windScale: 0.25,
+              special: 'piercing_terrain',
+            });
+          });
+        }
+        break;
+      }
+
+      case 'hawkeye_tech': {
+        u.shotCount = (u.shotCount ?? 0) + 1;
+        const isAirstrikeReady = (u.shotCount >= 3) || usePow;
+        if (isAirstrikeReady) {
+          if (!usePow) u.shotCount = 0;
+          this.queueProjectile(baseDelay, () => {
+            sound.playPow();
+            this.spawnFloatingText(u.x, u.y - 48, '✈️ PHI CƠ HỖ TRỢ CHIẾN ĐẤU CƠ (200% ST)!', '#a855f7', 1.35);
+            this.spawnBullet(u, u.aimAngleDeg, power, {
+              spriteKey: 'muiten_cn',
+              effectKey: 'nuke',
+              holeMask: 'h55x50.png',
+              holeScale: 1.35,
+              damage: u.attack * 2.0,
+              blastRadius: 62,
+              windScale: 0.2,
+              special: 'hawkeye_tech_airstrike',
+              scale: 1.5,
+            });
+          });
+        } else {
+          this.queueProjectile(baseDelay, () => {
+            sound.playShoot(false);
+            this.spawnFloatingText(u.x, u.y - 44, `🏹 TÊN CÔNG NGHỆ (${u.shotCount}/2 PHÁT SẠC)`, '#a855f7', 1.1);
+            this.spawnBullet(u, u.aimAngleDeg, power, {
+              spriteKey: 'muiten_cn',
+              effectKey: 'bigExplosion',
+              holeMask: 'h40x35.png',
+              holeScale: 1.05,
+              damage: u.attack * 1.05,
+              blastRadius: 40,
+              windScale: 0.3,
+            });
+          });
+        }
+        break;
+      }
+
+      case 'ultron_prime': {
+        const mainCount = usePow ? 4 : 3;
+        for (let i = 0; i < mainCount; i++) {
+          this.queueProjectile(baseDelay + i * 5, () => {
+            sound.playShoot(true);
+            this.spawnBullet(u, u.aimAngleDeg + (i - (mainCount - 1) / 2) * 1.8, power, {
+              spriteKey: 'lightning',
+              effectKey: 'electric',
+              holeMask: usePow ? 'h55x50.png' : 'h40x35.png',
+              holeScale: usePow ? 1.3 : 1.05,
+              damage: u.attack * (usePow ? 0.58 : 0.48),
+              blastRadius: usePow ? 48 : 40,
+              windScale: 0.3,
+              special: 'electric',
+            });
+          });
+        }
+        break;
+      }
+
       case 'vibranium_shield': {
         if (usePow) {
           // Kỹ năng POW của Captain America: Ném Khiên Khổng Lồ, bật nảy 3 lần và gây sát thương lớn!
@@ -3421,6 +3706,7 @@ export class BattleEngine {
       boomerangTurnDir?: 1 | -1;
       scale?: number;
       isSuperHighAngle?: boolean;
+      strangeDiscColor?: 'green' | 'yellow';
     }
   ): void {
     const isSuperHighAngle = opts.isSuperHighAngle ?? Math.abs(angleDeg) >= 75;
@@ -3471,6 +3757,7 @@ export class BattleEngine {
       boomerangTurnDir: opts.boomerangTurnDir,
       leapStartY: opts.leapStartY,
       leapPeakHeight: 0,
+      strangeDiscColor: opts.strangeDiscColor,
       trail: [],
     });
   }
@@ -3795,6 +4082,10 @@ export class BattleEngine {
       // Kiểm tra chạm địa hình bằng Bresenham raycast
       const hitLand = this.terrain.raycast(prevX, prevY, p.x, p.y);
       if (hitLand) {
+        if (p.special === 'piercing_terrain' || p.special === 'ironman_beam') {
+          // Đạn xuyên địa hình của Winter Soldier & Iron Man Mark 50: không nổ chặn lại, tiếp tục xuyên qua địa hình!
+          this.terrain.carveCrater(hitLand.x, hitLand.y, 'h32x26.png', 0.55);
+        } else 
         if (p.special === 'mouse' && !p.crawling) {
           // Chuột gắn bom đáp xuống đất và bắt đầu chạy về phía kẻ địch gần nhất!
           p.crawling = true;
@@ -3939,6 +4230,26 @@ export class BattleEngine {
       this.assets.manifest.effects[p.effectKey] ?? this.assets.manifest.effects.explosion;
     this.spawnEffect(ix, iy, fxEntry, p.effectKey === 'nuke' ? 1.25 : 1.0);
 
+    // Bão sét quanh chỗ búa rơi của Thor Stormbreaker (150% ST)
+    if (p.special === 'stormbreaker_axe') {
+      const strikeOffsets = [-36, 0, 36];
+      for (const ox of strikeOffsets) {
+        const sx = ix + ox;
+        this.lightningBeams.push({ x: sx, y: iy, ticksLeft: 24 });
+        for (let sy = iy - 45; sy > 0; sy -= 48) {
+          this.spawnEffect(sx, sy, this.assets.manifest.effects.electric, 0.95);
+        }
+      }
+      this.spawnFloatingText(ix, iy - 48, '⚡⚡⚡ BÃO SÉT TAM HƯỚNG STORMBREAKER!', '#38bdf8', 1.3);
+    }
+
+    // Phi cơ hỗ trợ của Hawk Eyes Công Nghệ (xả súng quanh mục tiêu 200% ST)
+    if (p.special === 'hawkeye_tech_airstrike') {
+      const owner = this.fighters.find((f) => f.id === p.ownerId);
+      this.spawnAirstrikeCarpet(owner, ix);
+      this.spawnFloatingText(ix, iy - 44, '✈️ TIÊM KÍCH XẢ SÚNG 200% ST!', '#a855f7', 1.35);
+    }
+
     // Tia sét giáng từ bầu trời xuống của Thor (Stormbreaker/Mjolnir) & POW Điện Quang
     if (p.special === 'sky_lightning') {
       this.lightningBeams.push({ x: ix, y: iy, ticksLeft: 24 });
@@ -4050,6 +4361,59 @@ export class BattleEngine {
 
       const falloff = Math.max(0.28, 1 - (dist / p.blastRadius) * 0.72);
       let rawDmg = p.damage * falloff;
+
+      // Nội tại ẩn của Captain America / Nomad / Bạc Vàng: Giảm 20% sát thương toàn phần, đồng đội +20% phòng thủ
+      const targetHasCaptainAlly = this.fighters.some(
+        (f) => f.alive && f.team === target.team && (f.baseHeroId?.startsWith('captain') || f.hero.id.startsWith('captain'))
+      );
+      if (targetHasCaptainAlly) {
+        rawDmg *= 0.8;
+      }
+
+      // Đánh dấu mục tiêu của Winter Soldier Mùa Đông: nhận thêm 20% sát thương từ mọi nguồn tới hết trận
+      if (target.isMarked) {
+        rawDmg *= 1.2;
+      }
+
+      // Giảm 10% công nếu shooter bị trúng Đĩa Vàng của Doctor Strange ở lượt trước
+      if (shooter && (shooter.weakenTurns ?? 0) > 0) {
+        rawDmg *= 0.9;
+      }
+
+      // Đĩa Xanh của Doctor Strange: bỏ qua 20% phòng thủ đối thủ
+      if (p.strangeDiscColor === 'green') {
+        rawDmg *= 1.25;
+      }
+
+      // Đĩa Vàng của Doctor Strange: làm đối thủ giảm 10% sát thương ở lượt kế tiếp
+      if (p.strangeDiscColor === 'yellow' && target.team !== p.team) {
+        target.weakenTurns = 1;
+        this.spawnFloatingText(target.x, centerY - 46, '🟡 ĐĨA VÀNG: GIẢM 10% CÔNG LƯỢT SAU!', '#facc15', 1.2);
+      }
+
+      // Đánh dấu của Winter Soldier Mùa Đông khi bắn trúng
+      if (p.special === 'piercing_terrain' && shooter && (shooter.baseHeroId === 'wintersoldier_winter' || shooter.hero.id === 'wintersoldier_winter') && target.team !== p.team) {
+        target.isMarked = true;
+        this.spawnFloatingText(target.x, centerY - 48, '🎯 ĐÁNH DẤU TỬ THẦN TỚI HẾT TRẬN (+20% ST)!', '#ef4444', 1.25);
+      }
+
+      // Kỹ năng của LOKI: Giả dạng và mỗi phát bắn trúng có 20% làm đối thủ đóng băng 1 lượt
+      if (shooter && (shooter.baseHeroId === 'loki' || shooter.hero.id === 'loki') && target.team !== shooter.team) {
+        if (Math.random() < 0.20 && (target.frozenTurns ?? 0) <= 0) {
+          target.frozenTurns = 1;
+          this.spawnFloatingText(target.x, centerY - 32, '❄️ LOKI ĐÓNG BĂNG 1 LƯỢT (20%)!', '#38bdf8', 1.25);
+          if (this.assets.manifest.effects.freeze) {
+            this.spawnEffect(target.x, centerY, this.assets.manifest.effects.freeze, 1.15);
+          }
+        }
+      }
+
+      // Lá Chắn Ma Thuật của Doctor Strange: chặn trọn 1 đòn kế tiếp rồi vỡ
+      if (target.hasMagicShield) {
+        target.hasMagicShield = false;
+        rawDmg = 0;
+        this.spawnFloatingText(target.x, centerY - 38, '🔮 LÁ CHẮN MA THUẬT ĐỠ TRỌN ĐÒN & VỠ!', '#14b8a6', 1.35);
+      }
 
       // Thưởng bắn góc siêu cao: Tăng 20% sát thương khi bắn góc siêu cao (>= 75 độ)
       if (p.isSuperHighAngle && target.team !== p.team) {
@@ -4489,6 +4853,8 @@ export class BattleEngine {
         isPoisoned: (f.poisonTurns ?? 0) > 0,
         isWebbed: f.webbedTurns > 0,
         scale: f.scale,
+        hasMagicShield: f.hasMagicShield,
+        isMarked: f.isMarked,
       });
 
       // Lưới tơ nhện quấn quanh người nếu bị trúng Đạn Tơ Nhện (web.png)

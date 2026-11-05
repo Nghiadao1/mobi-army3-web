@@ -18,6 +18,8 @@ export interface CharacterRenderState {
   hasBatShield?: boolean;
   stunTurns?: number;
   scale?: number;
+  hasMagicShield?: boolean;
+  isMarked?: boolean;
 }
 
 const IDLE_SEQ = [0, 1, 1, 0];
@@ -141,8 +143,37 @@ export class CharacterRenderer {
           state.animMode === 'idle' && Math.floor(state.animTick / 25) % 4 === 3
             ? IDLE_SEQ[Math.floor(state.animTick / 8) % IDLE_SEQ.length]
             : this.resolvePoseIndex(state);
-        this.drawCompositeHero(ctx, state.hero.equipment, poseIdx, state.facingLeft);
+        this.drawCompositeHero(ctx, state.hero.equipment, poseIdx, state.facingLeft, state.hero.id);
       }
+    }
+
+    // Lá Chắn Ma Thuật của Doctor Strange
+    if (state.hasMagicShield) {
+      const shieldTick = state.animTick * 0.08;
+      ctx.save();
+      ctx.strokeStyle = '#14b8a6';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#2dd4bf';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(0, -18, 26 + Math.sin(shieldTick) * 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(0, -18, 22, shieldTick, shieldTick + Math.PI * 1.5);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Dấu ấn Tử Thần của Winter Soldier Mùa Đông
+    if (state.isMarked) {
+      ctx.save();
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🎯', 0, -42);
+      ctx.restore();
     }
 
     // Hiệu ứng trúng Tơ Nhện quấn quanh người
@@ -208,7 +239,7 @@ export class CharacterRenderer {
         override.frameHeight / 2
       );
     } else {
-      this.drawCompositeHero(ctx, hero.equipment, poseIdx, false);
+      this.drawCompositeHero(ctx, hero.equipment, poseIdx, false, hero.id);
     }
     ctx.restore();
   }
@@ -220,8 +251,17 @@ export class CharacterRenderer {
     ctx: CanvasRenderingContext2D,
     eq: HeroEquipment,
     poseIdx: number,
-    facingLeft: boolean
+    facingLeft: boolean,
+    heroId?: string
   ): void {
+    const hasFilter = heroId === 'red_hulk' || heroId === 'captain_gold';
+    if (heroId === 'red_hulk') {
+      ctx.save();
+      ctx.filter = 'hue-rotate(270deg) saturate(2.0) brightness(0.95)';
+    } else if (heroId === 'captain_gold') {
+      ctx.save();
+      ctx.filter = 'sepia(0.85) saturate(2.8) hue-rotate(15deg) brightness(1.1)';
+    }
     // Các bộ giáp Marvel / Tướng đặc biệt dùng pose 0/1 để khớp hoàn hảo đầu-thân-chân
     let effectivePoseIdx = poseIdx;
     if ((eq.body >= 220 || eq.hat === 204 || eq.hat === 294 || eq.hat === 220 || eq.hat === 198) && poseIdx >= 11) {
@@ -253,6 +293,24 @@ export class CharacterRenderer {
     }
     if (eq.gun !== -1) {
       this.drawPartSlot(ctx, eq.gun, pose[3], facingLeft);
+    }
+    if (hasFilter) {
+      ctx.restore();
+    }
+    if (heroId === 'doctor_strange') {
+      // Vẽ Mandalas phép thuật xoay quanh Doctor Strange
+      const time = Date.now() * 0.003;
+      ctx.save();
+      ctx.strokeStyle = '#14b8a6';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(facingLeft ? -14 : 14, -18, 10, time, time + Math.PI * 1.5);
+      ctx.stroke();
+      ctx.strokeStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(facingLeft ? 10 : -10, -14, 7, -time, -time + Math.PI * 1.5);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 

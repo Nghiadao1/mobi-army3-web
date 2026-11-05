@@ -16,7 +16,18 @@
     "rocketer": null,
     "granos": null,
     "chicky": null,
-    "apache": null
+    "apache": null,
+    "magenta": null,
+    "tazang": null,
+    "ironman_mark50": null,
+    "red_hulk": null,
+    "thor_stormbreaker": null,
+    "doctor_strange": null,
+    "captain_nomad": null,
+    "captain_gold": null,
+    "wintersoldier_winter": null,
+    "hawkeye_tech": null,
+    "ultron_prime": null
   },
   "bullets": {
     "cannon": {
@@ -106,6 +117,14 @@
     "banana": {
       "url": "assets/bullets/banana.png",
       "frames": 1
+    },
+    "magenta_orb": {
+      "url": "assets/bullets/d10.png",
+      "frames": 1
+    },
+    "lightning_storm": {
+      "url": "assets/bullets/laser.png",
+      "frames": 8
     }
   },
   "effects": {
