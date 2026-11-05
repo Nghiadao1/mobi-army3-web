@@ -163,7 +163,7 @@ git add -A; git commit -m "..."; git push origin main   # Tự động deploy Gi
 - [x] Thiết lập Vitest + bộ test tự động đầu tiên cho vật lý đạn trong `src/engine/BotAI.test.ts` (hàm `computeShotVelocity` và `solveBotShot`), chạy bằng `npm test`.
 
 ### P1 — Giảm rủi ro & tăng giá trị chơi
-- [ ] Tách `src/engine/BattleEngine.ts` (5.333 dòng) theo từng bước nhỏ: ưu tiên tách `scheduleHeroWeapon` (~693 dòng) thành module vũ khí riêng theo nhóm hero. Sau mỗi bước phải chạy lại `npm test` + `npm run build`.
+- [ ] Tách `src/engine/BattleEngine.ts` theo từng bước nhỏ. ✅ Bước 1 (2026-11-05): `scheduleHeroWeapon` (702 dòng) đã chuyển sang `src/engine/heroWeapons.ts` — hàm chỉ dùng 4 thành viên của engine (`queueProjectile`/`spawnBullet`/`spawnFloatingText`/`chargePower2`, 3 method đầu chuyển private→public), BattleEngine còn 4.629 dòng và chỉ giữ method ủy quyền; body kiểm chứng giống hệt bản gốc (chỉ `this.`→`engine.`), tsc + 20/20 test + build pass. Bước tiếp theo (khi cần): `spawnFighters` hoặc `detonateProjectile`. Sau mỗi bước phải chạy lại `npm test` + `npm run build`.
 - [ ] Nếu cần, tách tiếp `src/main.ts` (2.212 dòng) phần render Lobby / Modal.
 - [ ] Vòng lặp tiến trình: thưởng sau trận (xu/điểm), mở khóa dần 17 hero Avenger và item hiếm thay vì cho dùng hết từ đầu; lưu tiến trình và cả cài đặt âm thanh (đang tắt/bật tiếng) vào `localStorage`.
 
