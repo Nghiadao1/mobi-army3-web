@@ -133,6 +133,10 @@ export interface HeroDef {
   canFly?: boolean;
   hp: number;
   attack: number;
+  reloadTime?: number; // Thời gian nạp đạn theo mobiarmy3.me/nhan-vat (chỉ Avenger có)
+  siteSkillName?: string; // Tên kỹ năng nguyên văn trên mobiarmy3.me/nhan-vat
+  siteSkillDesc?: string; // Mô tả kỹ năng nguyên văn trên mobiarmy3.me/nhan-vat
+  siteBonuses?: string[]; // Các dòng chỉ số cộng thêm nguyên văn trên mobiarmy3.me/nhan-vat
   moveSpeed: number;
   staminaMax: number;
   minAngle: number;

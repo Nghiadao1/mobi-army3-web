@@ -100,6 +100,7 @@ interface Projectile {
   holeScale: number;
   damage: number;
   baseDamage?: number;
+  lightningScale?: number;
   blastRadius: number;
   windScale: number;
   age: number;
@@ -212,7 +213,6 @@ export interface HudSnapshot {
   armedBagSlotIdx?: number | null;
   doubleArmed: boolean;
   vampireArmed?: boolean;
-  hawkeyeGiantArmed?: boolean;
   turnNumber: number;
   mapName: string;
   modeLabel: string;
@@ -253,7 +253,6 @@ export class BattleEngine {
   public armedBagSlotIdx: number | null = null;
   public doubleArmed = false;
   public vampireArmed = false;
-  public hawkeyeGiantArmed = false;
   public itemsUsedThisTurn = 0;
   private usedInstantItemCount = 0;
 
@@ -1282,30 +1281,8 @@ export class BattleEngine {
       return false;
     }
 
-    // Kỹ năng đặc biệt của Hawkeye: Dùng Item máu và dịch chuyển sẽ hoạt động bình thường!
-    // Các item chiến đấu khác sẽ nạp trạng thái kỹ năng và chỉ kích hoạt khi nâng góc lên 89°!
-    if (u.hero.weapon === 'hawkeye_bow') {
-      if (itemId === 'heal' || itemId === 'team_heal' || itemId === 'teleport' || itemId === 'suicide') {
-        // Hồi máu, Hồi máu đội, Dịch chuyển, Cảm tử hoạt động bình thường
-      } else {
-        if (this.hawkeyeGiantArmed) return false;
-        u.inventory[itemId]--;
-        this.consumeBagSlot(u, itemId, slotIndex);
-        this.itemsUsedThisTurn++;
-        this.hawkeyeGiantArmed = true;
-        this.activeItemArmed = itemId;
-        sound.playPow();
-        this.spawnFloatingText(
-          u.x,
-          u.y - 46,
-          'ƯNG NHÃN: NẠP KỸ NĂNG (GÓC 89° ĐỂ KÍCH HOẠT)!',
-          '#c084fc',
-          1.22
-        );
-        this.emitHud();
-        return true;
-      }
-    }
+    // (Đã bỏ cơ chế riêng cũ của Hawkeye: item của Hawk Eyes nay hoạt động như mọi hero khác,
+    // kỹ năng của Hawk Eyes là Khóa Mục Tiêu theo mô tả trên mobiarmy3.me/nhan-vat.)
 
     if (itemId === 'heal') {
       if (this.usedInstantItemCount >= 1) return false;
@@ -1736,7 +1713,6 @@ export class BattleEngine {
     this.armedBagSlotIdx = null;
     this.doubleArmed = false;
     this.vampireArmed = false;
-    this.hawkeyeGiantArmed = false;
     this.itemsUsedThisTurn = 0;
     this.usedInstantItemCount = 0;
     this.manualCamTimer = 0;
@@ -2977,7 +2953,8 @@ export class BattleEngine {
             damage: u.attack * (isStormReady ? 1.5 : 1.12),
             blastRadius: isStormReady ? 56 : 48,
             windScale: 0.45,
-            special: isStormReady ? 'stormbreaker_axe' : 'sky_lightning',
+            // Theo web: phát thường chỉ là ném rìu, sét chỉ gọi quanh chỗ rìu rơi ở phát đặc biệt.
+            special: isStormReady ? 'stormbreaker_axe' : undefined,
             scale: 1.15,
           });
         });
@@ -3147,20 +3124,31 @@ export class BattleEngine {
       }
 
       case 'mjolnir': {
-        // Thần Sấm Thor: Ném Rìu Stormbreaker tới mục tiêu và gọi cột Sét khổng lồ đánh xuống tại vị trí cuối!
+        // Thor (theo mobiarmy3.me/nhan-vat): Sấm sét — Gọi sét đánh xuống, mỗi cột sét gây 150% sát thương.
+        // Dùng được sau 2 phát bắn thường: 2 phát đầu ném búa thường, phát thứ 3 mới gọi sét.
+        u.shotCount = (u.shotCount ?? 0) + 1;
+        const isLightningReady = (u.shotCount >= 3) || usePow;
+        if (isLightningReady && !usePow) u.shotCount = 0;
         const shots = usePow ? [-4, 0, 4] : [0];
         shots.forEach((da, i) => {
           this.queueProjectile(baseDelay + i * 9, () => {
             sound.playShoot(true);
+            if (isLightningReady && !usePow) {
+              this.spawnFloatingText(u.x, u.y - 48, '⚡ SẤM SÉT ASGARD (150% ST)!', '#38bdf8', 1.3);
+            } else if (!usePow) {
+              this.spawnFloatingText(u.x, u.y - 44, `🔨 BÚA MJOLNIR (${u.shotCount}/2 PHÁT SẠC)`, '#38bdf8', 1.1);
+            }
             this.spawnBullet(u, u.aimAngleDeg + da, power, {
               spriteKey: 'stormbreaker',
               effectKey: 'electric',
               holeMask: usePow ? 'h55x50.png' : 'h44x39.png',
               holeScale: usePow ? 1.22 : 1.14,
-              damage: u.attack * (usePow ? 0.7 : 1.12),
+              damage: u.attack * (usePow ? 0.7 : isLightningReady ? 1.5 : 1.0),
               blastRadius: 48,
               windScale: 0.45,
-              special: 'sky_lightning',
+              special: isLightningReady ? 'sky_lightning' : undefined,
+              // Phát sấm sét: sát thương 150% nằm ở viên đạn, cột sét chỉ còn là hiệu ứng hình ảnh.
+              lightningScale: isLightningReady && !usePow ? 0 : undefined,
               scale: 1.1,
             });
           });
@@ -3237,44 +3225,42 @@ export class BattleEngine {
       }
 
       case 'hawkeye_bow': {
-        // Hawkeye: CHỈ KHI nâng góc lên đúng 89° mới thực hiện kỹ năng đặc biệt (Mũi Tên Khổng Lồ 350 DMG)
-        const isAngle89 = Math.round(u.aimAngleDeg) === 89;
-        if (isAngle89) {
-          this.hawkeyeGiantArmed = false;
-          const dmg = 350; // Tăng dame kỹ năng đặc biệt của Hawkeye lên 350
-          this.queueProjectile(baseDelay, () => {
-            sound.playPow();
-            this.spawnFloatingText(
-              u.x,
-              u.y - 48,
-              'MŨI TÊN KỸ NĂNG ƯNG NHÃN (350 DMG)!',
-              '#c084fc',
-              1.28
-            );
-            this.spawnBullet(u, u.aimAngleDeg, Math.max(65, power), {
-              spriteKey: 'muiten_cn',
-              effectKey: 'nuke',
-              holeMask: 'h55x50.png',
-              holeScale: 1.32,
-              damage: dmg,
-              blastRadius: 52,
-              windScale: 0,
-              special: 'hawkeye_giant_homing',
-              scale: 1.65,
+        // Hawk Eyes (theo mobiarmy3.me/nhan-vat): Khóa mục tiêu — Chọn một mục tiêu, bắn 4 mũi tên,
+        // mỗi mũi gây 50% sát thương. Dùng được sau 3 phát bắn thường (phát thứ 4 là phát khóa mục tiêu,
+        // 4 mũi tên tự lái theo địch gần nhất như cơ chế homing sẵn có).
+        u.shotCount = (u.shotCount ?? 0) + 1;
+        const isLockOnReady = !usePow && u.shotCount >= 4;
+        if (isLockOnReady) {
+          u.shotCount = 0;
+          this.spawnFloatingText(u.x, u.y - 48, '🎯 KHÓA MỤC TIÊU: 4 MŨI TÊN (50% ST)!', '#c084fc', 1.3);
+          for (let i = 0; i < 4; i++) {
+            this.queueProjectile(baseDelay + i * 6, () => {
+              sound.playShoot(false);
+              this.spawnBullet(u, u.aimAngleDeg + (i - 1.5) * 2.2, Math.max(60, power), {
+                spriteKey: 'muiten',
+                effectKey: 'explosion',
+                holeMask: 'h36x30.png',
+                holeScale: 0.95,
+                damage: u.attack * 0.5,
+                blastRadius: 36,
+                windScale: 0,
+                special: 'hawkeye_giant_homing',
+                scale: 1.1,
+              });
             });
-          });
+          }
         } else {
-          // Góc dưới 89°: Bắn cung thường (chỉ bắn 1 mũi tên thẳng hướng bắn)
-          const hadItemEffect = this.hawkeyeGiantArmed;
-          this.hawkeyeGiantArmed = false;
           this.queueProjectile(baseDelay, () => {
             sound.playShoot(usePow);
+            if (!usePow) {
+              this.spawnFloatingText(u.x, u.y - 44, `🏹 TÊN ƯNG NHÃN (${u.shotCount}/3 PHÁT SẠC)`, '#c084fc', 1.05);
+            }
             this.spawnBullet(u, u.aimAngleDeg, power, {
               spriteKey: 'muiten',
               effectKey: usePow ? 'bigExplosion' : 'explosion',
               holeMask: usePow ? 'h55x50.png' : 'h36x30.png',
               holeScale: usePow ? 1.25 : 0.95,
-              damage: u.attack * (usePow ? 1.75 : 1.0) * (hadItemEffect ? 1.15 : 1.0),
+              damage: u.attack * (usePow ? 1.75 : 1.0),
               blastRadius: usePow ? 48 : 36,
               windScale: 0.35,
             });
@@ -3695,6 +3681,7 @@ export class BattleEngine {
       holeScale: number;
       damage: number;
       baseDamage?: number;
+      lightningScale?: number;
       blastRadius: number;
       windScale?: number;
       special?: Projectile['special'];
@@ -3758,6 +3745,7 @@ export class BattleEngine {
       leapStartY: opts.leapStartY,
       leapPeakHeight: 0,
       strangeDiscColor: opts.strangeDiscColor,
+      lightningScale: opts.lightningScale,
       trail: [],
     });
   }
@@ -3858,7 +3846,7 @@ export class BattleEngine {
       const prevX = p.x;
       const prevY = p.y;
 
-      // 4. Mũi Tên Khổng Lồ 100% Trúng Đích của Hawkeye (góc 89° hoặc dùng Item):
+      // 4. Mũi tên Khóa Mục Tiêu của Hawk Eyes: tự lái theo địch gần nhất và nổ khi chạm mục tiêu:
       if (p.special === 'hawkeye_giant_homing' && p.age >= 16) {
         const target = this.fighters
           .filter((f) => f.alive && f.team !== p.team)
@@ -4264,7 +4252,7 @@ export class BattleEngine {
         const inVerticalPath = Math.abs(target.x - ix) <= (target.isBoss ? 48 : lightningColWidth) && target.y <= iy + 25;
         if (inVerticalPath) {
           const shooterUnit = this.fighters.find((f) => f.id === p.ownerId);
-          let lightningDmg = Math.round((shooterUnit ? shooterUnit.attack * 0.72 : p.damage * 0.65));
+          let lightningDmg = Math.round((shooterUnit ? shooterUnit.attack * (p.lightningScale ?? 0.72) : p.damage * 0.65));
           if (target.team === p.team) lightningDmg = Math.round(lightningDmg * 0.45);
           if (target.shieldTurns > 0) lightningDmg = Math.round(lightningDmg * 0.45);
           target.hp = Math.max(0, target.hp - lightningDmg);
@@ -5324,7 +5312,6 @@ export class BattleEngine {
       armedBagSlotIdx: this.armedBagSlotIdx,
       doubleArmed: this.doubleArmed,
       vampireArmed: this.vampireArmed,
-      hawkeyeGiantArmed: this.hawkeyeGiantArmed,
       turnNumber: this.turnNumber,
       mapName: this.map.name,
       modeLabel,

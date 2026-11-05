@@ -2187,3 +2187,219 @@ body,
     max-height: 82vh;
   }
 }
+
+/* ================================================================
+   UI POLISH (2026-11-05): nền lobby chuyển động, phát sáng chọn tướng,
+   vệt sáng quét nút CTA/thẻ tướng, panel thông tin gốc mobiarmy3.me.
+   Section này nằm cuối file để tinh chỉnh các rule ở trên.
+   ================================================================ */
+
+/* Nền lobby: 3 quầng sáng xanh/đỏ/cyan trôi chậm trên nền cũ */
+.screen-overlay {
+  background:
+    radial-gradient(560px 380px at 18% 12%, rgba(37, 99, 235, 0.32), transparent 65%),
+    radial-gradient(640px 420px at 84% 18%, rgba(220, 38, 38, 0.2), transparent 65%),
+    radial-gradient(700px 500px at 50% 88%, rgba(14, 116, 144, 0.26), transparent 65%),
+    radial-gradient(circle at 50% 22%, rgba(30, 58, 138, 0.72), rgba(2, 6, 23, 0.96));
+  background-size: 150% 150%, 150% 150%, 150% 150%, 100% 100%;
+  animation: lobbyAurora 16s ease-in-out infinite alternate;
+}
+@keyframes lobbyAurora {
+  from { background-position: 0% 0%, 100% 0%, 50% 100%, 50% 50%; }
+  to { background-position: 32% 22%, 68% 26%, 44% 78%, 50% 50%; }
+}
+
+/* Header thương hiệu: viền phát sáng + tiêu đề gradient + logo lơ lửng */
+.brand-header {
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.45), 0 0 26px rgba(56, 189, 248, 0.13);
+}
+.brand-title h1 {
+  background: linear-gradient(92deg, #f8fafc 15%, #7dd3fc 55%, #facc15 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.brand-logo {
+  animation: logoFloat 3.2s ease-in-out infinite;
+}
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* Panel: đường highlight mảnh ở mép trên */
+.panel-card {
+  position: relative;
+}
+.panel-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.55), transparent);
+  pointer-events: none;
+}
+
+/* Thẻ tướng: vệt sáng quét khi hover, phát sáng theo phe, nhịp sáng khi được chọn */
+.hero-card {
+  overflow: hidden;
+}
+.hero-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -85%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.45s ease;
+  pointer-events: none;
+}
+.hero-card:hover::after {
+  left: 135%;
+}
+.hero-card:hover {
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45), 0 0 14px rgba(56, 189, 248, 0.25);
+}
+.hero-card.marvel-hero:hover {
+  border-color: rgba(248, 113, 113, 0.85);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45), 0 0 16px rgba(239, 68, 68, 0.35);
+}
+.hero-card.selected {
+  animation: selectedPulse 1.6s ease-in-out infinite;
+}
+@keyframes selectedPulse {
+  0%, 100% { box-shadow: 0 0 13px rgba(250, 204, 21, 0.25); }
+  50% { box-shadow: 0 0 24px rgba(250, 204, 21, 0.48); }
+}
+
+/* Pill chỉ số: nền gradient + viền sáng */
+.stat-pill {
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.95), rgba(30, 41, 59, 0.95));
+  border-color: rgba(125, 211, 252, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Nút CTA chính: vệt sáng quét lặp lại */
+.primary-cta {
+  position: relative;
+  overflow: hidden;
+}
+.primary-cta::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -90%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-20deg);
+  animation: ctaShine 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes ctaShine {
+  0%, 55% { left: -90%; }
+  85%, 100% { left: 145%; }
+}
+
+/* Thẻ ải: nhấc lên khi hover */
+.stage-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.stage-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.4);
+}
+
+/* Modal: hiệu ứng mở + header gradient 3 màu */
+.army-modal-box {
+  animation: modalPop 0.22s ease-out;
+}
+@keyframes modalPop {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.army-modal-header {
+  background: linear-gradient(90deg, rgba(2, 132, 199, 0.22), rgba(220, 38, 38, 0.16), rgba(250, 204, 21, 0.12));
+}
+
+/* Panel THÔNG TIN NHÂN VẬT nguyên bản từ mobiarmy3.me/nhan-vat */
+.origin-info {
+  margin-top: 10px;
+  max-width: 600px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(30, 58, 138, 0.35), rgba(2, 6, 23, 0.5));
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  text-align: left;
+}
+.origin-info-head {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #facc15;
+  margin-bottom: 6px;
+}
+.origin-info-head a {
+  color: #7dd3fc;
+  text-decoration: none;
+}
+.origin-info-head a:hover {
+  text-decoration: underline;
+}
+.origin-skill {
+  font-size: 0.82rem;
+  color: #e2e8f0;
+  line-height: 1.45;
+}
+.origin-skill strong {
+  color: #fde047;
+  margin-right: 6px;
+}
+.origin-bonuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.origin-bonus-chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #fef3c7;
+  background: rgba(120, 53, 15, 0.45);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+}
+
+/* Thanh cuộn mảnh + màu chọn văn bản */
+.screen-overlay::-webkit-scrollbar,
+.army-modal-body::-webkit-scrollbar {
+  width: 9px;
+}
+.screen-overlay::-webkit-scrollbar-thumb,
+.army-modal-body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #0284c7, #1e3a8a);
+  border-radius: 99px;
+}
+::selection {
+  background: rgba(56, 189, 248, 0.4);
+}
+
+/* Tôn trọng người dùng tắt hiệu ứng chuyển động */
+@media (prefers-reduced-motion: reduce) {
+  .screen-overlay,
+  .brand-logo,
+  .hero-card.selected {
+    animation: none;
+  }
+  .primary-cta::after {
+    animation: none;
+    display: none;
+  }
+}

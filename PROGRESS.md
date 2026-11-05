@@ -66,7 +66,7 @@ git add -A; git commit -m "..."; git push origin main   # Tự động deploy Gi
 - **Iron Man Mark 50**: Kỹ năng **Pháo Năng Lượng**: Bắn tia năng lượng thẳng xuyên qua mọi đối tượng trên đường bắn gây 150% sát thương (kích hoạt sau 2 phát bắn thường).
 - **Hulk**: Bật nhảy trực tiếp tới mục tiêu, ngắm bắn thẳng góc 90°, hoàn toàn miễn nhiễm gió. Nhảy trúng người **không phá địa hình và không tự làm tổn thương mình**, sát thương tỷ lệ thuận theo độ cao cú nhảy (HP +250%, công +450).
 - **Red Hulk**: Kỹ năng **Xé Gió**: Vỗ tay tạo luồng cuồng phong sang trái/phải gây 150% sát thương toàn bộ vùng gió (dùng sau 2 phát thường).
-- **Thor**: Ném búa Mjolnir triệu hồi cột sét giáng thẳng từ bầu trời xuống vị trí cuối gây 150% sát thương (nạp đạn 250 cực nhanh).
+- **Thor**: **Sấm Sét** (theo mobiarmy3.me/nhan-vat): 2 phát đầu ném búa thường, phát thứ 3 gọi sét đánh xuống, mỗi cột sét gây 150% sát thương (nạp đạn 250 cực nhanh).
 - **Thor Stormbreaker**: Ném rìu Stormbreaker, gọi **Bão Sét Tam Hướng** quanh chỗ búa rơi gây 150% sát thương diện rộng sau 2 phát thường.
 - **Loki**: Kỹ năng **Giả Dạng**: Đầu mỗi lượt tự động biến thành 1 người chơi khác trên sân và sử dụng trọn vẹn bộ kỹ năng của họ. Phát bắn trúng có **20% cơ hội đóng băng đối thủ 1 lượt**.
 - **Doctor Strange**: **Lá Chắn Ma Thuật**: Sau 3 phát thường tự động bật khiên (không mất lượt), chặn trọn vẹn 100% đòn đánh kế tiếp rồi vỡ. Nội tại Đĩa Phép: **Đĩa xanh** bỏ qua 20% phòng thủ, **Đĩa vàng** giảm 10% sát thương địch ở lượt sau.
@@ -75,7 +75,7 @@ git add -A; git commit -m "..."; git push origin main   # Tự động deploy Gi
 - **Captain Bạc Vàng**: Bộ giáp hoàng kim hoàng gia, nạp đạn nhanh 290, công 260, giảm 20% sát thương toàn phần, đồng đội +20% thủ.
 - **Winter Soldier**: Đạn súng ngắm **bắn xuyên qua địa hình** để đánh trúng mục tiêu ẩn nấp phía sau.
 - **Winter Soldier Mùa Đông**: **Đánh Dấu Mục Tiêu**: Đạn xuyên địa hình. Phát bắn thường trúng đối thủ sẽ đánh dấu họ tới hết trận, mục tiêu bị đánh dấu nhận thêm 20% sát thương từ mọi nguồn.
-- **Hawk Eyes**: Bắn cung thiện xạ. Kỹ năng **Khóa Mục Tiêu** (bắn 4 mũi tên 50% ST sau 3 phát thường). Kỹ năng đặc biệt góc 89° hoặc dùng Item: Phóng 1 **Mũi Tên Khổng Lồ tự tìm mục tiêu với tỷ lệ trúng 100%** gây 350 DMG.
+- **Hawk Eyes**: Bắn cung thiện xạ. Kỹ năng **Khóa Mục Tiêu** (theo mobiarmy3.me/nhan-vat): sau 3 phát bắn thường, phát kế tiếp bắn 4 mũi tên tự tìm mục tiêu, mỗi mũi gây 50% sát thương. (Đã bỏ cơ chế tự chế cũ: mũi tên khổng lồ góc 89°/350 DMG và nạp kỹ năng bằng Item — Item của Hawk Eyes nay hoạt động như mọi hero.)
 - **Hawk Eyes Công Nghệ**: **Phi Cơ Hỗ Trợ**: Gọi chiến đấu cơ xả súng càn quét diện rộng quanh mục tiêu gây 200% sát thương (dùng sau 2 phát thường).
 - **Ultron**: Bay lượn tự do như Iron Man. Kỹ năng **Phân Thân**: Tạo bản sao sở hữu 33% máu tối đa & sát thương (tối đa 5 bản sao). Bản sao tự động nã pháo yểm trợ mỗi khi Ultron tấn công.
 - **Ultron Tối Thượng**: Phân thân + **Tăng Cường**: Khi máu tụt xuống dưới 50% HP, tự động hút bản sao còn nhiều máu nhất để hồi phục lượng HP tương ứng (1 lần mỗi trận, không mất lượt).
@@ -168,7 +168,7 @@ git add -A; git commit -m "..."; git push origin main   # Tự động deploy Gi
 - [ ] Vòng lặp tiến trình: thưởng sau trận (xu/điểm), mở khóa dần 17 hero Avenger và item hiếm thay vì cho dùng hết từ đầu; lưu tiến trình và cả cài đặt âm thanh (đang tắt/bật tiếng) vào `localStorage`.
 
 ### P2 — Mở rộng sau khi nền vững
-- [ ] Thêm content mới: boss / hero / map.
-- [ ] Online: tăng độ ổn định WebRTC trong `src/network/OnlineManager.ts` (xử lý mất kết nối, reconnect), giảm phụ thuộc PeerJS cloud.
-- [ ] Tối ưu bundle: JS đang 339KB một chunk (gzip 92KB) — tách chunk khi cấu trúc file đã gọn.
+- [x] Thêm content mới (2026-11-05): Map 43 'Kim Tự Tháp Đảo Chiều' (lật ngang map Kim Tự Tháp theo đúng kích thước gạch thật, tổng 51 map), Ải 31 (Loki & Ultron Tối Thượng ở map 43), Boss 118 'Song Thú Hỗn Mang' (Hắc Long + Nhện Chúa cùng lúc). Sửa luôn 9 lỗi heroId cũ ('winter' -> 'wintersoldier', 'chick' -> 'chicky' khiến địch bị rơi về Gunner mặc định) và thêm test kiểm tra dữ liệu stage/map/hero trong `src/data/gameContent.test.ts`. Tổng test hiện tại: 18.
+- [x] Online (2026-11-05): tăng độ ổn định WebRTC trong `src/network/OnlineManager.ts` — timeout 15s khi tạo/vào phòng, tự thử mã phòng mới khi trùng mã, tự reconnect khi rớt broker PeerJS, heartbeat ping/pong mỗi 5s (mất liên lạc >15s thì tự kết thúc trận), bắt lỗi 'peer-unavailable' khi vào phòng không tồn tại, `send()` trả trạng thái và log khi rớt gói. Vẫn dùng PeerJS cloud làm broker (chưa self-host).
+- [x] Tối ưu bundle (2026-11-05): tách chunk bằng dynamic import — BattleEngine (99,8KB) chỉ tải khi vào trận, PeerJS (117KB) chỉ tải khi tạo/vào phòng Online. Chunk chính của lobby giảm từ 339KB xuống 156KB (gzip 92,5KB -> 42,3KB).
 

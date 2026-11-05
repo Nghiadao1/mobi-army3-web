@@ -2,7 +2,7 @@ import './style.css';
 import { AssetManager } from './assets/AssetManager';
 import { sound } from './audio/SoundEngine';
 import { BATTLE_ITEMS, BOSS_HUNT_STAGES, CAMPAIGN_STAGES, getHeroById, HEROES } from './data/gameContent';
-import { BattleEngine, HudSnapshot } from './engine/BattleEngine';
+import type { BattleEngine, HudSnapshot } from './engine/BattleEngine';
 import { CharacterRenderer } from './engine/CharacterRenderer';
 import { OnlineManager, OnlinePacket } from './network/OnlineManager';
 import { BattleItemId, BattleSetup, BotDifficulty, CampaignStage, MatchStats } from './types';
@@ -1209,10 +1209,12 @@ class GameApp {
                   <div style="font-size:0.82rem;color:#cbd5e1;margin-top:2px">${curHero.description}</div>
                   ${curHero.specialSkillName ? `<div style="font-size:0.8rem;color:#38bdf8;margin-top:4px">✨ <strong>Kỹ Năng:</strong> <span style="color:#fde047">${curHero.specialSkillName}</span> — ${curHero.specialSkillDesc ?? ''}</div>` : ''}
                   ${curHero.passiveName ? `<div style="font-size:0.8rem;color:#facc15;margin-top:4px">🛡️ <strong>Nội Tại:</strong> <span style="color:#fde047">${curHero.passiveName}</span> — ${curHero.passiveDesc ?? ''}</div>` : ''}
+                  ${curHero.siteBonuses ? `<div class="origin-info"><div class="origin-info-head">📖 THÔNG TIN NHÂN VẬT — <a href="https://mobiarmy3.me/nhan-vat" target="_blank" rel="noopener">mobiarmy3.me</a></div>${curHero.siteSkillName ? `<div class="origin-skill"><strong>${curHero.siteSkillName}</strong><span>${curHero.siteSkillDesc ?? ''}</span></div>` : ''}<div class="origin-bonuses">${curHero.siteBonuses.map((b) => `<span class="origin-bonus-chip">${b}</span>`).join('')}</div></div>` : ''}
                 </div>
                 <div class="stat-pills">
                   <span class="stat-pill">❤️ HP: ${curHero.hp}</span>
                   <span class="stat-pill">💥 Công: ${curHero.attack}</span>
+                  ${curHero.reloadTime ? '<span class="stat-pill">⏱️ Nạp đạn: ' + curHero.reloadTime + '</span>' : ''}
                   <span class="stat-pill">📐 Góc: ${curHero.minAngle}°..${curHero.maxAngle}°</span>
                   <span class="stat-pill">🏃 Thể lực: ${curHero.staminaMax}</span>
                 </div>
@@ -1664,6 +1666,8 @@ class GameApp {
 
     this.buildBattleHudDom(setup);
 
+    // Nạp lười engine trận đấu (chunk riêng) để lần tải đầu của lobby nhẹ hơn.
+    const { BattleEngine } = await import('./engine/BattleEngine');
     this.battle = new BattleEngine(
       this.canvas,
       this.assets,
