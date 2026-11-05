@@ -149,3 +149,26 @@ git add -A; git commit -m "..."; git push origin main   # Tự động deploy Gi
 - `ffcf83b`: Fix Loki & Iron Man sprite offsets, Hulk wind immunity & 90 deg aim, Hulk landing crater logic, giảm phá đất 20%, top header chat ticker, lobby dual board/room view, 50 official maps & massive boss arenas.
 - `43389cc`: Lobby room UI overhaul, Green Hulk, Ultron clone online sync, disconnect handling, indestructible terrain, in-game chat & Iron Man plasma rework.
 - `85f57ee`: Loki transform note, Captain bounce/POW, bag slots, web terrain, new items, flying wall-pierce, online coop boss hunt & 3 new bosses.
+
+---
+
+## 7. Roadmap — Hướng làm tiếp
+
+> Thêm ngày **2026-11-05** sau khi rà soát toàn bộ code. Làm theo thứ tự P0 → P1 → P2, xong mục nào đánh dấu `[x]` vào mục đó.
+> Kiểm tra chuẩn trước khi push: `npm test` (test vật lý đạn) + `npm run build` (tsc & vite build) đều phải pass, và chơi thử tay 1 trận Đấu Bot + 1 trận Vượt Ải.
+
+### P0 — Dọn nền (2026-11-05)
+- [x] Thêm mục Roadmap này vào PROGRESS.md để không mất phương hướng giữa các phiên làm việc.
+- [x] Thêm `.muse/` và `.bridge_backups/` vào `.gitignore` để `git status` luôn sạch.
+- [x] Thiết lập Vitest + bộ test tự động đầu tiên cho vật lý đạn trong `src/engine/BotAI.test.ts` (hàm `computeShotVelocity` và `solveBotShot`), chạy bằng `npm test`.
+
+### P1 — Giảm rủi ro & tăng giá trị chơi
+- [ ] Tách `src/engine/BattleEngine.ts` (5.333 dòng) theo từng bước nhỏ: ưu tiên tách `scheduleHeroWeapon` (~693 dòng) thành module vũ khí riêng theo nhóm hero. Sau mỗi bước phải chạy lại `npm test` + `npm run build`.
+- [ ] Nếu cần, tách tiếp `src/main.ts` (2.212 dòng) phần render Lobby / Modal.
+- [ ] Vòng lặp tiến trình: thưởng sau trận (xu/điểm), mở khóa dần 17 hero Avenger và item hiếm thay vì cho dùng hết từ đầu; lưu tiến trình và cả cài đặt âm thanh (đang tắt/bật tiếng) vào `localStorage`.
+
+### P2 — Mở rộng sau khi nền vững
+- [ ] Thêm content mới: boss / hero / map.
+- [ ] Online: tăng độ ổn định WebRTC trong `src/network/OnlineManager.ts` (xử lý mất kết nối, reconnect), giảm phụ thuộc PeerJS cloud.
+- [ ] Tối ưu bundle: JS đang 339KB một chunk (gzip 92KB) — tách chunk khi cấu trúc file đã gọn.
+

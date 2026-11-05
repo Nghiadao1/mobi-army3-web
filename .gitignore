@@ -4,3 +4,5 @@ dist/
 *.log
 extracted/
 tài nguyên/web-game/
+.muse/
+.bridge_backups/
