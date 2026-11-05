@@ -112,6 +112,13 @@ export class AssetManager {
 
   public async loadMapAssets(map: MapDef): Promise<void> {
     const urls = new Set<string>();
+    // QUAN TRỌNG: Terrain resolve ảnh gạch theo chuỗi fallback (brickId < 173 -> 173 + id % 82,
+    // cuối cùng là 173.png). Trước đây chỉ nạp đúng bricks/<brickId>.png nên mọi map dùng gạch
+    // id < 173 (24/51 map, gồm map 0-10, 12-16, 43 và toàn bộ map Boss 50-56) bị mất sạch đất
+    // ở lần vào trận đầu tiên. Nạp sẵn toàn bộ gạch 173-254 (82 ảnh, < 1MB) cho chắc chắn.
+    for (let id = 173; id <= 254; id++) {
+      urls.add(`./assets/bricks/${id}.png`);
+    }
     for (const b of map.bricks) {
       urls.add(`./assets/bricks/${b.brickId}.png`);
     }

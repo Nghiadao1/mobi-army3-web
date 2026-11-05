@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { BOSS_HUNT_STAGES, CAMPAIGN_STAGES, HEROES } from './gameContent';
 
 interface MapJsonEntry {
@@ -96,6 +96,30 @@ describe('thông tin gốc mobiarmy3.me của Avenger', () => {
       // Dòng "Tấn công +X" và "Thời gian nạp đạn N" trên web phải khớp attack/reloadTime trong game.
       expect(h.siteBonuses).toContain(`Tấn công +${h.attack}`);
       expect(h.siteBonuses).toContain(`Thời gian nạp đạn ${h.reloadTime}`);
+    }
+  });
+});
+
+describe('ảnh gạch địa hình của map', () => {
+  it('mọi viên gạch trong maps.json đều resolve được tới file tồn tại theo chuỗi fallback của Terrain', () => {
+    // Terrain: bricks/<id>.png, nếu thiếu thì id < 173 -> 173 + (id % 82), cuối cùng là 173.png.
+    // Test này giữ cho map không bao giờ bị "không có đất" vì thiếu ảnh gạch nữa.
+    const brickExists = (id: number) => existsSync(`public/assets/bricks/${id}.png`);
+    for (let id = 173; id <= 254; id++) {
+      expect(brickExists(id), `Thiếu file gạch nền public/assets/bricks/${id}.png`).toBe(true);
+    }
+    for (const m of maps) {
+      for (const b of m.bricks) {
+        const resolved = brickExists(b.brickId)
+          ? b.brickId
+          : b.brickId >= 173
+            ? b.brickId
+            : 173 + (b.brickId % 82);
+        expect(
+          brickExists(resolved) || brickExists(173),
+          `Map ${m.mapId} (${m.name}): gạch ${b.brickId} không resolve được ảnh nào`
+        ).toBe(true);
+      }
     }
   });
 });

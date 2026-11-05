@@ -2403,3 +2403,223 @@ body,
     display: none;
   }
 }
+
+/* ================================================================
+   UI REDESIGN 2 (2026-11-05): làm lại diện mạo tổng thể theo phong
+   cách game hành động — bầu trời nhiều lớp, thẻ kính, viền gradient,
+   chữ tiêu đề đậm, HUD trận đấu rõ nét. Nằm cuối file để ghi đè.
+   ================================================================ */
+
+/* --- Bầu trời lobby: gradient nhiều lớp + lưới sao mờ + quầng sáng chân trời --- */
+.screen-overlay {
+  background:
+    radial-gradient(560px 380px at 18% 12%, rgba(37, 99, 235, 0.30), transparent 65%),
+    radial-gradient(640px 420px at 84% 18%, rgba(220, 38, 38, 0.18), transparent 65%),
+    radial-gradient(900px 480px at 50% 108%, rgba(249, 115, 22, 0.20), transparent 62%),
+    radial-gradient(700px 500px at 50% 88%, rgba(14, 116, 144, 0.24), transparent 65%),
+    radial-gradient(rgba(255, 255, 255, 0.20) 1px, transparent 1.6px),
+    linear-gradient(180deg, #081426 0%, #0a2450 34%, #0b3a5c 62%, #062a3a 100%);
+  background-size: 150% 150%, 150% 150%, 150% 150%, 150% 150%, 26px 26px, 100% 100%;
+  animation: lobbyAurora2 18s ease-in-out infinite alternate;
+}
+@keyframes lobbyAurora2 {
+  from { background-position: 0% 0%, 100% 0%, 50% 100%, 50% 100%, 0 0, 50% 50%; }
+  to { background-position: 32% 22%, 68% 26%, 50% 92%, 44% 78%, 13px 13px, 50% 50%; }
+}
+
+/* --- Khung chứa + header thương hiệu --- */
+.menu-container {
+  max-width: 1120px;
+  gap: 18px;
+}
+.brand-header {
+  padding: 18px 24px;
+  border-radius: 20px;
+  background: linear-gradient(120deg, rgba(30, 58, 138, 0.72), rgba(15, 23, 42, 0.94) 55%, rgba(69, 10, 10, 0.55));
+  border-color: rgba(250, 204, 21, 0.35);
+}
+.brand-logo {
+  height: 84px;
+}
+.brand-title h1 {
+  font-size: 1.9rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.brand-title p {
+  font-size: 0.95rem;
+  color: #bae6fd;
+}
+
+/* --- Tab chế độ chơi: viên thuốc lớn, trạng thái chọn nổi bật --- */
+.mode-tabs {
+  gap: 12px;
+}
+.tab-btn {
+  padding: 13px 22px;
+  font-size: 1rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.9), rgba(30, 41, 59, 0.92));
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+.tab-btn.active {
+  background: linear-gradient(135deg, #0284c7, #1d4ed8 60%, #7c3aed);
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.45), 0 0 18px rgba(56, 189, 248, 0.35);
+}
+
+/* --- Panel kính --- */
+.panel-card {
+  border-radius: 20px;
+  padding: 20px 22px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.95));
+  border-color: rgba(125, 211, 252, 0.32);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.42);
+}
+.panel-card h2 {
+  font-size: 1.14rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #f8fafc;
+}
+
+/* --- Lưới + thẻ tướng --- */
+.hero-grid {
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 12px;
+}
+.hero-card {
+  padding: 12px 8px 10px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.55), rgba(15, 23, 42, 0.95));
+}
+.hero-card canvas {
+  width: 84px;
+  height: 84px;
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45));
+}
+.hero-card .hero-name {
+  font-size: 0.98rem;
+  margin-top: 4px;
+}
+.hero-card .hero-role {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.55);
+  color: #a5b4fc;
+  font-size: 0.68rem;
+}
+.hero-card.selected::before {
+  content: '✓';
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #facc15, #f59e0b);
+  color: #422006;
+  font-size: 0.72rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(250, 204, 21, 0.55);
+  z-index: 2;
+}
+.hero-detail-bar {
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(30, 58, 138, 0.35), rgba(2, 6, 23, 0.6));
+  border-color: rgba(250, 204, 21, 0.28);
+  padding: 14px 16px;
+}
+
+/* --- Thẻ ải --- */
+.stage-card {
+  border-radius: 16px;
+  border-left: 4px solid var(--accent);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
+  padding: 16px;
+}
+
+/* --- Nút CTA --- */
+.primary-cta {
+  font-size: 1.05rem;
+  padding: 14px 30px;
+  border-radius: 14px;
+  text-transform: uppercase;
+}
+
+/* --- Modal --- */
+.army-modal-box {
+  border-radius: 20px;
+}
+.army-modal-header h2 {
+  font-size: 1.22rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* --- HUD trong trận --- */
+.hud-box {
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.88), rgba(2, 6, 23, 0.9));
+  border-color: rgba(125, 211, 252, 0.35);
+  padding: 8px 14px;
+}
+.timer-circle {
+  width: 48px;
+  height: 48px;
+  font-size: 1.22rem;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.3);
+}
+.timer-circle.urgent {
+  box-shadow: 0 0 16px rgba(244, 63, 94, 0.5);
+  animation: selectedPulse 0.9s ease-in-out infinite;
+}
+.hud-bottom {
+  padding: 12px 16px 14px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.98));
+  border-top: 2px solid rgba(56, 189, 248, 0.45);
+  box-shadow: 0 -10px 26px rgba(0, 0, 0, 0.4);
+}
+.ctrl-btn {
+  min-width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.95), rgba(30, 41, 59, 0.98));
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.ctrl-btn:hover,
+.ctrl-btn.held {
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
+}
+.item-btn {
+  border-radius: 12px;
+}
+.pow-btn {
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.gauge-track {
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.55);
+}
+.gauge-fill-power {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-overlay {
+    animation: none;
+  }
+  .timer-circle.urgent {
+    animation: none;
+  }
+}
