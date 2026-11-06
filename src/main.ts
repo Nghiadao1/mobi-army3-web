@@ -9,6 +9,7 @@ import { BattleItemId, BattleSetup, BotDifficulty, CampaignStage, MatchStats } f
 
 const STORAGE_STAGE_KEY = 'mobiarmy3_offline_unlocked_stage_v1';
 const STORAGE_ITEMS_KEY = 'mobiarmy3_selected_items_v1';
+const STORAGE_TEXT_SIZE_KEY = 'mobiarmy3_text_size_v1';
 
 class GameApp {
   private readonly canvas = document.getElementById('battle-canvas') as HTMLCanvasElement;
@@ -73,6 +74,8 @@ class GameApp {
     slotBtns: Array<{ btn: HTMLButtonElement; countEl: HTMLElement; itemId: BattleItemId }>;
   } | null = null;
 
+  private keyboardNav = false;
+
   public async boot(): Promise<void> {
     this.unlockedStage = Math.max(
       1,
@@ -89,6 +92,10 @@ class GameApp {
       } catch {}
     }
 
+    if (localStorage.getItem(STORAGE_TEXT_SIZE_KEY) === 'large') {
+      document.documentElement.classList.add('text-large');
+    }
+
     this.setupOnlineCallbacks();
 
     this.renderLoading(0, 'Đang khởi động khung game...');
@@ -99,6 +106,7 @@ class GameApp {
         this.selectedMapId = this.assets.maps[0].mapId;
       }
       this.bindGlobalKeyboard();
+      this.bindMenuKeyboardAccess();
 
       // Kiểm tra nếu người chơi mở bằng Link mời ?room=XXXX hoặc ?bossroom=XXXX
       const urlParams = new URLSearchParams(window.location.search);
@@ -645,6 +653,9 @@ class GameApp {
             <button class="room-btn-circle" id="btn-room-sound" title="Bật/Tắt Âm Thanh">${
               sound.muted ? '🔇' : '🔊'
             }</button>
+            <button class="room-btn-circle" id="btn-text-size" title="Cỡ chữ giao diện: Chuẩn / Lớn" aria-pressed="${
+              document.documentElement.classList.contains('text-large')
+            }">🔤</button>
             <button class="pedestal-badge ready" id="btn-room-mode-tag" title="Nhấp để Đổi Chế Độ">${roomTagLabel} ▾</button>
           </div>
         </div>
@@ -856,6 +867,13 @@ class GameApp {
       this.renderLobby();
     });
 
+    document.getElementById('btn-text-size')?.addEventListener('click', () => {
+      const large = document.documentElement.classList.toggle('text-large');
+      localStorage.setItem(STORAGE_TEXT_SIZE_KEY, large ? 'large' : 'normal');
+      sound.playClick();
+      this.renderLobby();
+    });
+
     document.getElementById('btn-room-mode-tag')?.addEventListener('click', () => {
       sound.playClick();
       this.activeModal = 'mode';
@@ -902,6 +920,9 @@ class GameApp {
 
     // Gắn sự kiện các Modal (nếu đang mở)
     this.bindModalEvents();
+
+    // Hỗ trợ bàn phím cho các thẻ div bấm được (theo skill game-ui-ux)
+    this.enhanceKeyboardAccess();
   }
 
   private renderPedestalHeroes(): void {
@@ -2135,6 +2156,48 @@ class GameApp {
   }
 
   // ==================== KEYBOARD BINDINGS ====================
+
+  /**
+   * Điều hướng bàn phím cho menu/modal (theo skill game-ui-ux):
+   * - Các thẻ div bấm được (chọn tướng, vật phẩm, map, ải...) được gắn tabindex + role="button".
+   * - Enter/Khoảng trắng trên thẻ đang focus = click; vòng focus vàng hiện rõ qua :focus-visible.
+   * - Mỗi lần vẽ lại màn hình, nếu focus bị mất thì đặt lại vào nút chính (chỉ khi đang dùng bàn phím).
+   */
+  private bindMenuKeyboardAccess(): void {
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') this.keyboardNav = true;
+      if (this.battle || (e.key !== 'Enter' && e.key !== ' ')) return;
+      const t = e.target as HTMLElement | null;
+      if (t && t.classList.contains('kb-focusable')) {
+        e.preventDefault();
+        t.click();
+      }
+    });
+    window.addEventListener('pointerdown', () => {
+      this.keyboardNav = false;
+    });
+  }
+
+  private enhanceKeyboardAccess(): void {
+    const selector =
+      '[data-pick-hero],[data-loadout-item],[data-bag-remove],[data-pick-boss-stage],[data-pick-map],' +
+      '[data-room-bag-slot],[data-enter-boss-stage],[data-enter-campaign-stage],[data-select-board-map],' +
+      '#slot-ped-0,#slot-ped-1';
+    this.uiRoot.querySelectorAll<HTMLElement>(selector).forEach((el) => {
+      el.classList.add('kb-focusable');
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+    });
+
+    if (!this.keyboardNav) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return; // focus còn đó thì giữ nguyên
+    const modalPrimary = this.uiRoot.querySelector<HTMLElement>(
+      '.army-modal-box .primary-cta'
+    );
+    const target = modalPrimary ?? document.getElementById('btn-room-start');
+    target?.focus({ preventScroll: true });
+  }
 
   private bindGlobalKeyboard(): void {
     const mapKey = (code: string, down: boolean, e: KeyboardEvent) => {
