@@ -4183,7 +4183,7 @@ export class BattleEngine {
       ctx.fillStyle = f.isPlayerControlled ? '#22c55e' : f.isBoss ? '#f43f5e' : f.team === 0 ? '#38bdf8' : '#ef4444';
       ctx.fillRect(-barW / 2, 0, barW * hpRatio, barH);
 
-      ctx.font = f.isBoss ? 'bold 10px system-ui, sans-serif' : '600 9px system-ui, sans-serif';
+      ctx.font = f.isBoss ? "bold 10px 'Army Normal', system-ui, sans-serif" : "600 9px 'Army Normal', system-ui, sans-serif";
       ctx.textAlign = 'center';
       ctx.fillStyle = '#020617';
       ctx.fillText(displayName, 1, -4);
@@ -4207,7 +4207,7 @@ export class BattleEngine {
         f.chatTimer--;
         const msg = f.chatText;
         ctx.save();
-        ctx.font = 'bold 9.5px system-ui, sans-serif';
+        ctx.font = "bold 9.5px 'Army Normal', system-ui, sans-serif";
         const tw = ctx.measureText(msg).width;
         const bw = Math.max(34, tw + 14);
         const bh = 18;
@@ -4523,7 +4523,7 @@ export class BattleEngine {
 
         // Số mét độ cao
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 9px sans-serif';
+        ctx.font = "bold 9px 'Army Normal', sans-serif";
         ctx.textAlign = 'center';
         ctx.fillText(`${heightMeters}m`, 0, 9);
 
@@ -4562,7 +4562,7 @@ export class BattleEngine {
       const alpha = Math.min(1, ft.life / 20);
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.font = `900 ${Math.round(13 * ft.scale)}px system-ui, sans-serif`;
+      ctx.font = `900 ${Math.round(13 * ft.scale)}px 'Army Display', system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.strokeStyle = '#020617';
       ctx.lineWidth = 3;

@@ -1,12 +1,17 @@
 /**
- * Bộ tổng hợp âm thanh WebAudio thuần (0 phụ thuộc file âm thanh ngoài, chạy tức thì Offline).
- * Sau này bạn cũng có thể gắn thêm file .mp3/.ogg vào đây nếu muốn!
+ * Âm thanh lai: ưu tiên FILE ÂM THANH GỐC của Mobi Army 3 (public/assets/audio,
+ * trích từ bản Unity) cho nhạc nền + tiếng bắn/vật phẩm/nước; các tiếng còn lại
+ * dùng bộ tổng hợp WebAudio làm dự phòng khi file chưa nạp kịp hoặc không có file.
  */
 export class SoundEngine {
   private ctx: AudioContext | null = null;
   public muted = false;
   private chargeOsc: OscillatorNode | null = null;
   private chargeGain: GainNode | null = null;
+  private buffers = new Map<string, AudioBuffer>();
+  private loadingBuffers = new Set<string>();
+  private bgm: HTMLAudioElement | null = null;
+  private bgmTrack: string | null = null;
 
   private ensureContext(): AudioContext | null {
     if (this.muted) return null;
@@ -27,7 +32,86 @@ export class SoundEngine {
     if (this.muted) {
       this.stopCharge();
     }
+    if (this.bgm) {
+      this.bgm.muted = this.muted;
+    }
     return this.muted;
+  }
+
+  /** Nạp lười một file âm thanh gốc (.ogg) vào bộ đệm WebAudio. */
+  private loadBuffer(name: string): void {
+    if (this.buffers.has(name) || this.loadingBuffers.has(name)) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    this.loadingBuffers.add(name);
+    fetch(`./assets/audio/${name}.ogg`)
+      .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(String(res.status)))))
+      .then((data) => ctx.decodeAudioData(data))
+      .then((buffer) => {
+        this.buffers.set(name, buffer);
+        this.loadingBuffers.delete(name);
+      })
+      .catch(() => {
+        this.loadingBuffers.delete(name);
+      });
+  }
+
+  /**
+   * Phát file âm thanh gốc nếu đã nạp xong; trả về false (và kích hoạt nạp nền)
+   * để nơi gọi dùng tiếng tổng hợp dự phòng cho lần phát này.
+   */
+  private playFile(name: string, volume = 1, rate = 1): boolean {
+    const ctx = this.ensureContext();
+    if (!ctx) return false;
+    const buffer = this.buffers.get(name);
+    if (!buffer) {
+      this.loadBuffer(name);
+      return false;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.setValueAtTime(rate, ctx.currentTime);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    src.connect(gain).connect(ctx.destination);
+    src.start();
+    return true;
+  }
+
+  /** Mở khóa âm thanh sau thao tác đầu tiên (chính sách autoplay của trình duyệt). */
+  public unlockAudio(): void {
+    this.ensureContext();
+    if (this.bgm && this.bgm.paused && this.bgmTrack) {
+      this.bgm.play().catch(() => {});
+    }
+  }
+
+  /** Nhạc nền gốc lặp vô hạn: music_0 = sảnh, music_1 = trận đấu (.mp3 dự phòng cho Safari). */
+  public startMusic(track: 'music_0' | 'music_1'): void {
+    if (this.bgmTrack === track && this.bgm && !this.bgm.paused) return;
+    if (!this.bgm) {
+      this.bgm = new Audio();
+      this.bgm.loop = true;
+      this.bgm.volume = 0.42;
+      this.bgm.preload = 'auto';
+    }
+    const canOgg = this.bgm.canPlayType('audio/ogg; codecs="vorbis"') !== '';
+    const file = `./assets/audio/${track}.${canOgg ? 'ogg' : 'mp3'}`;
+    if (this.bgmTrack !== track || !this.bgm.src.endsWith(file)) {
+      this.bgm.src = file;
+    }
+    this.bgmTrack = track;
+    this.bgm.muted = this.muted;
+    this.bgm.play().catch(() => {
+      // Bị chặn autoplay: unlockAudio() sẽ phát lại sau thao tác đầu tiên.
+    });
+  }
+
+  public stopMusic(): void {
+    if (this.bgm) {
+      this.bgm.pause();
+      this.bgmTrack = null;
+    }
   }
 
   public playClick(): void {
@@ -102,6 +186,8 @@ export class SoundEngine {
 
   public playShoot(heavy = false): void {
     this.stopCharge();
+    // Tiếng gốc: đạn thường = shoot, đạn nặng = fire.
+    if (heavy ? this.playFile('fire', 0.9) : this.playFile('shoot', 0.85)) return;
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
@@ -150,6 +236,7 @@ export class SoundEngine {
   }
 
   public playSplash(): void {
+    if (this.playFile('water', 0.8)) return;
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
@@ -175,6 +262,7 @@ export class SoundEngine {
   }
 
   public playItemUse(): void {
+    if (this.playFile('item', 0.8)) return;
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;

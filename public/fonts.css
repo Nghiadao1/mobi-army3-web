@@ -1,0 +1,22 @@
+/* Font chu goc cua Mobi Army 3 (trich tu ban Unity, nam o assets/fonts/).
+   File nay o thu muc public/ nen duong dan tinh tu goc trang web. */
+@font-face {
+  font-family: 'Army Display';
+  src: url('assets/fonts/barmeneb.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Army Numbers';
+  src: url('assets/fonts/chelthm.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Army Normal';
+  src: url('assets/fonts/normalFont1.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Army Brush';
+  src: url('assets/fonts/staccato.ttf') format('truetype');
+  font-display: swap;
+}

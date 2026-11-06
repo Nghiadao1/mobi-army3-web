@@ -568,6 +568,7 @@ class GameApp {
       this.battle = null;
     }
     this.hudRefs = null;
+    sound.startMusic('music_0');
 
     const hero = getHeroById(this.selectedHeroId);
     const allyHero = getHeroById(this.selectedAllyHeroId);
@@ -1706,6 +1707,7 @@ class GameApp {
 
     // Nạp lười engine trận đấu (chunk riêng) để lần tải đầu của lobby nhẹ hơn.
     const { BattleEngine } = await import('./engine/BattleEngine');
+    sound.startMusic('music_1');
     this.battle = new BattleEngine(
       this.canvas,
       this.assets,
@@ -2318,5 +2320,8 @@ class GameApp {
     });
   }
 }
+
+// Mở khóa âm thanh sau thao tác đầu tiên của người chơi (chính sách autoplay).
+window.addEventListener('pointerdown', () => sound.unlockAudio(), { once: true });
 
 new GameApp().boot();

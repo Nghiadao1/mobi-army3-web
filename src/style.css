@@ -50,7 +50,7 @@ body,
   overflow: hidden;
   background: var(--ink);
   color: var(--text-main);
-  font-family: 'Segoe UI', system-ui, -apple-system, 'Roboto', sans-serif;
+  font-family: 'Army Normal', 'Segoe UI', system-ui, -apple-system, 'Roboto', sans-serif;
   touch-action: manipulation;
 }
 
@@ -160,6 +160,7 @@ body,
 
 .brand-title h1 {
   margin: 0;
+  font-family: 'Army Display', 'Army Normal', sans-serif;
   font-size: 1.85rem;
   font-weight: 900;
   letter-spacing: 1.1px;
@@ -2778,4 +2779,19 @@ html.text-large {
   .danger-vignette.active {
     animation: none;
   }
+}
+
+/* === FONT GỐC MOBI ARMY 3 (khai báo @font-face nằm ở public/fonts.css) ===
+   Army Display = Barmeno Bold (tiêu đề/nút chính), Army Numbers = Cheltenham
+   (số to trên HUD), Army Brush = Staccato (banner trang trí). */
+.room-top-brand-title {
+  font-family: 'Army Display', 'Army Normal', sans-serif;
+  letter-spacing: 0.03em;
+}
+.timer-circle {
+  font-family: 'Army Numbers', 'Army Normal', sans-serif;
+}
+.turn-banner {
+  font-family: 'Army Brush', 'Army Display', sans-serif;
+  letter-spacing: 0.04em;
 }
