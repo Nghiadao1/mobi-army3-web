@@ -3795,12 +3795,13 @@ export class BattleEngine {
       } else if (p.special === 'ironman_plasma') {
         label = `-${finalDmg} ⚡ PLASMA!`;
       }
+      const bigHit = finalDmg >= 120;
       this.spawnFloatingText(
         target.x + (Math.random() - 0.5) * 16,
         centerY - 18,
         label,
-        isCrit ? '#fbbf24' : '#f87171',
-        isCrit ? 1.3 : 1.08
+        isCrit || bigHit ? '#fbbf24' : '#f87171',
+        isCrit ? 1.5 : bigHit ? 1.38 : 1.08
       );
 
       if (target.hp <= 0) {

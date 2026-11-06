@@ -53,6 +53,9 @@ class GameApp {
   // Tham chiếu DOM HUD để cập nhật mượt mà không render lại toàn bộ DOM
   private hudRefs: {
     windVal: HTMLElement;
+    windFill: HTMLElement;
+    turnBanner: HTMLElement;
+    dangerVignette: HTMLElement;
     timerVal: HTMLElement;
     turnInfo: HTMLElement;
     angleVal: HTMLElement;
@@ -75,6 +78,7 @@ class GameApp {
   } | null = null;
 
   private keyboardNav = false;
+  private lastBannerTurn = -1;
 
   public async boot(): Promise<void> {
     this.unlockedStage = Math.max(
@@ -1212,10 +1216,10 @@ class GameApp {
               </div>
               <div class="hero-grid" style="margin-bottom:14px">
                 ${HEROES.filter((h) => this.heroModalFilter === 'all' || h.faction === this.heroModalFilter).map(
-                  (h) => `
+                  (h, cardIdx) => `
                   <div class="hero-card ${h.faction === 'marvel' ? 'marvel-hero' : ''} ${
                     h.id === curHeroId ? 'selected' : ''
-                  }" data-pick-hero="${h.id}">
+                  }" data-pick-hero="${h.id}" style="--i:${Math.min(cardIdx, 14)}">
                     ${h.faction === 'marvel' ? '<span class="marvel-badge"><img src="./assets/ui/avenger.png" style="width:11px;height:11px;vertical-align:middle;margin-right:2px"/>AVENGER</span>' : ''}
                     <canvas id="modal-hero-${h.id}" width="72" height="72"></canvas>
                     <div class="hero-name" style="color:${h.color}">${h.name}</div>
@@ -1225,6 +1229,7 @@ class GameApp {
                 ).join('')}
               </div>
               <div class="hero-detail-bar">
+                <canvas id="modal-hero-showcase" class="showcase-canvas" width="118" height="118"></canvas>
                 <div>
                   <div style="font-weight:800;font-size:0.95rem;color:${curHero.color}">${curHero.name} — Tuyệt kỹ Nộ: <span style="color:#fde047">${curHero.powName}</span></div>
                   <div style="font-size:0.82rem;color:#cbd5e1;margin-top:2px">${curHero.description}</div>
@@ -1238,6 +1243,12 @@ class GameApp {
                   ${curHero.reloadTime ? '<span class="stat-pill">⏱️ Nạp đạn: ' + curHero.reloadTime + '</span>' : ''}
                   <span class="stat-pill">📐 Góc: ${curHero.minAngle}°..${curHero.maxAngle}°</span>
                   <span class="stat-pill">🏃 Thể lực: ${curHero.staminaMax}</span>
+                </div>
+                <div class="stat-bars">
+                  <div class="stat-bar-row"><span>❤️ HP</span><div class="stat-bar-track"><div class="stat-bar-fill hp" style="width:${Math.round((curHero.hp / Math.max(...HEROES.map((x) => x.hp))) * 100)}%"></div></div><strong>${curHero.hp}</strong></div>
+                  <div class="stat-bar-row"><span>💥 Công</span><div class="stat-bar-track"><div class="stat-bar-fill atk" style="width:${Math.round((curHero.attack / Math.max(...HEROES.map((x) => x.attack))) * 100)}%"></div></div><strong>${curHero.attack}</strong></div>
+                  <div class="stat-bar-row"><span>🏃 Thể lực</span><div class="stat-bar-track"><div class="stat-bar-fill sta" style="width:${Math.round((curHero.staminaMax / Math.max(...HEROES.map((x) => x.staminaMax))) * 100)}%"></div></div><strong>${curHero.staminaMax}</strong></div>
+                  ${curHero.reloadTime ? `<div class="stat-bar-row"><span>⏱️ Nạp đạn</span><div class="stat-bar-track"><div class="stat-bar-fill rel" style="width:${Math.max(8, Math.round((1 - (curHero.reloadTime - 250) / 60) * 100))}%"></div></div><strong>${curHero.reloadTime}</strong></div>` : ''}
                 </div>
               </div>
             </div>
@@ -1533,6 +1544,12 @@ class GameApp {
           this.previewRenderer.drawHeroPreview(c, h, 12, false);
         }
       }
+      const showcase = document.getElementById('modal-hero-showcase') as HTMLCanvasElement | null;
+      if (showcase) {
+        const curId =
+          this.selectingSlotForHero === 'ally' ? this.selectedAllyHeroId : this.selectedHeroId;
+        this.previewRenderer.drawHeroPreview(showcase, getHeroById(curId), 20, false);
+      }
       this.uiRoot.querySelectorAll<HTMLElement>('[data-filter-heroes]').forEach((btn) => {
         btn.addEventListener('click', () => {
           sound.playClick();
@@ -1734,6 +1751,8 @@ class GameApp {
       .join('');
 
     this.uiRoot.innerHTML = `
+      <div id="danger-vignette" class="danger-vignette"></div>
+      <div id="turn-banner" class="turn-banner">⚔️ LƯỢT CỦA BẠN!</div>
       <!-- Thanh trên: Thông tin Map/Lượt, Sức Gió & Đồng Hồ Đếm Ngược, Nút Tiện Ích -->
       <div class="hud-top">
         <div class="hud-box">
@@ -1747,6 +1766,7 @@ class GameApp {
           <div class="wind-box">
             <span class="wind-label">Sức Gió Chiến Trường</span>
             <span class="wind-value" id="hud-wind">◀ 0 ▶</span>
+            <div class="wind-meter"><div class="wind-meter-fill" id="hud-wind-fill"></div></div>
           </div>
           <div class="timer-circle" id="hud-timer">25</div>
         </div>
@@ -1850,6 +1870,9 @@ class GameApp {
 
     this.hudRefs = {
       windVal: document.getElementById('hud-wind')!,
+      windFill: document.getElementById('hud-wind-fill')!,
+      turnBanner: document.getElementById('turn-banner')!,
+      dangerVignette: document.getElementById('danger-vignette')!,
       timerVal: document.getElementById('hud-timer')!,
       turnInfo: document.getElementById('hud-turn-info')!,
       angleVal: document.getElementById('hud-angle')!,
@@ -1964,6 +1987,12 @@ class GameApp {
       r.windVal.style.color = '#fb923c';
     }
 
+    // Thanh gió trực quan: dài theo sức gió (tối đa 22), hướng theo chiều gió
+    const windPct = Math.min(100, (Math.abs(snap.wind) / 22) * 100);
+    r.windFill.style.width = `${windPct / 2}%`;
+    r.windFill.style.left = snap.wind >= 0 ? '50%' : `${50 - windPct / 2}%`;
+    r.windFill.style.background = snap.wind === 0 ? '#64748b' : snap.wind > 0 ? '#38bdf8' : '#fb923c';
+
     r.timerVal.textContent = String(snap.turnTimeLeft);
     r.timerVal.classList.toggle('urgent', snap.turnTimeLeft <= 6);
 
@@ -1992,6 +2021,16 @@ class GameApp {
       }
     }
 
+    // Banner đầu lượt của người chơi + viền đỏ khi HP thấp
+    if (snap.turnNumber !== this.lastBannerTurn) {
+      this.lastBannerTurn = snap.turnNumber;
+      if (isPlayerTurn) {
+        r.turnBanner.classList.remove('show');
+        void r.turnBanner.offsetWidth;
+        r.turnBanner.classList.add('show');
+      }
+    }
+
     if (u) {
       r.angleVal.textContent = `${Math.round(u.aimAngleDeg)}°`;
       r.flyBox.style.display = u.hero.canFly ? 'flex' : 'none';
@@ -2017,6 +2056,10 @@ class GameApp {
       }
 
       const hpPct = Math.round((u.hp / u.maxHp) * 100);
+      r.dangerVignette.classList.toggle(
+        'active',
+        u.isPlayerControlled && u.hp > 0 && hpPct <= 30
+      );
       r.hpFill.style.width = `${hpPct}%`;
       r.hpText.textContent = `HP: ${u.hp}/${u.maxHp}`;
 
