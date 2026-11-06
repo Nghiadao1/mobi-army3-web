@@ -1,0 +1,34 @@
+HP +#
+Tấn công +#
+Giáp +#
+May mắn +#
+Đồng đội +#
+Tốc độ +#
+HP +#%
+Tấn công +#%
+Giáp +#%
+May mắn +#%
+Đồng đội +#%
+Tốc độ +#%
+Đạn +#
+Ngăn chứa +#
+Thời gian nạp đạn #
+Socketing...#
+Socket
++#
+Tất cả chỉ số +#%
+Chống hư hại, mất mát
+Tác dụng # phút
+Chống tăng +#% tấn công
+Súng trường +#% tấn công
+Tiểu liên +#% tấn công
+Chuối +#% tấn công
+Hoa cải +#% tấn công
+Cự ly di chuyển +#%
+Biến hình thành người khác
+Không thể giao dịch
+Hạn dùng # ngày
+Mua với # Chim Lạc
+Hoàn thiện #/1000
+Mua với # Bí Ngô
+Kinh nghiệm +#%

@@ -1,0 +1,479 @@
+713	Tóc xanh dương
+766	Tóc đen
+811	Tóc cam
+855	Tóc lá cây
+904	Tóc xanh dạ
+954	Tóc xanh dạ 5
+1006	Tóc xanh dạ 6
+1058	Tóc xanh dạ 7
+1110	Tóc xanh dạ 8
+1162	Tóc xanh dạ 9
+1214	Quần SWAT I
+1289	Quần SWAT II
+1388	Quần SWAT III
+1490	Quần SWAT IV
+1592	Quần SWAT V
+1690	Quần SAS I
+1773	Quần SAS II
+1880	Quần SAS III
+1988	Quần SAS IV
+2095	Quần SAS V
+2201	Quần SEAL I
+2279	Quần SEAL II
+2381	Quần SEAL III
+2484	Quần SEAL IV
+2586	Quần SEAL V
+2687	Quần DELTA I
+2771	Quần DELTA II
+2879	Quần DELTA III
+2988	Quần DELTA IV
+3096	Quần DELTA V
+3203	Quần CYBER I
+3292	Quần CYBER II
+3405	Quần CYBER III
+3519	Quần CYBER IV
+3632	Quần CYBER V
+3744	Áo giáp SWAT I
+3819	Áo giáp SWAT II
+3918	Áo giáp SWAT III
+4018	Áo giáp SWAT IV
+4117	Áo giáp SWAT V
+4215	Áo giáp SAS I
+4298	Áo giáp SAS II
+4405	Áo giáp SAS III
+4513	Áo giáp SAS IV
+4620	Áo giáp SAS V
+4726	Áo giáp SEAL I
+4804	Áo giáp SEAL II
+4906	Áo giáp SEAL III
+5009	Áo giáp SEAL IV
+5111	Áo giáp SEAL V
+5212	Áo giáp DELTA I
+5296	Áo giáp DELTA II
+5404	Áo giáp DELTA III
+5513	Áo giáp DELTA IV
+5621	Áo giáp DELTA V
+5728	Áo giáp CYBER I
+5817	Áo giáp CYBER II
+5930	Áo giáp CYBER III
+6044	Áo giáp CYBER IV
+6157	Áo giáp CYBER V
+6269	Nón SWAT I
+6344	Nón SWAT II
+6443	Nón SWAT III
+6543	Nón SWAT IV
+6642	Nón SWAT V
+6740	Nón SAS I
+6825	Nón SAS II
+6911	Nón SAS III
+6998	Nón SAS IV
+7084	Nón SAS V
+7169	Nón SEAL I
+7196	Nón SEAL II
+7224	Nón SEAL III
+7253	Nón SEAL IV
+7281	Nón SEAL V
+7308	Nón DELTA I
+7336	Nón DELTA II
+7365	Nón DELTA III
+7395	Nón DELTA IV
+7424	Nón DELTA V
+7452	Nón CYBER I
+7480	Nón CYBER II
+7509	Nón CYBER III
+7539	Nón CYBER IV
+7568	Nón CYBER V
+7596	Balo SWAT I
+7623	Balo SWAT II
+7651	Balo SWAT III
+7680	Balo SWAT IV
+7708	Balo SWAT V
+7735	Balo SAS I
+7761	Balo SAS II
+7788	Balo SAS III
+7816	Balo SAS IV
+7843	Balo SAS V
+7869	Balo SEAL I
+7896	Balo SEAL II
+7924	Balo SEAL III
+7953	Balo SEAL IV
+7981	Balo SEAL V
+8008	Balo DELTA I
+8036	Balo DELTA II
+8065	Balo DELTA III
+8095	Balo DELTA IV
+8124	Balo DELTA V
+8152	Balo CYBER I
+8180	Balo CYBER II
+8209	Balo CYBER III
+8239	Balo CYBER IV
+8268	Balo CYBER V
+8296	AT4
+8343	M72 LAW
+8394	RPG-7
+8443	Javelin
+8467	FIM-92 Stinger Printstream
+8621	K98
+8664	M1 Garand
+8713	M1 Carbine
+8763	Dragunov SVU
+8792	MG36 Printstream
+8936	MG42
+8983	MG60
+9030	M134 Mini
+9082	M61 Vulcan
+9109	XM196 Printstream
+9254	Súng chuối cau
+9309	Súng chuối xanh
+9365	Súng chuối sáp
+9421	Súng chuối sứ
+9456	Súng chuối Printstream
+9498	Súng chuối 6
+9531	Súng chuối 7
+9563	Súng chuối 8
+9595	Súng chuối 9
+9627	Súng chuối 10
+9660	Flint locks 1612
+9716	RM-870
+9762	Leone 12 Gauge
+9816	GP-30 40 mm
+9844	M1216 Printstream
+9989	Súng cối 60mm
+10041	Súng cối 70mm
+10093	Súng cối 80mm
+10145	Súng cối 90mm
+10178	Rocket Printstream
+10213	Rocket 6
+10238	Rocket 7
+10263	Rocket 8
+10288	Rocket 9
+10313	Rocket 10
+10339	Gà con
+10380	Gà choai
+10423	Gà chọi
+10467	Gà sắt
+10510	Gà Printstream
+10542	Gà 6
+10564	Gà 7
+10586	Gà 8
+10608	Gà 9
+10630	Gà 10
+10653	Rìu gỗ
+10691	Rìu đồng
+10732	Rìu sắt
+10771	Rìu bạc
+10810	Apache Printstream
+10845	Apache 6
+10870	Apache 7
+10895	Apache 8
+10920	Apache 9
+10945	Apache 10
+10971	Boomerang gỗ
+11019	Boomerang đồng
+11070	Boomerang sắt
+11119	Boomerang vàng
+11168	Boomerang Printstream
+11206	Boomerang 6
+11234	Boomerang 7
+11262	Boomerang 8
+11290	Boomerang 9
+11318	Boomerang 10
+11347	Lazer Alpha
+11388	Lazer Beta
+11428	Lazer Gamma
+11469	Lazer Delta
+11510	Lazer Printstream
+11544	Lazer 6
+11568	Lazer 7
+11592	Lazer 8
+11616	Lazer 9
+11641	Lazer 10
+11666	RPG
+11701	AK-47
+11738	Shotgun
+11777	Banana
+11815	Missle
+11853	Mortal
+11891	Chicky
+11929	Boomerang
+11970	Apache
+12008	Lazer
+12045	Cứu thương
+12136	Dịch chuyển tức thời
+12279	Bắn 2 lần
+12355	Di chuyển x2
+12398	Tàng hình
+12484	Ngưng gió
+12557	Bom phá đất
+12659	Lựu đạn
+12749	Bom B52
+12827	Tơ nhện
+12932	Cứu thương đồng đội
+13029	Đạn trái phá
+13150	Rương báu vật cấp 1
+13246	Rương báu vật cấp 2
+13359	Rương báu vật cấp 4
+13474	Đạn Laze
+13569	Đạn vòi rồng
+13690	Chuột gắn bom
+13830	Tên lửa x4
+13944	Đạn xuyên đất
+14080	Mưa sao băng
+14212	Mưa đạn
+14340	Khoan đất
+14473	Bom độc
+14584	Bom mù
+14678	Chong chóng khoan đất
+14839	Gọi UFO đến hỗ trợ
+14936	Đóng băng
+15031	Khí độc
+15126	Tơ nhện x3
+15254	Bom hẹn giờ
+15356	Cứu thương 50% HP
+15425	Cứu thương 100% HP
+15496	Vô hình
+15584	Ma cà rồng
+15714	Rương báu vật cấp 3
+15827	Thuốc tẩy điểm
+15892	x2 kinh nghiệm
+15950	Bom tự sát
+16165	Huy chương danh dự
+16233	Quần IS I
+16256	Áo IS I
+16276	Nón IS I
+16297	Balo IS I
+16318	Quần IS II
+16342	Áo IS II
+16363	Nón IS II
+16385	Balo IS II
+16407	Quần IS III
+16432	Áo IS III
+16454	Nón IS III
+16477	Balo IS III
+16500	Quần IS IV
+16524	Áo IS IV
+16545	Nón IS IV
+16567	Balo IS IV
+16589	Quần IS V
+16612	Áo IS V
+16632	Nón IS V
+16653	Balo IS V
+16674	Tóc Sôngôku
+16700	Tóc Ca Đíc
+16725	Tóc Ra Đíc
+16750	Tóc Sôngôku SS1
+16780	Tóc Ca Lích SS1
+16809	Tóc Sôngôhan SS1
+16840	Tóc Sôngôku SS3
+16870	Tóc Kaio Shin
+16896	Tóc Broly SS
+16921	Tóc Xicor
+16943	Nón Noel
+17016	Quần Cảm Tử
+17045	Áo Cảm Tử
+17071	Nón Cảm Tử
+17098	Balo Cảm Tử
+17125	Bom
+17169	Nộ khí tăng nhanh
+17277	Nạp đạn nhanh
+17380	Xuyên giáp
+17466	Hồng ngọc I
+17536	Lam ngọc I
+17603	Hoàng ngọc I
+17673	Lục bảo ngọc I
+17748	Thạch anh tím I
+17821	Hồng ngọc II
+17892	Lam ngọc II
+17960	Hoàng ngọc II
+18031	Lục bảo ngọc II
+18107	Thạch anh tím II
+18181	Hồng ngọc III
+18253	Lam ngọc III
+18322	Hoàng ngọc III
+18394	Lục bảo ngọc III
+18471	Thạch anh tím III
+18546	Hồng ngọc IV
+18617	Lam ngọc IV
+18685	Hoàng ngọc IV
+18756	Lục bảo ngọc IV
+18832	Thạch anh tím IV
+18906	Hồng ngọc V
+18976	Lam ngọc V
+19043	Hoàng ngọc V
+19113	Lục bảo ngọc V
+19188	Thạch anh tím V
+19261	Hồng ngọc VI
+19332	Lam ngọc VI
+19400	Hoàng ngọc VI
+19471	Lục bảo ngọc VI
+19547	Thạch anh tím VI
+19621	Hồng ngọc VII
+19693	Lam ngọc VII
+19762	Hoàng ngọc VII
+19834	Lục bảo ngọc VII
+19911	Thạch anh tím VII
+19986	Hồng ngọc VIII
+20059	Lam ngọc VIII
+20129	Hoàng ngọc VIII
+20202	Lục bảo ngọc VIII
+20280	Thạch anh tím VIII
+20356	Hồng ngọc IX
+20427	Lam ngọc IX
+20495	Hoàng ngọc IX
+20566	Lục bảo ngọc IX
+20642	Thạch anh tím IX
+20716	Hồng ngọc X
+20786	Lam ngọc X
+20853	Hoàng ngọc X
+20923	Lục bảo ngọc X
+20998	Thạch anh tím X
+21071	Búa chuyên dụng
+21181	Đá may mắn
+21303	Đá may mắn
+21425	Đá may mắn
+21547	Bảo hiểm
+21673	Đầu Batman
+21722	Đầu X-Men
+21770	Đầu Chicky
+21819	Đầu Captain America
+21877	Đầu Loki
+21924	Đầu Ultron
+21973	Đầu Kakashi
+22023	Đầu Naruto
+22072	Đầu Hawkeye
+22122	Đầu Winter Soldier
+22179	Sinh lực lv 1
+22260	Hỏa lực lv 1
+22342	Phòng thủ lv 1
+22425	May mắn lv 1
+22505	Đồng đội lv 1
+22590	Tốc độ lv 1
+22672	Hỗ trợ tận răng lv 1
+22765	Đạn chống tăng lv 1
+22856	Đạn súng trường lv 1
+22949	Sinh lực lv 2
+23030	Hỏa lực lv 2
+23112	Phòng thủ lv 2
+23195	May mắn lv 2
+23275	Đồng đội lv 2
+23360	Tốc độ lv 2
+23442	Hỗ trợ tận răng lv 2
+23535	Đạn chống tăng lv 2
+23626	Đạn súng trường lv 2
+23719	Đạn tiểu liên lv 1
+23809	Đạn chuối lv 1
+23894	Đạn hoa cải lv 1
+23981	Đạn tiểu liên lv 2
+24071	Đạn chuối lv 2
+24156	Đạn hoa cải lv 2
+24243	Lệch đường đạn
+24361	Đạn Xuyên Thấu
+24515	Dụng cụ gỡ bom
+24619	Iron Man
+24661	Hulk
+24695	Thor
+24755	Loki
+24817	Captain
+24857	Winter Soldier
+24953	Hawk Eyes
+25030	Ultron
+25095	Năng lượng Avenger
+25160	Khỉ đỏ
+25208	Khỉ vàng
+25256	Bánh Chưng
+25331	Bánh Tét
+25404	Nải chuối
+25453	Chim Lạc
+25530	Hồng bao
+25582	Exp
+25621	Bí Ngô
+25697	Đầu Bí Ngô
+25748	Đầu Bí Ngô
+25799	Hộp quà Tết Nhỏ
+25863	Hộp quà Tết Lớn
+25927	Red Hulk
+25993	Thor Stormbreaker
+26078	Iron Chiến Giáp Nano
+26142	Iron Man Mark 50
+26259	Javelin Gamma Phase 1
+26297	Javelin Gamma Phase 2
+26335	Javelin Gamma Phase 3
+26373	Javelin Gamma Phase 4
+26411	Javelin Gamma Emerald
+26449	Boomerang Doppler Phase 1
+26508	Boomerang Doppler Phase 2
+26567	Boomerang Doppler Phase 3
+26626	Boomerang Doppler Phase 4
+26685	Boomerang Ruby
+26733	M61 Vulcan Doppler Phase 1
+26776	M61 Vulcan Doppler Phase 2
+26819	M61 Vulcan Doppler Phase 3
+26862	M61 Vulcan Doppler Phase 4
+26905	M61 Vulcan Ruby
+26937	Hòm bí ẩn
+27067	Chìa khóa bí ẩn
+27151	x5 kinh nghiệm
+27287	Captain Nomad
+27333	Captain Bạc Vàng
+27385	Tóc Super Saiyan
+27438	Tóc Super Saiyan Blue
+27496	Tóc Super Saiyan 2
+27551	Tóc Ultra Instinct
+27606	Tóc Lửa
+27628	Tóc Băng
+27650	Tóc Neon
+27671	Tóc Sóng Biển
+27700	Tóc Sét
+27721	Tóc Hoa Anh Đào
+27751	Tóc Super Saiyan Goku
+27809	Tóc Super Saiyan 2 Gohan
+27870	Tóc Super Saiyan Blue
+27928	Tóc Cầu Vồng
+27981	Tóc Vegeta SSJ Blue
+28037	Tóc Xicor Gamma Phase 1
+28073	Tóc Xicor Gamma Phase 2
+28109	Tóc Xicor Gamma Phase 3
+28145	Tóc Xicor Gamma Phase 4
+28181	Tóc Xicor Gamma Emerald
+28217	Tóc Broly Doppler Phase 1
+28279	Tóc Broly Doppler Phase 2
+28341	Tóc Broly Doppler Phase 3
+28403	Tóc Broly Doppler Phase 4
+28465	Tóc Broly Ruby
+28516	Hawk Eyes Công Nghệ
+28607	Ultron Tối Thượng
+28688	Winter Soldier Mùa Đông
+28796	Doctor Strange
+28916	Thẻ tuần
+29172	Thẻ tháng
+29429	Vé quân nhu
+29493	Búa hợp kim
+29725	Đá sao Kim
+29857	Đá sao Mộc
+29993	Đá sao Thủy
+30131	Đá sao Hỏa
+30267	Đá sao Thổ
+30403	Huyết thanh chiến binh
+30550	Tóc Kakashi (Souvenir)
+30609	Túi hành trang
+30702	Rương tóc Xicor Gamma
+30844	Rương tóc Doppler
+30975	Rương tân thủ
+31387	Đá công nghệ
+31523	Chip dẫn truyền
+31695	Mạch bảo vệ
+31848	Năng lượng nâng cấp
+32045	Gà sắt Printstream
+32100	Rương súng Printstream
+32278	Khỉ đỏ công nghệ
+32369	Chip chuyển đổi
+32551	Rương Ngọc X
+32762	Rương tóc 6%
+32892	Rương tóc 5%
+33022	Rương chọn set V 4 lỗ
+33181	Rương ngẫu nhiên set V 4 lỗ
+33361	Rương ngẫu nhiên set V 3 lỗ
+33541	Thẻ thông báo độc quyền
+33741	Rương tóc 7%
+33871	Gen công nghệ
+34094	Khỉ vàng công nghệ
