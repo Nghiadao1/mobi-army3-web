@@ -47,6 +47,8 @@ export interface MapDef {
 export interface SpriteStripEntry {
   url: string;
   frames: number;
+  /** He so chia kich thuoc ve khi file anh da duoc nang cap len ban x3 (1.5x) de giu nguyen kich thuoc hien thi goc */
+  div?: number;
 }
 
 export interface HeroOverrideSheet {
@@ -167,7 +169,11 @@ export type BattleItemId =
   | 'freeze'
   | 'poison'
   | 'nuke'
-  | 'stealth';
+  | 'stealth'
+  | 'meteor'
+  | 'tornado'
+  | 'fire_ammo'
+  | 'laser';
 
 export interface BattleItemDef {
   id: BattleItemId;

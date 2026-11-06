@@ -32,63 +32,78 @@
   "bullets": {
     "cannon": {
       "url": "assets/bullets/grenade.png",
-      "frames": 1
+      "frames": 1,
+      "div": 1.5
     },
     "ak": {
       "url": "assets/bullets/rocket2.png",
-      "frames": 1
+      "frames": 1,
+      "div": 1.5
     },
     "lightning": {
       "url": "assets/bullets/laser.png",
-      "frames": 8
+      "frames": 8,
+      "div": 1.5
     },
     "boomerang": {
       "url": "assets/bullets/danrua.png",
-      "frames": 4
+      "frames": 4,
+      "div": 1.5
     },
     "rocket": {
       "url": "assets/bullets/13Missile.png",
-      "frames": 2
+      "frames": 2,
+      "div": 1.5
     },
     "bomb": {
       "url": "assets/bullets/bomb.png",
-      "frames": 2
+      "frames": 2,
+      "div": 1.5
     },
     "egg": {
       "url": "assets/bullets/trungvang.png",
-      "frames": 1
+      "frames": 1,
+      "div": 1.5
     },
     "meteor": {
       "url": "assets/bullets/thienthach.png",
-      "frames": 2
+      "frames": 2,
+      "div": 1.5
     },
     "digger": {
       "url": "assets/bullets/daodat.png",
-      "frames": 3
+      "frames": 3,
+      "div": 1.5
     },
     "special": {
       "url": "assets/bullets/specialbullet.png",
-      "frames": 2
+      "frames": 2,
+      "div": 1.5
     },
     "acid": {
       "url": "assets/bullets/axit.png",
-      "frames": 16
+      "frames": 16,
+      "div": 1.5
     },
     "shield": {
       "url": "assets/bullets/khien_v1.png",
-      "frames": 1
+      "frames": 1,
+      "div": 1.5
     },
     "crate": {
       "url": "assets/bullets/box.png",
-      "frames": 1
+      "frames": 1,
+      "div": 1.5
     },
     "mouse": {
       "url": "assets/bullets/chuotBull.png",
-      "frames": 4
+      "frames": 4,
+      "div": 1.5
     },
     "web": {
       "url": "assets/bullets/web.png",
-      "frames": 2
+      "frames": 2,
+      "div": 1.5
     },
     "saw": {
       "url": "assets/bullets/hrangcua.png",
@@ -120,69 +135,90 @@
     },
     "magenta_orb": {
       "url": "assets/bullets/d10.png",
-      "frames": 1
+      "frames": 1,
+      "div": 1.5
     },
     "lightning_storm": {
       "url": "assets/bullets/laser.png",
-      "frames": 8
+      "frames": 8,
+      "div": 1.5
+    },
+    "tornado": {
+      "url": "assets/effects/locxoay.png",
+      "frames": 3,
+      "div": 1.5
     }
   },
   "effects": {
     "explosion": {
       "url": "assets/effects/no.png",
-      "frames": 5
+      "frames": 5,
+      "div": 1.5
     },
     "bigExplosion": {
       "url": "assets/effects/ex3.png",
-      "frames": 5
+      "frames": 5,
+      "div": 1.5
     },
     "nuke": {
       "url": "assets/effects/bomnguyentu.png",
-      "frames": 4
+      "frames": 4,
+      "div": 1.5
     },
     "electric": {
       "url": "assets/effects/electric.png",
-      "frames": 5
+      "frames": 5,
+      "div": 1.5
     },
     "freeze": {
       "url": "assets/effects/freeze.png",
-      "frames": 4
+      "frames": 4,
+      "div": 1.5
     },
     "smoke": {
       "url": "assets/effects/khoi.png",
-      "frames": 5
+      "frames": 5,
+      "div": 1.5
     },
     "poison": {
       "url": "assets/effects/khoidoc.png",
-      "frames": 5
+      "frames": 5,
+      "div": 1.5
     },
     "teleport": {
       "url": "assets/effects/teleport_eff.png",
-      "frames": 4
+      "frames": 4,
+      "div": 1.5
     },
     "splash": {
       "url": "assets/effects/waterBum.png",
-      "frames": 6
+      "frames": 6,
+      "div": 1.5
     },
     "tornado": {
       "url": "assets/effects/locxoay.png",
-      "frames": 3
+      "frames": 3,
+      "div": 1.5
     },
     "fire": {
       "url": "assets/effects/lua.png",
-      "frames": 4
+      "frames": 4,
+      "div": 1.5
     },
     "loki": {
       "url": "assets/effects/loki.png",
-      "frames": 4
+      "frames": 4,
+      "div": 1.5
     },
     "longga": {
       "url": "assets/effects/longga.png",
-      "frames": 5
+      "frames": 5,
+      "div": 1.5
     },
     "stealth": {
       "url": "assets/effects/tangHinhEffect.png",
-      "frames": 4
+      "frames": 4,
+      "div": 1.5
     }
   },
   "bosses": {

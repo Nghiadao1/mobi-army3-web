@@ -1787,12 +1787,12 @@ class GameApp {
       <!-- Bảng điều khiển Chiến Đấu dưới đáy -->
       <div class="hud-bottom">
         <div class="dpad-cluster">
-          <button class="ctrl-btn" data-hold="left" title="Đi Trái (A / ←)">◀</button>
-          <div style="display:flex;flex-direction:column;gap:4px">
-            <button class="ctrl-btn" data-hold="up" style="height:32px" title="Bay Lên (Iron Man/Ultron) hoặc Nâng Góc (W / ↑)">▲</button>
-            <button class="ctrl-btn" data-hold="down" style="height:32px" title="Bay Xuống (Iron Man/Ultron) hoặc Hạ Góc (S / ↓)">▼</button>
+          <div class="dpad-visual" style="background-image: url('./assets/ui/dpad/dpad.png')" role="group" aria-label="DPad điều khiển">
+            <button class="dpad-zone" data-hold="up" data-dir="up" aria-label="Lên" title="Bay Lên (Iron Man/Ultron) hoặc Nâng Góc (W / ↑)"></button>
+            <button class="dpad-zone" data-hold="left" data-dir="left" aria-label="Đi Trái" title="Đi Trái (A / ←)"></button>
+            <button class="dpad-zone" data-hold="right" data-dir="right" aria-label="Đi Phải" title="Đi Phải (D / →)"></button>
+            <button class="dpad-zone" data-hold="down" data-dir="down" aria-label="Xuống" title="Bay Xuống (Iron Man/Ultron) hoặc Hạ Góc (S / ↓)"></button>
           </div>
-          <button class="ctrl-btn" data-hold="right" title="Đi Phải (D / →)">▶</button>
           <div id="hud-fly-box" style="display:none;flex-direction:column;gap:4px;margin-left:2px">
             <button class="ctrl-btn" data-hold="angleUp" style="height:32px;font-size:0.72rem;padding:0 6px;border-color:#38bdf8;color:#7dd3fc" title="Tăng Góc Bắn (Phím Q)">📐+Góc</button>
             <button class="ctrl-btn" data-hold="angleDown" style="height:32px;font-size:0.72rem;padding:0 6px;border-color:#38bdf8;color:#7dd3fc" title="Giảm Góc Bắn (Phím E)">📐-Góc</button>

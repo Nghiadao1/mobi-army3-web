@@ -2795,3 +2795,39 @@ html.text-large {
   font-family: 'Army Brush', 'Army Display', sans-serif;
   letter-spacing: 0.04em;
 }
+
+/* === BIG UPDATE x3: DPad goc gui2 (an de sang mui ten) === */
+.dpad-visual {
+  position: relative;
+  width: 106px;
+  height: 106px;
+  flex: 0 0 auto;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 6px 14px rgba(2, 4, 12, 0.55));
+}
+.dpad-zone {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+.dpad-zone[data-dir="up"] { top: 0; left: 50%; transform: translateX(-50%); }
+.dpad-zone[data-dir="down"] { bottom: 0; left: 50%; transform: translateX(-50%); }
+.dpad-zone[data-dir="left"] { left: 0; top: 50%; transform: translateY(-50%); }
+.dpad-zone[data-dir="right"] { right: 0; top: 50%; transform: translateY(-50%); }
+.dpad-zone.held {
+  background: radial-gradient(circle, rgba(253, 224, 71, 0.55) 0%, rgba(253, 224, 71, 0) 70%);
+}
+.dpad-zone:focus-visible { outline: 2px solid #fde047; outline-offset: -2px; }
+@media (max-width: 768px) {
+  .dpad-visual { width: 92px; height: 92px; }
+  .dpad-zone { width: 38px; height: 38px; }
+}

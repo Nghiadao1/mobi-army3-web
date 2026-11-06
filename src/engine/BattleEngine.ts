@@ -58,6 +58,7 @@ export interface Fighter {
   webbedTurns: number;
   frozenTurns?: number;
   poisonTurns?: number;
+  burnTurns?: number;
   stealthTurns?: number;
   lastPower: number;
   lastAngle: number;
@@ -134,7 +135,11 @@ interface Projectile {
     | 'stormbreaker_axe'
     | 'doctor_strange_disc'
     | 'piercing_terrain'
-    | 'hawkeye_tech_airstrike';
+    | 'hawkeye_tech_airstrike'
+    | 'meteor_flare'
+    | 'tornado'
+    | 'fire'
+    | 'laser';
   strangeDiscColor?: 'green' | 'yellow';
   diggerCharges?: number;
   isBounced?: boolean;
@@ -351,6 +356,10 @@ export class BattleEngine {
       nuke: 0,
       suicide: 0,
       stealth: 0,
+      meteor: 0,
+      tornado: 0,
+      fire_ammo: 0,
+      laser: 0,
     };
     if (isBoss) {
       inv.heal = 1;
@@ -1178,6 +1187,10 @@ export class BattleEngine {
         nuke: 0,
         suicide: 0,
         stealth: 0,
+        meteor: 0,
+        tornado: 0,
+        fire_ammo: 0,
+        laser: 0,
       },
       isClone: true,
       ownerUltronId: u.id,
@@ -1401,7 +1414,11 @@ export class BattleEngine {
       itemId === 'freeze' ||
       itemId === 'poison' ||
       itemId === 'airstrike' ||
-      itemId === 'nuke'
+      itemId === 'nuke' ||
+      itemId === 'meteor' ||
+      itemId === 'tornado' ||
+      itemId === 'fire_ammo' ||
+      itemId === 'laser'
     ) {
       if (this.activeItemArmed === itemId && (slotIndex === undefined || this.armedBagSlotIdx === slotIndex)) {
         this.activeItemArmed = null;
@@ -1421,6 +1438,10 @@ export class BattleEngine {
           poison: 'KHÓI ĐỘC AXIT',
           airstrike: '✈️ MÁY BAY RẢI BOM',
           nuke: 'BOM NGUYÊN TỬ',
+          meteor: 'THIÊN THẠCH RƠI',
+          tornado: 'LỐC XOÁY CUỐN PHĂNG',
+          fire_ammo: 'ĐẠN LỬA THIÊU ĐỐT',
+          laser: 'TIA LASER XUYÊN PHÁ',
         };
         this.spawnFloatingText(u.x, u.y - 42, labelMap[itemId] || itemId, '#c084fc', 1.1);
       }
@@ -1651,6 +1672,15 @@ export class BattleEngine {
       this.spawnFloatingText(active.x, active.y - 38, `-${poisonDmg} HP (ĐỘC AXIT)`, '#84cc16', 1.15);
       if (this.assets.manifest.effects.poison) {
         this.spawnEffect(active.x, active.y - 18, this.assets.manifest.effects.poison, 1.0);
+      }
+    }
+    if (active.burnTurns && active.burnTurns > 0) {
+      active.burnTurns--;
+      const burnDmg = 60;
+      active.hp = Math.max(1, active.hp - burnDmg);
+      this.spawnFloatingText(active.x, active.y - 38, `-${burnDmg} HP (LỬA THIÊU)`, '#fb923c', 1.15);
+      if (this.assets.manifest.effects.fire) {
+        this.spawnEffect(active.x, active.y - 18, this.assets.manifest.effects.fire, 1.0);
       }
     }
     if (active.frozenTurns && active.frozenTurns > 0) {
@@ -2540,6 +2570,91 @@ export class BattleEngine {
       return;
     }
 
+    // 8. Item Thien Thach Roi (meteor flare)
+    if (this.activeItemArmed === 'meteor') {
+      u.inventory.meteor = Math.max(0, u.inventory.meteor - 1);
+      this.consumeBagSlot(u, 'meteor', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(false);
+        this.spawnFloatingText(u.x, u.y - 46, '☄️ THIÊN THẠCH ĐANG BAY TỚI!', '#fb923c', 1.2);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'special',
+          effectKey: 'smoke',
+          holeMask: 'smallhole.png',
+          holeScale: 0.4,
+          damage: 0,
+          blastRadius: 10,
+          special: 'meteor_flare',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
+    // 9. Item Loc Xoay (tornado)
+    if (this.activeItemArmed === 'tornado') {
+      u.inventory.tornado = Math.max(0, u.inventory.tornado - 1);
+      this.consumeBagSlot(u, 'tornado', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'tornado',
+          effectKey: 'tornado',
+          holeMask: 'h32x26.png',
+          holeScale: 0.7,
+          damage: u.attack * 0.42,
+          blastRadius: 52,
+          special: 'tornado',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
+    // 10. Item Dan Lua Thieu Dot (fire_ammo)
+    if (this.activeItemArmed === 'fire_ammo') {
+      u.inventory.fire_ammo = Math.max(0, u.inventory.fire_ammo - 1);
+      this.consumeBagSlot(u, 'fire_ammo', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'bomb',
+          effectKey: 'fire',
+          holeMask: 'h40x35.png',
+          holeScale: 1.0,
+          damage: u.attack * 0.62,
+          blastRadius: 42,
+          special: 'fire',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
+    // 11. Item Tia Laser (laser)
+    if (this.activeItemArmed === 'laser') {
+      u.inventory.laser = Math.max(0, u.inventory.laser - 1);
+      this.consumeBagSlot(u, 'laser', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg, power * 2.4, {
+          spriteKey: 'lightning',
+          effectKey: 'electric',
+          holeMask: 'h32x26.png',
+          holeScale: 0.55,
+          damage: u.attack * 0.9,
+          blastRadius: 14,
+          special: 'laser',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
     // Vũ khí đặc trưng của Boss & Oanh Tạc Cơ
     if (u.unitKind === 'bomb_boss' || u.unitKind === 'bomb_minion') {
       this.detonateSuicideBomb(u, u.unitKind === 'bomb_boss' ? 1000 : 500);
@@ -2922,6 +3037,10 @@ export class BattleEngine {
             poison: 0,
             nuke: 0,
             stealth: 0,
+            meteor: 0,
+            tornado: 0,
+            fire_ammo: 0,
+            laser: 0,
           },
           bagSlots: [],
           alive: true,
@@ -3138,6 +3257,35 @@ export class BattleEngine {
           p.y += 3;
         }
 
+        if (p.special === 'tornado') {
+          // Loc xoay: khong dung lai khi cham dich, gay sat thuong vung theo nhip + gam dia hinh
+          const ticksLeft = p.crawlTicksLeft ?? 0;
+          if (ticksLeft % 9 === 0) {
+            for (const f of this.fighters) {
+              if (!f.alive || f.team === p.team) continue;
+              if (Math.hypot(f.x - p.x, f.y - 14 - p.y) <= 58) {
+                const td = Math.max(1, Math.round(p.damage * 0.5));
+                f.hp = Math.max(0, f.hp - td);
+                f.hurtTimer = 20;
+                this.spawnFloatingText(f.x, f.y - 40, `-${td} 🌪️`, '#7dd3fc', 1.05);
+              }
+            }
+            if (this.assets.manifest.effects.tornado) {
+              this.spawnEffect(p.x, p.y - 16, this.assets.manifest.effects.tornado, 1.25);
+            }
+          }
+          if (ticksLeft % 24 === 0) {
+            this.terrain.carveCrater(p.x, p.y + 4, 'h32x26.png', 0.8);
+          }
+          if (ticksLeft <= 0 || p.y >= this.terrain.waterY) {
+            if (this.assets.manifest.effects.tornado) {
+              this.spawnEffect(p.x, p.y - 14, this.assets.manifest.effects.tornado, 1.4);
+            }
+            this.projectiles.splice(i, 1);
+          }
+          continue;
+        }
+
         const hitEnemy = this.fighters.find(
           (f) => f.alive && f.team !== p.team && Math.hypot(f.x - p.x, f.y - 14 - p.y) <= 22
         );
@@ -3200,8 +3348,12 @@ export class BattleEngine {
         }
       } else {
         const effectiveWind = p.special === 'hulk_leap' ? 0 : this.wind;
-        p.vx += effectiveWind * PHYSICS.WIND_FACTOR * p.windScale;
-        p.vy += PHYSICS.GRAVITY;
+        if (p.special === 'laser') {
+          // Tia Laser: bay thang tuyet doi, bo qua gio va trong luc
+        } else {
+          p.vx += effectiveWind * PHYSICS.WIND_FACTOR * p.windScale;
+          p.vy += PHYSICS.GRAVITY;
+        }
       }
 
       // 5. Hulk Bật Nhảy: Hulk di chuyển trực tiếp theo quỹ đạo nhảy và tích lũy độ cao cực đại!
@@ -3382,7 +3534,18 @@ export class BattleEngine {
           // Đạn xuyên địa hình của Winter Soldier & Iron Man Mark 50: không nổ chặn lại, tiếp tục xuyên qua địa hình!
           this.terrain.carveCrater(hitLand.x, hitLand.y, 'h32x26.png', 0.55);
         } else 
-        if (p.special === 'mouse' && !p.crawling) {
+        if (p.special === 'tornado' && !p.crawling) {
+          // Loc xoay dap xuong dat va bat dau chay doc mat dat ve phia dich
+          p.crawling = true;
+          p.x = hitLand.x;
+          p.y = hitLand.y - 1;
+          const nearestEnemyT = this.fighters
+            .filter((f) => f.alive && f.team !== p.team)
+            .sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+          p.crawlDir = nearestEnemyT ? (nearestEnemyT.x >= p.x ? 1 : -1) : p.vx >= 0 ? 1 : -1;
+          p.crawlTicksLeft = 115;
+          this.spawnFloatingText(p.x, p.y - 26, '🌪️ LỐC XOÁY!', '#7dd3fc', 1.15);
+        } else if (p.special === 'mouse' && !p.crawling) {
           // Chuột gắn bom đáp xuống đất và bắt đầu chạy về phía kẻ địch gần nhất!
           p.crawling = true;
           p.x = hitLand.x;
@@ -3448,6 +3611,39 @@ export class BattleEngine {
         this.spawnEffect(owner.x, owner.y - 18, this.assets.manifest.effects.teleport, 1.1);
         sound.playItemUse();
         this.spawnFloatingText(owner.x, owner.y - 40, 'DỊCH CHUYỂN!', '#c084fc', 1.1);
+      }
+      return;
+    }
+
+    // 1a0. Phao hieu Thien Thach: goi thien thach roi xuong diem chi dinh
+    if (p.special === 'meteor_flare') {
+      this.spawnEffect(ix, iy, this.assets.manifest.effects.smoke, 1.1);
+      this.spawnFloatingText(ix, iy - 30, '☄️ THIÊN THẠCH ĐANG RƠI XUỐNG!', '#fb923c', 1.3);
+      sound.playShoot(true);
+      this.projectiles.push({
+        x: ix + 130,
+        y: iy - 640,
+        vx: -2.6,
+        vy: 7.5,
+        ownerId: p.ownerId,
+        team: p.team,
+        spriteKey: 'meteor',
+        effectKey: 'nuke',
+        holeMask: 'h55x50.png',
+        holeScale: 1.5,
+        damage: 300,
+        blastRadius: 72,
+        windScale: 0,
+        age: 0,
+        trail: [],
+      });
+      return;
+    }
+
+    // 1a00. Loc xoay tan bien: chi de lai hieu ung, khong phat no
+    if (p.special === 'tornado') {
+      if (this.assets.manifest.effects.tornado) {
+        this.spawnEffect(ix, iy - 12, this.assets.manifest.effects.tornado, 1.35);
       }
       return;
     }
@@ -3746,6 +3942,14 @@ export class BattleEngine {
         this.spawnFloatingText(target.x, centerY - 32, '☠️ DÍNH ĐỘC AXIT (2 LƯỢT)!', '#84cc16', 1.2);
         if (this.assets.manifest.effects.poison) {
           this.spawnEffect(target.x, centerY, this.assets.manifest.effects.poison, 1.1);
+        }
+      }
+
+      if (p.special === 'fire' && target.team !== p.team) {
+        target.burnTurns = 2;
+        this.spawnFloatingText(target.x, centerY - 32, '🔥 BỐC CHÁY (2 LƯỢT)!', '#fb923c', 1.2);
+        if (this.assets.manifest.effects.fire) {
+          this.spawnEffect(target.x, centerY, this.assets.manifest.effects.fire, 1.1);
         }
       }
 
@@ -4407,6 +4611,8 @@ export class BattleEngine {
         ctx.fillStyle =
           p.special === 'ironman_plasma'
             ? `rgba(56, 189, 248, ${ratio * 0.82})`
+            : p.special === 'laser'
+            ? `rgba(248, 113, 113, ${ratio * 0.65})`
             : p.special === 'electric' || p.special === 'sky_lightning'
             ? `rgba(167, 139, 250, ${ratio * 0.48})`
             : p.special === 'hawkeye_giant_homing'
@@ -4479,8 +4685,9 @@ export class BattleEngine {
         const fh = Math.floor(img.height / frames);
         const frame = Math.floor(p.age / 3) % frames;
         const sc = (p.scale ?? 1) * 0.58;
-        const dw = img.width * sc;
-        const dh = fh * sc;
+        const divA = entry.div ?? 1;
+        const dw = (img.width / divA) * sc;
+        const dh = (fh / divA) * sc;
         ctx.drawImage(img, 0, frame * fh, img.width, fh, -dw / 2, -dh / 2, dw, dh);
       } else {
         ctx.fillStyle = '#facc15';
@@ -4553,8 +4760,9 @@ export class BattleEngine {
       const frames = fx.sprite.frames || 5;
       const fh = Math.floor(img.height / frames);
       const frame = Math.min(frames - 1, Math.floor(fx.tick / fx.frameDuration));
-      const dw = img.width * 0.85 * fx.scale;
-      const dh = fh * 0.85 * fx.scale;
+      const divB = fx.sprite.div ?? 1;
+      const dw = (img.width / divB) * 0.85 * fx.scale;
+      const dh = (fh / divB) * 0.85 * fx.scale;
       ctx.drawImage(img, 0, frame * fh, img.width, fh, fx.x - dw / 2, fx.y - dh / 2, dw, dh);
     }
 
