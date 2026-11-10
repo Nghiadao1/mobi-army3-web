@@ -8,6 +8,7 @@ Bản game bắn súng tọa độ chạy trực tiếp trên trình duyệt, vi
 - Vật lý góc, lực, trọng lực và gió; đường ngắm trực quan.
 - Địa hình động có thể bị khoét bởi vụ nổ.
 - 8 kiểu vũ khí: đạn đơn, liên thanh, chùm, phân mảnh, boomerang, laser, sét và cận chiến.
+- Sprite đạn và animation vụ nổ được giải trực tiếp từ các pack `item/effect` của client LibGDX.
 - Nội tại riêng: bay, khiên phép, xuyên phá, đánh dấu, đóng băng, cuồng nộ và phân thân.
 - Bot tự tính góc/lực, độ chính xác thay đổi theo cấp bản đồ.
 - 6 đấu trường, ba cấp độ khó.

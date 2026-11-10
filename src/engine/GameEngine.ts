@@ -3,6 +3,7 @@ import { blastDamage, launchVelocity, solveShot, stepProjectile } from './physic
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; maxLife: number; color: string; size: number; }
 interface FloatText { x: number; y: number; text: string; color: string; life: number; }
+interface SpriteEffect { x: number; y: number; age: number; duration: number; scale: number; }
 
 export interface EngineSnapshot {
   turn: 'player' | 'enemy'; player: Fighter; enemy: Fighter; wind: number;
@@ -30,6 +31,9 @@ export class GameEngine {
   private projectiles: Projectile[] = [];
   private particles: Particle[] = [];
   private texts: FloatText[] = [];
+  private spriteEffects: SpriteEffect[] = [];
+  private projectileSprites = new Map<ShotPattern, HTMLImageElement>();
+  private explosionSprite: HTMLImageElement | null = null;
   private running = true;
   private lastTime = performance.now();
   private turn: 'player' | 'enemy' = 'player';
@@ -58,6 +62,7 @@ export class GameEngine {
       this.createFighter(1, options.playerHero, 'player', 365, 1),
       this.createFighter(2, options.enemyHero, 'enemy', WORLD_W - 365, -1),
     ];
+    this.loadCombatSprites();
     this.loadBackground();
     this.newWind();
     this.opts.onMessage(`${options.playerHero.name} đối đầu ${options.enemyHero.name}`, 'info');
@@ -78,6 +83,22 @@ export class GameEngine {
     const image = new Image();
     image.src = `assets/army2/backgrounds/${choices[this.opts.arena.seed % choices.length]}`;
     image.onload = () => { this.bgImage = image; };
+  }
+
+  private loadCombatSprites(): void {
+    const files: Record<ShotPattern, string> = {
+      single: 'cannon.png', burst: 'dan.png', spread: 'rocket2.png',
+      boomerang: 'boomerang-big.png', laser: 'laser.png', cluster: 'grenade.png',
+      lightning: 'specialbullet.png', melee: 'thienthach.png',
+    };
+    for (const [pattern, file] of Object.entries(files) as Array<[ShotPattern, string]>) {
+      const image = new Image();
+      image.src = `assets/army2/projectiles/${file}`;
+      image.onload = () => this.projectileSprites.set(pattern, image);
+    }
+    const explosion = new Image();
+    explosion.src = 'assets/army2/effects/Eff.png';
+    explosion.onload = () => { this.explosionSprite = explosion; };
   }
 
   private generateTerrain(seed: number): void {
@@ -210,6 +231,8 @@ export class GameEngine {
     this.particles = this.particles.filter((particle) => particle.life > 0);
     for (const text of this.texts) { text.life -= dt; text.y -= 34 * dt; }
     this.texts = this.texts.filter((text) => text.life > 0);
+    for (const effect of this.spriteEffects) effect.age += dt;
+    this.spriteEffects = this.spriteEffects.filter((effect) => effect.age < effect.duration);
     this.shake = Math.max(0, this.shake - dt * 20);
     this.flash = Math.max(0, this.flash - dt * 3.5);
 
@@ -259,6 +282,7 @@ export class GameEngine {
     this.shake = Math.min(14, 5 + projectile.radius / 8);
     this.flash = 0.55;
     this.playTone(72, 0.16, 'sawtooth');
+    this.spriteEffects.push({ x: projectile.x, y: projectile.y, age: 0, duration: 0.42, scale: Math.max(1, projectile.radius / 34) });
     for (let i = 0; i < 30; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 35 + Math.random() * 190;
@@ -400,6 +424,7 @@ export class GameEngine {
       ctx.fillStyle = particle.color; ctx.beginPath(); ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
+    for (const effect of this.spriteEffects) this.drawSpriteEffect(ctx, effect);
     for (const text of this.texts) {
       ctx.globalAlpha = Math.min(1, text.life * 1.5); ctx.fillStyle = text.color;
       ctx.font = '900 24px system-ui'; ctx.textAlign = 'center'; ctx.strokeStyle = '#111827'; ctx.lineWidth = 5;
@@ -481,8 +506,29 @@ export class GameEngine {
   private drawProjectile(ctx: CanvasRenderingContext2D, projectile: Projectile): void {
     ctx.save(); ctx.translate(projectile.x, projectile.y); ctx.rotate(Math.atan2(projectile.vy, projectile.vx));
     ctx.shadowColor = projectile.color; ctx.shadowBlur = 14; ctx.fillStyle = projectile.color;
-    if (projectile.pattern === 'laser') ctx.fillRect(-18, -3, 38, 6);
+    const sprite = this.projectileSprites.get(projectile.pattern);
+    if (sprite) {
+      const frameHeight = sprite.height >= sprite.width * 2 ? sprite.width : sprite.height;
+      const frameCount = Math.max(1, Math.floor(sprite.height / frameHeight));
+      const frame = Math.floor(Math.max(0, projectile.age) * 12) % frameCount;
+      const scale = projectile.pattern === 'melee' ? 1.35 : projectile.pattern === 'laser' ? 1.1 : 1.25;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(sprite, 0, frame * frameHeight, sprite.width, frameHeight, -sprite.width * scale / 2, -frameHeight * scale / 2, sprite.width * scale, frameHeight * scale);
+    } else if (projectile.pattern === 'laser') ctx.fillRect(-18, -3, 38, 6);
     else { ctx.beginPath(); ctx.arc(0, 0, projectile.pattern === 'melee' ? 9 : 6, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+  }
+
+  private drawSpriteEffect(ctx: CanvasRenderingContext2D, effect: SpriteEffect): void {
+    if (!this.explosionSprite) return;
+    const frameSize = this.explosionSprite.width;
+    const frameCount = Math.max(1, Math.floor(this.explosionSprite.height / frameSize));
+    const frame = Math.min(frameCount - 1, Math.floor(effect.age / effect.duration * frameCount));
+    const size = frameSize * effect.scale;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (effect.duration - effect.age) * 5);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.explosionSprite, 0, frame * frameSize, frameSize, frameSize, effect.x - size / 2, effect.y - size / 2, size, size);
     ctx.restore();
   }
 }

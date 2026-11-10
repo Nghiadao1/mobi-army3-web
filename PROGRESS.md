@@ -9,6 +9,7 @@
 - [x] Giải pack tài nguyên `gui`, `item`, `effect`, `Hole`, `font` và đưa 147 file cần thiết vào web.
 - [x] Thay engine cũ bằng TypeScript/Canvas 2D mới.
 - [x] Port cơ chế góc, lực, gió, trọng lực, AI và địa hình phá hủy.
+- [x] Gắn sprite đạn và animation vụ nổ trực tiếp từ pack LibGDX thay cho hình khối tạm.
 - [x] Làm lại toàn bộ lobby, hero showcase, roster và HUD chiến đấu.
 - [x] Tích hợp 10 xạ thủ cổ điển.
 - [x] Tích hợp 17 hero Marvel cùng bộ kỹ năng/nội tại.
