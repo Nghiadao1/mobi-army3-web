@@ -83,7 +83,7 @@
     "acid": {
       "url": "assets/bullets/axit.png",
       "frames": 16,
-      "div": 1.5
+      "div": 0.5
     },
     "shield": {
       "url": "assets/bullets/khien_v1.png",
@@ -93,7 +93,7 @@
     "crate": {
       "url": "assets/bullets/box.png",
       "frames": 1,
-      "div": 1.5
+      "div": 0.5
     },
     "mouse": {
       "url": "assets/bullets/chuotBull.png",
@@ -146,14 +146,14 @@
     "tornado": {
       "url": "assets/effects/locxoay.png",
       "frames": 3,
-      "div": 1.5
+      "div": 0.5
     }
   },
   "effects": {
     "explosion": {
       "url": "assets/effects/no.png",
       "frames": 5,
-      "div": 1.5
+      "div": 0.5
     },
     "bigExplosion": {
       "url": "assets/effects/ex3.png",
@@ -198,7 +198,7 @@
     "tornado": {
       "url": "assets/effects/locxoay.png",
       "frames": 3,
-      "div": 1.5
+      "div": 0.5
     },
     "fire": {
       "url": "assets/effects/lua.png",

@@ -186,7 +186,7 @@ export interface BattleItemDef {
   id: BattleItemId;
   name: string;
   shortDesc: string;
-  /** Chỉ số icon trong dải 40x1640 item.png gốc (0..40) */
+  /** Chỉ số icon trong dải item.png gốc Army 2 (32x1312, 41 ô 32px, 0..40) — GĐ1 rebuild */
   stripIndex: number;
   endsTurnImmediately: boolean;
   hotkey: string;
