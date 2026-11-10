@@ -1,3 +1,0 @@
-System.Core.dll.bytes
-UnityEngine.CoreModule.dll.bytes
-mscorlib.dll.bytes
