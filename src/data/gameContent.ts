@@ -784,6 +784,63 @@ export const BATTLE_ITEMS: BattleItemDef[] = [
     endsTurnImmediately: false,
     hotkey: 'B',
   },
+  // ===== Gói C: 7 item port từ Mobi Army 2 (bảng `item` dbarmy2.sql) =====
+  {
+    id: 'move_x2',
+    name: 'Di Chuyển x2',
+    shortDesc: 'Item Army 2: hồi thể lực gấp đôi ngay lập tức, đi xa gấp 2 trong lượt này.',
+    stripIndex: 5,
+    endsTurnImmediately: false,
+    hotkey: 'V',
+  },
+  {
+    id: 'pierce',
+    name: 'Đạn Xuyên Đất',
+    shortDesc: 'Item Army 2: phát bắn tiếp theo xuyên qua địa hình (vẫn khoét lỗ nhỏ), nổ khi chạm địch, 80% công.',
+    stripIndex: 14,
+    endsTurnImmediately: false,
+    hotkey: 'C',
+  },
+  {
+    id: 'bullet_rain',
+    name: 'Mưa Đạn',
+    shortDesc: 'Item Army 2: bắn pháo hiệu gọi 12 viên đạn trút xuống quanh điểm chạm như mưa rào.',
+    stripIndex: 15,
+    endsTurnImmediately: false,
+    hotkey: 'X',
+  },
+  {
+    id: 'smoke',
+    name: 'Bom Mù',
+    shortDesc: 'Item Army 2: ném bom khói làm địch trong vùng bị mù 2 lượt (bot bắn lệch hẳn), không gây sát thương.',
+    stripIndex: 16,
+    endsTurnImmediately: false,
+    hotkey: 'Z',
+  },
+  {
+    id: 'timebomb',
+    name: 'Bom Hẹn Giờ',
+    shortDesc: 'Item Army 2: quả bom dính vào điểm chạm, phát nổ sau 2 lượt của bạn với 115% công, bán kính lớn.',
+    stripIndex: 17,
+    endsTurnImmediately: false,
+    hotkey: 'G',
+  },
+  {
+    id: 'rocket',
+    name: 'Tên Lửa',
+    shortDesc: 'Item Army 2: tên lửa bay phẳng (trọng lực chỉ còn 35%), nổ lớn với 105% công.',
+    stripIndex: 21,
+    endsTurnImmediately: false,
+    hotkey: 'R',
+  },
+  {
+    id: 'drill',
+    name: 'Khoang Đất',
+    shortDesc: 'Item Army 2: mũi khoang chui xuống đất, khoan ngang về phía địch rồi phát nổ 85% công.',
+    stripIndex: 26,
+    endsTurnImmediately: false,
+    hotkey: 'T',
+  },
 ];
 
 export const CAMPAIGN_STAGES: CampaignStage[] = [

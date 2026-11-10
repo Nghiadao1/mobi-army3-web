@@ -2,6 +2,19 @@ import './style.css';
 import { AssetManager } from './assets/AssetManager';
 import { sound } from './audio/SoundEngine';
 import { BATTLE_ITEMS, BOSS_HUNT_STAGES, CAMPAIGN_STAGES, getHeroById, HEROES } from './data/gameContent';
+import {
+  applyMatchResult,
+  buyHero,
+  claimableMissions,
+  claimMission,
+  heroPrice,
+  isHeroUnlocked,
+  loadProfile,
+  missionProgress,
+  MISSIONS,
+  saveProfile,
+  type PlayerProfile,
+} from './data/progression';
 import type { BattleEngine, HudSnapshot } from './engine/BattleEngine';
 import { CharacterRenderer } from './engine/CharacterRenderer';
 import { OnlineManager, OnlinePacket } from './network/OnlineManager';
@@ -32,7 +45,7 @@ class GameApp {
   private selectedCoopBossStageId = 111;
 
   // Trạng thái phòng & Giao diện chuẩn ảnh Mobi Army 3
-  private activeModal: 'none' | 'hero' | 'bag' | 'map' | 'mode' | 'menu' | 'chat' | 'online_room' | 'guide' = 'none';
+  private activeModal: 'none' | 'hero' | 'bag' | 'map' | 'mode' | 'menu' | 'chat' | 'online_room' | 'guide' | 'missions' = 'none';
   private heroModalFilter: 'all' | 'army' | 'marvel' = 'all';
   private selectingSlotForHero: 'player' | 'ally' = 'player';
   private lobbyView: 'room' | 'board' = 'room';
@@ -79,6 +92,22 @@ class GameApp {
 
   private keyboardNav = false;
   private lastBannerTurn = -1;
+
+  // Gói A (Army 2): hồ sơ tiến trình (xu/XP/danh dự, nhiệm vụ, mở khóa tướng)
+  private profile: PlayerProfile | null = null;
+  private heroPreviewId: string | null = null;
+
+  private todayKey(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  private ensureProfile(): PlayerProfile {
+    if (!this.profile) {
+      this.profile = loadProfile(localStorage, this.todayKey());
+      saveProfile(localStorage, this.profile);
+    }
+    return this.profile;
+  }
 
   public async boot(): Promise<void> {
     this.unlockedStage = Math.max(
@@ -572,6 +601,9 @@ class GameApp {
 
     const hero = getHeroById(this.selectedHeroId);
     const allyHero = getHeroById(this.selectedAllyHeroId);
+    const profile = this.ensureProfile();
+    const claimableCount = claimableMissions(profile).length;
+    if (this.activeModal !== 'hero') this.heroPreviewId = null;
     const remoteHero = getHeroById(this.onlineRemoteHeroId);
     const selectedMap =
       this.assets.maps.find((m) => m.mapId === this.selectedMapId) ?? this.assets.maps[0] ?? {
@@ -641,7 +673,7 @@ class GameApp {
               <div class="room-title-code">${modeTitle}</div>
             </div>
             <div class="room-top-stats-row">
-              <div class="room-gold-badge">🪙 1000</div>
+              <div class="room-gold-badge" id="btn-open-missions" title="Nhiệm Vụ & Tiến Trình — nhấp để mở">🪙 ${profile.xu.toLocaleString()} xu${claimableCount > 0 ? ` · 📜 ${claimableCount} nhiệm vụ chờ nhận!` : ''}</div>
               <div class="room-balance-bar">
                 <span style="color:#38bdf8">49</span>
                 <div class="room-balance-track"></div>
@@ -867,6 +899,12 @@ class GameApp {
       this.renderLobby();
     });
 
+    document.getElementById('btn-open-missions')?.addEventListener('click', () => {
+      sound.playClick();
+      this.activeModal = 'missions';
+      this.renderLobby();
+    });
+
     document.getElementById('btn-room-sound')?.addEventListener('click', () => {
       sound.toggleMute();
       this.renderLobby();
@@ -1010,6 +1048,22 @@ class GameApp {
 
   private handleRoomStartClick(): void {
     sound.playClick();
+    // Gói A: chặn ra trận bằng tướng chưa mở khóa
+    const startProfile = this.ensureProfile();
+    if (!isHeroUnlocked(startProfile, this.selectedHeroId)) {
+      alert(`🔒 ${getHeroById(this.selectedHeroId).name} chưa mở khóa! Cần ${heroPrice(this.selectedHeroId).toLocaleString()} xu — hãy vào Chọn Tướng để mở khóa.`);
+      this.selectingSlotForHero = 'player';
+      this.heroPreviewId = this.selectedHeroId;
+      this.activeModal = 'hero';
+      this.renderLobby();
+      return;
+    }
+    if (!isHeroUnlocked(startProfile, this.selectedAllyHeroId)) {
+      alert(`🔒 Đồng đội ${getHeroById(this.selectedAllyHeroId).name} chưa mở khóa! Đã tạm đổi đồng đội về Thor (miễn phí).`);
+      this.selectedAllyHeroId = 'thor';
+      this.renderLobby();
+      return;
+    }
     if (this.activeTab === 'boss_hunt') {
       const stage =
         BOSS_HUNT_STAGES.find((s) => s.id === this.selectedCoopBossStageId) ?? BOSS_HUNT_STAGES[0];
@@ -1200,8 +1254,9 @@ class GameApp {
 
     if (this.activeModal === 'hero') {
       const isAlly = this.selectingSlotForHero === 'ally';
-      const curHeroId = isAlly ? this.selectedAllyHeroId : this.selectedHeroId;
+      const curHeroId = this.heroPreviewId ?? (isAlly ? this.selectedAllyHeroId : this.selectedHeroId);
       const curHero = getHeroById(curHeroId);
+      const profile = this.ensureProfile();
       return `
         <div class="army-modal-overlay">
           <div class="army-modal-box">
@@ -1220,8 +1275,9 @@ class GameApp {
                   (h, cardIdx) => `
                   <div class="hero-card ${h.faction === 'marvel' ? 'marvel-hero' : ''} ${
                     h.id === curHeroId ? 'selected' : ''
-                  }" data-pick-hero="${h.id}" style="--i:${Math.min(cardIdx, 14)}">
+                  } ${isHeroUnlocked(profile, h.id) ? '' : 'locked'}" data-pick-hero="${h.id}" style="--i:${Math.min(cardIdx, 14)}">
                     ${h.faction === 'marvel' ? '<span class="marvel-badge"><img src="./assets/ui/avenger.png" style="width:11px;height:11px;vertical-align:middle;margin-right:2px"/>AVENGER</span>' : ''}
+                    ${isHeroUnlocked(profile, h.id) ? '' : `<span class="hero-lock-badge">🔒 ${heroPrice(h.id).toLocaleString()} xu</span>`}
                     <canvas id="modal-hero-${h.id}" width="72" height="72"></canvas>
                     <div class="hero-name" style="color:${h.color}">${h.name}</div>
                     <div class="hero-role">${h.title.replace(' [MARVEL]', '').replace(' [AVENGER]', '')}</div>
@@ -1254,7 +1310,55 @@ class GameApp {
               </div>
             </div>
             <div class="army-modal-footer">
-              <button class="primary-cta" id="btn-confirm-hero" style="padding:8px 22px">Xác Nhận Chọn</button>
+              ${isHeroUnlocked(profile, curHero.id)
+                ? `<button class="primary-cta" id="btn-confirm-hero" style="padding:8px 22px">Xác Nhận Chọn</button>`
+                : `<button class="primary-cta" id="btn-unlock-hero" style="padding:8px 22px" ${profile.xu < heroPrice(curHero.id) ? 'disabled' : ''}>🔓 Mở Khóa ${curHero.name} — ${heroPrice(curHero.id).toLocaleString()} xu (bạn có ${profile.xu.toLocaleString()})</button>`}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.activeModal === 'missions') {
+      const profile = this.ensureProfile();
+      const missionRows = MISSIONS.map((m) => {
+        const prog = Math.min(missionProgress(profile, m), m.require);
+        const pct = Math.floor((prog / m.require) * 100);
+        const claimed = profile.claimedMissions.includes(m.iddb);
+        const done = prog >= m.require;
+        return `
+          <div class="mission-row ${claimed ? 'claimed' : done ? 'done' : ''}">
+            <div class="mission-main">
+              <div class="mission-name">${m.name}</div>
+              <div class="mission-reward">🎁 ${m.rewardText}</div>
+              <div class="mission-bar"><div class="mission-bar-fill" style="width:${pct}%"></div></div>
+            </div>
+            <div class="mission-side">
+              <span class="mission-count">${prog.toLocaleString()}/${m.require.toLocaleString()}</span>
+              ${claimed ? '<span class="mission-claimed">✅ Đã nhận</span>' : done ? `<button class="primary-cta mission-claim" data-claim-mission="${m.iddb}" style="padding:6px 14px;font-size:0.8rem">Nhận Thưởng</button>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+      return `
+        <div class="army-modal-overlay">
+          <div class="army-modal-box">
+            <div class="army-modal-header">
+              <h2>📜 Nhiệm Vụ & Tiến Trình</h2>
+              <button class="ctrl-btn" id="btn-close-modal" style="height:28px;padding:0 8px">✕</button>
+            </div>
+            <div class="army-modal-body">
+              <div class="stat-pills" style="margin-bottom:10px">
+                <span class="stat-pill">🪙 Xu: ${profile.xu.toLocaleString()}</span>
+                <span class="stat-pill">⭐ XP: ${profile.xp.toLocaleString()}</span>
+                <span class="stat-pill">🏆 Danh dự: ${profile.cup.toLocaleString()}</span>
+                <span class="stat-pill">🔓 Đã mở khóa: ${profile.unlockedHeroes.length} tướng</span>
+                <span class="stat-pill">📅 Đăng nhập: ${profile.loginDays} ngày</span>
+              </div>
+              <p style="font-size:0.8rem;color:#94a3b8;margin:0 0 12px">54 nhiệm vụ & giá mở khóa tướng lấy nguyên gốc từ Mobi Army 2. Thắng trận để kiếm xu, hoàn thành nhiệm vụ để nhận thêm thưởng.</p>
+              ${missionRows}
+            </div>
+            <div class="army-modal-footer">
+              <button class="primary-cta" id="btn-close-modal-footer" style="padding:8px 22px">Đóng</button>
             </div>
           </div>
         </div>
@@ -1563,6 +1667,12 @@ class GameApp {
         card.addEventListener('click', () => {
           sound.playClick();
           const pickId = card.dataset.pickHero || 'captain';
+          this.heroPreviewId = pickId;
+          if (!isHeroUnlocked(this.ensureProfile(), pickId)) {
+            // Tướng đang khóa: chỉ xem trước + hiện nút mở khóa ở chân modal
+            this.renderLobby();
+            return;
+          }
           if (this.selectingSlotForHero === 'ally') {
             this.selectedAllyHeroId = pickId;
           } else {
@@ -1578,6 +1688,40 @@ class GameApp {
                 });
               }
             }
+          }
+          this.renderLobby();
+        });
+      });
+    }
+
+    // Nút mở khóa tướng trong Hero Modal (Gói A)
+    if (this.activeModal === 'hero') {
+      document.getElementById('btn-unlock-hero')?.addEventListener('click', () => {
+        const profile = this.ensureProfile();
+        const targetId = this.heroPreviewId;
+        if (!targetId) return;
+        if (buyHero(profile, targetId)) {
+          saveProfile(localStorage, profile);
+          sound.playClick();
+          if (this.selectingSlotForHero === 'ally') {
+            this.selectedAllyHeroId = targetId;
+          } else {
+            this.selectedHeroId = targetId;
+          }
+        }
+        this.renderLobby();
+      });
+    }
+
+    // Missions Modal (Gói A): nhận thưởng nhiệm vụ
+    if (this.activeModal === 'missions') {
+      this.uiRoot.querySelectorAll<HTMLElement>('[data-claim-mission]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const profile = this.ensureProfile();
+          const iddb = parseInt(btn.dataset.claimMission || '0', 10);
+          if (claimMission(profile, iddb)) {
+            saveProfile(localStorage, profile);
+            sound.playClick();
           }
           this.renderLobby();
         });
@@ -2115,6 +2259,18 @@ class GameApp {
   }
 
   private showMatchResultModal(stats: MatchStats, setup: BattleSetup): void {
+    // Gói A (Army 2): cộng xu + tiến trình nhiệm vụ cho trận vừa kết thúc
+    const progProfile = this.ensureProfile();
+    const progStageId = setup.stage?.id ?? setup.onlineCoopStage?.id ?? stats.stageId;
+    const progResult = applyMatchResult(progProfile, stats, {
+      playerHeroId: setup.playerHeroId,
+      enemyHeroIds: stats.won
+        ? (setup.stage?.enemies ?? setup.onlineCoopStage?.enemies ?? []).map((e) => e.heroId)
+        : [],
+      stageId: progStageId,
+    });
+    saveProfile(localStorage, progProfile);
+
     let unlockedNew = false;
     if (stats.won && stats.mode === 'campaign' && stats.stageId) {
       if (stats.stageId >= this.unlockedStage && this.unlockedStage < CAMPAIGN_STAGES.length) {
@@ -2151,7 +2307,9 @@ class GameApp {
           <span class="stat-pill">⏱️ Số lượt: ${stats.turnsTaken}</span>
           <span class="stat-pill">💥 Sát thương: ${stats.damageDealt}</span>
           <span class="stat-pill">🎯 Hạ gục: ${stats.enemiesDefeated}</span>
+          <span class="stat-pill">🪙 +${progResult.xuEarned} xu</span>
         </div>
+        ${progResult.newlyCompleted.length > 0 ? `<p style="margin:0 0 12px;color:#fde047;font-size:0.88rem">📜 Hoàn thành nhiệm vụ: ${progResult.newlyCompleted.map((m) => m.name.replace(/^Lv \d+: /, '')).join(' · ')} — vào 📜 Nhiệm vụ ở sảnh để nhận thưởng!</p>` : ''}
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
           <button class="tab-btn" id="btn-res-lobby">🏠 Về Sảnh</button>
           ${
@@ -2225,7 +2383,7 @@ class GameApp {
 
   private enhanceKeyboardAccess(): void {
     const selector =
-      '[data-pick-hero],[data-loadout-item],[data-bag-remove],[data-pick-boss-stage],[data-pick-map],' +
+      '[data-pick-hero],[data-loadout-item],[data-bag-remove],[data-pick-boss-stage],[data-pick-map],[data-claim-mission],' +
       '[data-room-bag-slot],[data-enter-boss-stage],[data-enter-campaign-stage],[data-select-board-map],' +
       '#slot-ped-0,#slot-ped-1';
     this.uiRoot.querySelectorAll<HTMLElement>(selector).forEach((el) => {

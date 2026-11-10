@@ -59,6 +59,7 @@ export interface Fighter {
   frozenTurns?: number;
   poisonTurns?: number;
   burnTurns?: number;
+  blindTurns?: number;
   stealthTurns?: number;
   lastPower: number;
   lastAngle: number;
@@ -139,7 +140,12 @@ interface Projectile {
     | 'meteor_flare'
     | 'tornado'
     | 'fire'
-    | 'laser';
+    | 'laser'
+    | 'smoke_bomb'
+    | 'bullet_rain'
+    | 'timebomb'
+    | 'rocket'
+    | 'drill';
   strangeDiscColor?: 'green' | 'yellow';
   diggerCharges?: number;
   isBounced?: boolean;
@@ -159,6 +165,7 @@ interface Projectile {
   laserTargetX?: number;
   laserTargetY?: number;
   crawling?: boolean;
+  drilling?: boolean;
   crawlDir?: 1 | -1;
   crawlTicksLeft?: number;
   trail: Array<{ x: number; y: number }>;
@@ -256,6 +263,16 @@ export class BattleEngine {
   private charge2WaitRelease = false;
   public powArmed = false;
   public activeItemArmed: BattleItemId | null = null;
+  /** Bom hẹn giờ đang gài trên sân (Gói C - Army 2). */
+  private placedBombs: Array<{
+    x: number;
+    y: number;
+    ownerId: string;
+    team: 0 | 1;
+    timer: number;
+    damage: number;
+    blastRadius: number;
+  }> = [];
   public armedBagSlotIdx: number | null = null;
   public doubleArmed = false;
   public vampireArmed = false;
@@ -360,6 +377,13 @@ export class BattleEngine {
       tornado: 0,
       fire_ammo: 0,
       laser: 0,
+      move_x2: 0,
+      pierce: 0,
+      bullet_rain: 0,
+      smoke: 0,
+      timebomb: 0,
+      rocket: 0,
+      drill: 0,
     };
     if (isBoss) {
       inv.heal = 1;
@@ -1191,6 +1215,13 @@ export class BattleEngine {
         tornado: 0,
         fire_ammo: 0,
         laser: 0,
+        move_x2: 0,
+        pierce: 0,
+        bullet_rain: 0,
+        smoke: 0,
+        timebomb: 0,
+        rocket: 0,
+        drill: 0,
       },
       isClone: true,
       ownerUltronId: u.id,
@@ -1370,6 +1401,17 @@ export class BattleEngine {
       return true;
     }
 
+    if (itemId === 'move_x2') {
+      u.inventory.move_x2--;
+      this.consumeBagSlot(u, itemId, slotIndex);
+      this.itemsUsedThisTurn++;
+      this.usedInstantItemCount++;
+      u.stamina = u.maxStamina * 2;
+      sound.playItemUse();
+      this.spawnFloatingText(u.x, u.y - 42, '🏃 DI CHUYỂN x2 (THỂ LỰC GẤP ĐÔI)!', '#4ade80', 1.2);
+      return true;
+    }
+
     if (itemId === 'stealth') {
       if (u.stealthTurns && u.stealthTurns > 0) return false;
       u.inventory.stealth--;
@@ -1418,7 +1460,13 @@ export class BattleEngine {
       itemId === 'meteor' ||
       itemId === 'tornado' ||
       itemId === 'fire_ammo' ||
-      itemId === 'laser'
+      itemId === 'laser' ||
+      itemId === 'pierce' ||
+      itemId === 'bullet_rain' ||
+      itemId === 'smoke' ||
+      itemId === 'timebomb' ||
+      itemId === 'rocket' ||
+      itemId === 'drill'
     ) {
       if (this.activeItemArmed === itemId && (slotIndex === undefined || this.armedBagSlotIdx === slotIndex)) {
         this.activeItemArmed = null;
@@ -1442,6 +1490,12 @@ export class BattleEngine {
           tornado: 'LỐC XOÁY CUỐN PHĂNG',
           fire_ammo: 'ĐẠN LỬA THIÊU ĐỐT',
           laser: 'TIA LASER XUYÊN PHÁ',
+          pierce: 'ĐẠN XUYÊN ĐẤT',
+          bullet_rain: '🌧️ MƯA ĐẠN',
+          smoke: '💨 BOM MÙ',
+          timebomb: '💣 BOM HẸN GIỜ',
+          rocket: '🚀 TÊN LỬA',
+          drill: '🛠️ KHOANG ĐẤT',
         };
         this.spawnFloatingText(u.x, u.y - 42, labelMap[itemId] || itemId, '#c084fc', 1.1);
       }
@@ -1661,6 +1715,43 @@ export class BattleEngine {
           this.summonUltronClone(active);
         }
       }
+    }
+
+    // Bom Hẹn Giờ (Gói C): đếm ngược các quả bom do người vừa tới lượt gài
+    for (let bi = this.placedBombs.length - 1; bi >= 0; bi--) {
+      const bomb = this.placedBombs[bi];
+      if (bomb.ownerId !== active.id) continue;
+      bomb.timer--;
+      if (bomb.timer <= 0) {
+        this.placedBombs.splice(bi, 1);
+        this.spawnFloatingText(bomb.x, bomb.y - 34, '💣 BÙM!', '#f87171', 1.35);
+        this.detonateProjectile(
+          {
+            x: bomb.x,
+            y: bomb.y,
+            vx: 0,
+            vy: 0,
+            ownerId: bomb.ownerId,
+            team: bomb.team,
+            spriteKey: 'bomb',
+            effectKey: 'fireExplosion',
+            holeMask: 'h40x35.png',
+            holeScale: 1.1,
+            damage: bomb.damage,
+            blastRadius: bomb.blastRadius,
+            windScale: 0,
+            age: 0,
+            trail: [],
+          },
+          bomb.x,
+          bomb.y
+        );
+      } else {
+        this.spawnFloatingText(bomb.x, bomb.y - 34, `💣 ${bomb.timer}...`, '#fbbf24', 1.1);
+      }
+    }
+    if (active.blindTurns && active.blindTurns > 0) {
+      this.spawnFloatingText(active.x, active.y - 48, '💨 ĐANG BỊ MÙ!', '#cbd5e1', 1.15);
     }
 
     if (active.shieldTurns > 0) active.shieldTurns--;
@@ -2362,6 +2453,15 @@ export class BattleEngine {
 
   private executeFire(u: Fighter, power: number, fromRemote = false): void {
     sound.stopCharge();
+    // Bom Mù (Gói C): bot đang mù bắn lệch hẳn; hiệu ứng trừ 1 lượt mỗi phát bắn
+    if (!fromRemote && (u.blindTurns ?? 0) > 0) {
+      u.blindTurns = (u.blindTurns ?? 1) - 1;
+      if (!u.isPlayerControlled && !u.isRemoteOnline) {
+        u.aimAngleDeg += Math.random() * 14 - 7;
+        power = Math.max(5, Math.min(100, power * (1 + (Math.random() * 0.3 - 0.15))));
+        this.spawnFloatingText(u.x, u.y - 46, '💨 BỊ MÙ — BẮN LỆCH!', '#cbd5e1', 1.1);
+      }
+    }
     u.lastPower = Math.round(power);
     u.lastAngle = Math.round(u.aimAngleDeg);
     u.animMode = 'shoot';
@@ -2649,6 +2749,133 @@ export class BattleEngine {
           damage: u.attack * 0.9,
           blastRadius: 14,
           special: 'laser',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
+    // 12. Item Đạn Xuyên Đất (Gói C - Army 2): dùng cơ chế piercing_terrain sẵn có
+    if (this.activeItemArmed === 'pierce') {
+      u.inventory.pierce = Math.max(0, u.inventory.pierce - 1);
+      this.consumeBagSlot(u, 'pierce', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'bullet',
+          effectKey: 'fireExplosion',
+          holeMask: 'h32x26.png',
+          holeScale: 0.55,
+          damage: u.attack * 0.8,
+          blastRadius: 30,
+          special: 'piercing_terrain',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
+    // 13. Item Tên Lửa (Gói C - Army 2): bay phẳng, trọng lực 35%
+    if (this.activeItemArmed === 'rocket') {
+      u.inventory.rocket = Math.max(0, u.inventory.rocket - 1);
+      this.consumeBagSlot(u, 'rocket', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg, power * 1.15, {
+          spriteKey: 'rocket',
+          effectKey: 'fireExplosion',
+          holeMask: 'h36x30.png',
+          holeScale: 1.0,
+          damage: u.attack * 1.05,
+          blastRadius: 55,
+          special: 'rocket',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
+    // 14. Item Khoang Đất (Gói C - Army 2): chui đất khoan ngang về phía địch
+    if (this.activeItemArmed === 'drill') {
+      u.inventory.drill = Math.max(0, u.inventory.drill - 1);
+      this.consumeBagSlot(u, 'drill', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(true);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'bomb',
+          effectKey: 'fireExplosion',
+          holeMask: 'h36x30.png',
+          holeScale: 1.0,
+          damage: u.attack * 0.85,
+          blastRadius: 58,
+          special: 'drill',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
+    // 15. Item Bom Mù (Gói C - Army 2): khói mù 2 lượt, không sát thương
+    if (this.activeItemArmed === 'smoke') {
+      u.inventory.smoke = Math.max(0, u.inventory.smoke - 1);
+      this.consumeBagSlot(u, 'smoke', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(false);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'special',
+          effectKey: 'smoke',
+          holeMask: 'smallhole.png',
+          holeScale: 0.4,
+          damage: 0,
+          blastRadius: 78,
+          special: 'smoke_bomb',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
+    // 16. Item Bom Hẹn Giờ (Gói C - Army 2): gài bom nổ sau 2 lượt của chủ bom
+    if (this.activeItemArmed === 'timebomb') {
+      u.inventory.timebomb = Math.max(0, u.inventory.timebomb - 1);
+      this.consumeBagSlot(u, 'timebomb', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(false);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'bomb',
+          effectKey: 'fireExplosion',
+          holeMask: 'h40x35.png',
+          holeScale: 1.1,
+          damage: u.attack * 1.15,
+          blastRadius: 62,
+          special: 'timebomb',
+        });
+      });
+      this.emitHud();
+      return;
+    }
+
+    // 17. Item Mưa Đạn (Gói C - Army 2): pháo hiệu gọi mưa đạn
+    if (this.activeItemArmed === 'bullet_rain') {
+      u.inventory.bullet_rain = Math.max(0, u.inventory.bullet_rain - 1);
+      this.consumeBagSlot(u, 'bullet_rain', this.armedBagSlotIdx);
+      this.armedBagSlotIdx = null;
+      this.queueProjectile(0, () => {
+        sound.playShoot(false);
+        this.spawnFloatingText(u.x, u.y - 46, '🌧️ MƯA ĐẠN ĐANG TỚI!', '#7dd3fc', 1.2);
+        this.spawnBullet(u, u.aimAngleDeg, power, {
+          spriteKey: 'special',
+          effectKey: 'smoke',
+          holeMask: 'smallhole.png',
+          holeScale: 0.4,
+          damage: 0,
+          blastRadius: 12,
+          special: 'bullet_rain',
         });
       });
       this.emitHud();
@@ -3041,6 +3268,13 @@ export class BattleEngine {
             tornado: 0,
             fire_ammo: 0,
             laser: 0,
+            move_x2: 0,
+            pierce: 0,
+            bullet_rain: 0,
+            smoke: 0,
+            timebomb: 0,
+            rocket: 0,
+            drill: 0,
           },
           bagSlots: [],
           alive: true,
@@ -3239,6 +3473,30 @@ export class BattleEngine {
 
       // 3. Xử lý Chuột Gắn Bom đang bò dọc theo mặt đất (chuotBull.png)
       if (p.crawling) {
+        // Khoang Đất (Gói C): khoan ngang dưới lòng đất, khoét đường hầm rồi phát nổ
+        if (p.drilling) {
+          p.crawlTicksLeft = (p.crawlTicksLeft ?? 1) - 1;
+          p.x += (p.crawlDir ?? 1) * 2.6;
+          if ((p.crawlTicksLeft ?? 0) % 4 === 0) {
+            this.terrain.carveCrater(p.x, p.y, 'h14x12.png', 1.0);
+          }
+          if ((p.crawlTicksLeft ?? 0) % 12 === 0 && this.assets.manifest.effects.smoke) {
+            this.spawnEffect(p.x, p.y - 10, this.assets.manifest.effects.smoke, 0.8);
+          }
+          const nearEnemyDrill = this.fighters.find(
+            (f) => f.alive && f.team !== p.team && Math.abs(f.x - p.x) <= 16 && Math.abs(f.y - p.y) <= 34
+          );
+          if (
+            nearEnemyDrill ||
+            (p.crawlTicksLeft ?? 0) <= 0 ||
+            p.x <= 12 ||
+            p.x >= this.terrain.width - 12
+          ) {
+            this.detonateProjectile(p, p.x, p.y, false);
+            this.projectiles.splice(i, 1);
+          }
+          continue;
+        }
         p.crawlTicksLeft = (p.crawlTicksLeft ?? 1) - 1;
         const dir = p.crawlDir ?? 1;
         const nextX = p.x + dir * 2.3;
@@ -3350,6 +3608,10 @@ export class BattleEngine {
         const effectiveWind = p.special === 'hulk_leap' ? 0 : this.wind;
         if (p.special === 'laser') {
           // Tia Laser: bay thang tuyet doi, bo qua gio va trong luc
+        } else if (p.special === 'rocket') {
+          // Tên Lửa (Gói C): bay phẳng, trọng lực chỉ còn 35%
+          p.vx += effectiveWind * PHYSICS.WIND_FACTOR * p.windScale;
+          p.vy += PHYSICS.GRAVITY * 0.35;
         } else {
           p.vx += effectiveWind * PHYSICS.WIND_FACTOR * p.windScale;
           p.vy += PHYSICS.GRAVITY;
@@ -3533,7 +3795,19 @@ export class BattleEngine {
         if (p.special === 'piercing_terrain' || p.special === 'ironman_beam') {
           // Đạn xuyên địa hình của Winter Soldier & Iron Man Mark 50: không nổ chặn lại, tiếp tục xuyên qua địa hình!
           this.terrain.carveCrater(hitLand.x, hitLand.y, 'h32x26.png', 0.55);
-        } else 
+        } else if (p.special === 'drill' && !p.crawling) {
+          // Khoang Đất (Gói C): chui xuống đất, khoan ngang về phía địch gần nhất
+          p.crawling = true;
+          p.drilling = true;
+          p.x = hitLand.x;
+          p.y = hitLand.y + 16;
+          const nearestEnemyDrill = this.fighters
+            .filter((f) => f.alive && f.team !== p.team)
+            .sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+          p.crawlDir = nearestEnemyDrill ? (nearestEnemyDrill.x >= p.x ? 1 : -1) : p.vx >= 0 ? 1 : -1;
+          p.crawlTicksLeft = 95;
+          this.spawnFloatingText(p.x, p.y - 30, '🛠️ KHOANG ĐẤT!', '#fbbf24', 1.15);
+        } else
         if (p.special === 'tornado' && !p.crawling) {
           // Loc xoay dap xuong dat va bat dau chay doc mat dat ve phia dich
           p.crawling = true;
@@ -3654,6 +3928,73 @@ export class BattleEngine {
       this.spawnEffect(ix, iy, this.assets.manifest.effects.smoke, 1.15);
       this.spawnFloatingText(ix, iy - 28, '✈️ MÁY BAY THẢ BOM RẢI THẢM!', '#f97316', 1.25);
       this.spawnAirstrikeCarpet(owner, ix);
+      return;
+    }
+
+    // 1a1. Bom Hẹn Giờ (Gói C): gài bom tại điểm chạm, nổ sau 2 lượt của chủ bom
+    if (p.special === 'timebomb') {
+      if (iy >= this.terrain.waterY - 4) {
+        this.spawnEffect(ix, iy, this.assets.manifest.effects.smoke, 0.9);
+        return;
+      }
+      const surf = this.terrain.findSpawnPoint(Math.max(16, Math.min(this.terrain.width - 16, ix)));
+      this.placedBombs.push({
+        x: surf.x,
+        y: surf.y,
+        ownerId: p.ownerId,
+        team: p.team,
+        timer: 2,
+        damage: p.damage,
+        blastRadius: p.blastRadius,
+      });
+      sound.playItemUse();
+      this.spawnFloatingText(surf.x, surf.y - 34, '💣 BOM HẸN GIỜ (2 LƯỢT)!', '#fbbf24', 1.25);
+      return;
+    }
+
+    // 1a2. Bom Mù (Gói C): khói mù, địch trong vùng bị mù 2 lượt, không sát thương
+    if (p.special === 'smoke_bomb') {
+      this.spawnEffect(ix, iy, this.assets.manifest.effects.smoke, 1.5);
+      for (const f of this.fighters) {
+        if (!f.alive || f.team === p.team) continue;
+        if (Math.hypot(f.x - ix, f.y - 14 - iy) <= p.blastRadius) {
+          f.blindTurns = Math.max(f.blindTurns ?? 0, 2);
+          this.spawnFloatingText(f.x, f.y - 44, '💨 DÍNH BOM MÙ (2 LƯỢT)!', '#cbd5e1', 1.2);
+          this.spawnEffect(f.x, f.y - 16, this.assets.manifest.effects.smoke, 1.1);
+        }
+      }
+      sound.playItemUse();
+      return;
+    }
+
+    // 1a3. Mưa Đạn (Gói C): pháo hiệu gọi 12 viên đạn trút xuống quanh điểm chạm
+    if (p.special === 'bullet_rain') {
+      this.spawnEffect(ix, iy, this.assets.manifest.effects.smoke, 1.1);
+      this.spawnFloatingText(ix, iy - 30, '🌧️ MƯA ĐẠN TRÚT XUỐNG!', '#7dd3fc', 1.25);
+      sound.playShoot(true);
+      for (let r = 0; r < 12; r++) {
+        const rx = Math.max(
+          14,
+          Math.min(this.terrain.width - 14, ix + (Math.random() - 0.5) * 220)
+        );
+        this.projectiles.push({
+          x: rx,
+          y: iy - 520 - r * 16 - Math.random() * 60,
+          vx: (Math.random() - 0.5) * 0.8,
+          vy: 6.2,
+          ownerId: p.ownerId,
+          team: p.team,
+          spriteKey: 'bullet',
+          effectKey: 'fireExplosion',
+          holeMask: 'h30x27.png',
+          holeScale: 0.8,
+          damage: 24,
+          blastRadius: 26,
+          windScale: 0,
+          age: 0,
+          trail: [],
+        });
+      }
       return;
     }
 
@@ -4525,6 +4866,27 @@ export class BattleEngine {
   }
 
   private drawProjectiles(ctx: CanvasRenderingContext2D): void {
+    // Bom Hẹn Giờ đang gài (Gói C): quả bom tròn + số lượt còn lại, đèn nháy đỏ
+    for (const bomb of this.placedBombs) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(bomb.x, bomb.y - 7, 11, 0, Math.PI * 2);
+      ctx.fillStyle = '#1f2937';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#f87171';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(bomb.x + 4, bomb.y - 16, 3, 0, Math.PI * 2);
+      ctx.fillStyle = Math.floor(Date.now() / 300) % 2 === 0 ? '#ef4444' : '#fbbf24';
+      ctx.fill();
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fde047';
+      ctx.fillText(`💣${bomb.timer}`, bomb.x, bomb.y - 26);
+      ctx.restore();
+    }
+
     // Vẽ cột sét khổng lồ của Thor giáng từ bầu trời xuống vị trí cuối
     for (const beam of this.lightningBeams) {
       const alpha = Math.min(1, beam.ticksLeft / 12);

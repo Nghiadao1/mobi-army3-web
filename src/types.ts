@@ -173,7 +173,14 @@ export type BattleItemId =
   | 'meteor'
   | 'tornado'
   | 'fire_ammo'
-  | 'laser';
+  | 'laser'
+  | 'move_x2'
+  | 'pierce'
+  | 'bullet_rain'
+  | 'smoke'
+  | 'timebomb'
+  | 'rocket'
+  | 'drill';
 
 export interface BattleItemDef {
   id: BattleItemId;

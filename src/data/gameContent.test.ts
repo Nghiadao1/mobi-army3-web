@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { BOSS_HUNT_STAGES, CAMPAIGN_STAGES, HEROES } from './gameContent';
+import { BATTLE_ITEMS, BOSS_HUNT_STAGES, CAMPAIGN_STAGES, HEROES } from './gameContent';
 
 interface MapJsonEntry {
   mapId: number;
@@ -120,6 +120,45 @@ describe('ảnh gạch địa hình của map', () => {
           `Map ${m.mapId} (${m.name}): gạch ${b.brickId} không resolve được ảnh nào`
         ).toBe(true);
       }
+    }
+  });
+});
+
+describe('map Army 2 (Gói B)', () => {
+  it('có đủ 11 map convert từ Army 2 (mapId 57-67), gạch nằm gọn trong khung', () => {
+    const expected: Record<number, string> = {
+      57: 'Halloween', 58: 'Halloween 2', 59: 'Bom 1', 60: 'Bom 2',
+      61: 'Thành phố nhện', 62: 'Thành phố máy', 63: 'Khủng long máy',
+      64: 'Khu vực cấm', 65: 'Đỉnh Hi Mã Lạp Sơn', 66: 'Hang nhện', 67: 'Nghĩa trang 2',
+    };
+    for (const [idStr, name] of Object.entries(expected)) {
+      const m = maps.find((x) => x.mapId === Number(idStr));
+      expect(m, `Thiếu map Army 2 ${idStr} (${name})`).toBeTruthy();
+      expect(m!.name).toBe(name);
+      expect(m!.bricks.length).toBeGreaterThanOrEqual(20);
+      expect(m!.waterY).toBeLessThan(m!.height);
+      for (const b of m!.bricks) {
+        expect(b.x).toBeGreaterThanOrEqual(0);
+        expect(b.x).toBeLessThan(m!.width);
+        expect(b.y).toBeGreaterThanOrEqual(0);
+        expect(b.y).toBeLessThan(m!.height);
+      }
+    }
+  });
+});
+
+describe('item Army 2 (Gói C)', () => {
+  it('có đủ 7 item mới, tổng 27 item, stripIndex và hotkey không trùng', () => {
+    expect(BATTLE_ITEMS.length).toBe(27);
+    const newIds = ['move_x2', 'pierce', 'bullet_rain', 'smoke', 'timebomb', 'rocket', 'drill'];
+    for (const id of newIds) {
+      expect(BATTLE_ITEMS.some((b) => b.id === id), `Thiếu item ${id}`).toBe(true);
+    }
+    expect(new Set(BATTLE_ITEMS.map((b) => b.stripIndex)).size).toBe(BATTLE_ITEMS.length);
+    expect(new Set(BATTLE_ITEMS.map((b) => b.hotkey)).size).toBe(BATTLE_ITEMS.length);
+    for (const b of BATTLE_ITEMS) {
+      expect(b.stripIndex).toBeGreaterThanOrEqual(0);
+      expect(b.stripIndex).toBeLessThanOrEqual(40);
     }
   });
 });
