@@ -1,3 +1,4 @@
+import { army2BgPreloadUrls } from '../engine/army2Background';
 import {
   AssetsManifest,
   ImageSlice,
@@ -122,8 +123,8 @@ export class AssetManager {
     for (const b of map.bricks) {
       urls.add(`./assets/bricks/${b.brickId}.png`);
     }
-    const bgSet = this.pickBackgroundLayers(map.bgType, map.mapId);
-    for (const bgUrl of bgSet) {
+    // GD2: nap manh nen kieu Army 2 (bgItem + sun/may trong bg FilePack) theo bgType
+    for (const bgUrl of army2BgPreloadUrls(map.bgType ?? 5)) {
       urls.add(bgUrl);
     }
     await Promise.all(

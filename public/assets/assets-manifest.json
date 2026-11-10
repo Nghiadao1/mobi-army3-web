@@ -33,17 +33,17 @@
     "cannon": {
       "url": "assets/bullets/grenade.png",
       "frames": 1,
-      "div": 1.5
+      "div": 0.5
     },
     "ak": {
       "url": "assets/bullets/rocket2.png",
       "frames": 1,
-      "div": 1.5
+      "div": 0.5
     },
     "lightning": {
       "url": "assets/bullets/laser.png",
       "frames": 8,
-      "div": 1.5
+      "div": 0.5
     },
     "boomerang": {
       "url": "assets/bullets/danrua.png",
@@ -53,32 +53,32 @@
     "rocket": {
       "url": "assets/bullets/13Missile.png",
       "frames": 2,
-      "div": 1.5
+      "div": 0.5
     },
     "bomb": {
       "url": "assets/bullets/bomb.png",
       "frames": 2,
-      "div": 1.5
+      "div": 0.5
     },
     "egg": {
       "url": "assets/bullets/trungvang.png",
       "frames": 1,
-      "div": 1.5
+      "div": 0.5
     },
     "meteor": {
       "url": "assets/bullets/thienthach.png",
       "frames": 2,
-      "div": 1.5
+      "div": 0.5
     },
     "digger": {
       "url": "assets/bullets/daodat.png",
       "frames": 3,
-      "div": 1.5
+      "div": 0.5
     },
     "special": {
       "url": "assets/bullets/specialbullet.png",
       "frames": 2,
-      "div": 1.5
+      "div": 0.5
     },
     "acid": {
       "url": "assets/bullets/axit.png",
@@ -103,7 +103,7 @@
     "web": {
       "url": "assets/bullets/web.png",
       "frames": 2,
-      "div": 1.5
+      "div": 0.5
     },
     "saw": {
       "url": "assets/bullets/hrangcua.png",
@@ -111,7 +111,8 @@
     },
     "gatruilong": {
       "url": "assets/bullets/gatruilong.png",
-      "frames": 1
+      "frames": 1,
+      "div": 0.5
     },
     "muiten": {
       "url": "assets/bullets/muiten.png",
@@ -141,7 +142,7 @@
     "lightning_storm": {
       "url": "assets/bullets/laser.png",
       "frames": 8,
-      "div": 1.5
+      "div": 0.5
     },
     "tornado": {
       "url": "assets/effects/locxoay.png",
@@ -158,12 +159,12 @@
     "bigExplosion": {
       "url": "assets/effects/ex3.png",
       "frames": 5,
-      "div": 1.5
+      "div": 0.5
     },
     "nuke": {
       "url": "assets/effects/bomnguyentu.png",
       "frames": 4,
-      "div": 1.5
+      "div": 0.56
     },
     "electric": {
       "url": "assets/effects/electric.png",
@@ -173,27 +174,27 @@
     "freeze": {
       "url": "assets/effects/freeze.png",
       "frames": 4,
-      "div": 1.5
+      "div": 0.5
     },
     "smoke": {
       "url": "assets/effects/khoi.png",
       "frames": 5,
-      "div": 1.5
+      "div": 0.5
     },
     "poison": {
       "url": "assets/effects/khoidoc.png",
       "frames": 5,
-      "div": 1.5
+      "div": 0.5
     },
     "teleport": {
       "url": "assets/effects/teleport_eff.png",
       "frames": 4,
-      "div": 1.5
+      "div": 0.5
     },
     "splash": {
       "url": "assets/effects/waterBum.png",
       "frames": 6,
-      "div": 1.5
+      "div": 0.5
     },
     "tornado": {
       "url": "assets/effects/locxoay.png",
@@ -203,7 +204,7 @@
     "fire": {
       "url": "assets/effects/lua.png",
       "frames": 4,
-      "div": 1.5
+      "div": 0.5
     },
     "loki": {
       "url": "assets/effects/loki.png",
@@ -213,12 +214,12 @@
     "longga": {
       "url": "assets/effects/longga.png",
       "frames": 5,
-      "div": 1.5
+      "div": 0.5
     },
     "stealth": {
       "url": "assets/effects/tangHinhEffect.png",
       "frames": 4,
-      "div": 1.5
+      "div": 0.5
     }
   },
   "bosses": {

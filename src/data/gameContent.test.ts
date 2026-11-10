@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { BATTLE_ITEMS, BOSS_HUNT_STAGES, CAMPAIGN_STAGES, HEROES } from './gameContent';
+import { ARMY2_BG_SPECS, army2BgSpec } from '../engine/army2Background';
 
 interface MapJsonEntry {
   mapId: number;
@@ -8,6 +9,7 @@ interface MapJsonEntry {
   width: number;
   height: number;
   waterY: number;
+  bgType?: number;
   bricks: Array<{ brickId: number; x: number; y: number }>;
 }
 
@@ -160,5 +162,45 @@ describe('item Army 2 (Gói C)', () => {
       expect(b.stripIndex).toBeGreaterThanOrEqual(0);
       expect(b.stripIndex).toBeLessThanOrEqual(40);
     }
+  });
+});
+
+describe('nền Army 2 (GĐ2)', () => {
+  it('mọi map đều có bgType 0-15 và spec nền tương ứng có đủ file mảnh ghép', () => {
+    for (const m of maps) {
+      expect(typeof m.bgType, `map ${m.mapId} thiếu bgType`).toBe('number');
+      expect(m.bgType!).toBeGreaterThanOrEqual(0);
+      expect(m.bgType!).toBeLessThanOrEqual(15);
+      const spec = army2BgSpec(m.bgType!);
+      expect(spec.sky).toMatch(/^#[0-9a-f]{6}$/i);
+      for (const piece of [spec.far, spec.near]) {
+        if (piece) {
+          expect(
+            existsSync(`public/assets/backgrounds/army2/${piece}`),
+            `Thiếu mảnh nền ${piece} cho bgType ${m.bgType}`
+          ).toBe(true);
+        }
+      }
+      if (spec.sun) {
+        expect(
+          existsSync(`public/assets/backgrounds/army2/pack/${spec.sun}.png`),
+          `Thiếu ${spec.sun}.png trong bg pack`
+        ).toBe(true);
+      }
+    }
+    // Mọi type đã khai báo đều trỏ tới file tồn tại
+    for (const spec of Object.values(ARMY2_BG_SPECS)) {
+      for (const piece of [spec.far, spec.near]) {
+        if (piece) expect(existsSync(`public/assets/backgrounds/army2/${piece}`)).toBe(true);
+      }
+    }
+  });
+
+  it('39 map khớp DB Army 2 giữ đúng bg gốc (điểm kiểm chứng: Sinh Tử=2, Halloween=15, Hang nhện=13)', () => {
+    const byId = new Map(maps.map((m) => [m.mapId, m]));
+    expect(byId.get(21)?.bgType).toBe(2);
+    expect(byId.get(57)?.bgType).toBe(15);
+    expect(byId.get(66)?.bgType).toBe(13);
+    expect(byId.get(11)?.bgType).toBe(7);
   });
 });

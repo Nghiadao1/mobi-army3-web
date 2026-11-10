@@ -12,6 +12,7 @@ import {
   SpriteStripEntry,
   UnitKind,
 } from '../types';
+import { army2BgPackUrl, army2BgPieceUrl, army2BgSpec } from './army2Background';
 import { BotDecision, computeShotVelocity, PHYSICS, solveBotShot } from './BotAI';
 import { CharacterRenderer } from './CharacterRenderer';
 import { scheduleHeroWeapon as scheduleHeroWeaponImpl } from './heroWeapons';
@@ -244,7 +245,6 @@ export class BattleEngine {
   private floatingTexts: FloatingText[] = [];
   private crates: SupplyCrate[] = [];
   private windParticles: WindParticle[] = [];
-  private bgLayers: string[] = [];
 
   public wind = 0;
   private pendingNextWind: number | null = null;
@@ -330,7 +330,6 @@ export class BattleEngine {
   ) {
     this.terrain = new Terrain(map, assets);
     this.charRenderer = new CharacterRenderer(assets);
-    this.bgLayers = assets.pickBackgroundLayers(map.bgType, map.mapId);
     this.windMax =
       setup.stage?.windMax ??
       (setup.difficulty === 'easy' ? 14 : setup.difficulty === 'normal' ? 20 : 25);
@@ -4536,60 +4535,70 @@ export class BattleEngine {
     ctx.restore();
   }
 
+  // GD2 (rebuild Army 2): nen ve theo dung Background.java cua client goc -
+  // troi mau phang theo bgType, manh canh quan bgItem lap gach 2 lop parallax
+  // (xa 1/8, gan 1/4 nhu >>3/>>2 cua ban goc), mat troi + may tu bg FilePack.
   private drawSkyAndParallax(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-    const sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, '#0f172a');
-    sky.addColorStop(0.52, '#1e3a5f');
-    sky.addColorStop(1, '#38bdf8');
-    ctx.fillStyle = sky;
+    const spec = army2BgSpec(this.map?.bgType ?? 5);
+    ctx.fillStyle = spec.sky;
     ctx.fillRect(0, 0, w, h);
 
-    const sun = this.assets.getImage('./assets/backgrounds/sun10.png');
-    if (sun) {
-      ctx.save();
-      ctx.globalAlpha = 0.85;
-      ctx.drawImage(
-        sun,
-        w * 0.82 - this.camX * 0.04,
-        h * 0.12,
-        sun.width * 1.1,
-        sun.height * 1.1
-      );
-      ctx.restore();
+    if (spec.sun) {
+      const sun = this.assets.getImage(army2BgPackUrl(`${spec.sun}.png`));
+      if (sun) {
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(sun, w * 0.82 - this.camX * 0.04, h * 0.1, 86, 86);
+        ctx.restore();
+      }
     }
 
-    const cl1 = this.assets.getImage('./assets/backgrounds/cl1.png');
-    const cl2 = this.assets.getImage('./assets/backgrounds/cl2.png');
-    if (cl1) {
-      const cx = ((this.globalTick * 0.25) % (w + 300)) - 150;
-      ctx.globalAlpha = 0.55;
-      ctx.drawImage(cl1, cx, h * 0.15, cl1.width * 0.9, cl1.height * 0.9);
-      ctx.globalAlpha = 1;
-    }
-    if (cl2) {
-      const cx2 = ((this.globalTick * 0.16 + 420) % (w + 350)) - 170;
-      ctx.globalAlpha = 0.45;
-      ctx.drawImage(cl2, cx2, h * 0.24, cl2.width * 0.85, cl2.height * 0.85);
-      ctx.globalAlpha = 1;
+    if (spec.clouds) {
+      const cl1 = this.assets.getImage(army2BgPackUrl('cl1.png'));
+      const cl2 = this.assets.getImage(army2BgPackUrl('cl2.png'));
+      if (cl1) {
+        const cx = ((this.globalTick * 0.25) % (w + 300)) - 150;
+        ctx.globalAlpha = 0.75;
+        ctx.drawImage(cl1, cx, h * 0.15, cl1.width * 2, cl1.height * 2);
+        ctx.globalAlpha = 1;
+      }
+      if (cl2) {
+        const cx2 = ((this.globalTick * 0.16 + 420) % (w + 350)) - 170;
+        ctx.globalAlpha = 0.6;
+        ctx.drawImage(cl2, cx2, h * 0.24, cl2.width * 2, cl2.height * 2);
+        ctx.globalAlpha = 1;
+      }
     }
 
-    this.bgLayers.forEach((url, idx) => {
-      const img = this.assets.getImage(url);
+    const drawLayer = (
+      file: string | undefined,
+      parallax: number,
+      scale: number,
+      bottom: number,
+      alpha: number
+    ): void => {
+      if (!file) return;
+      const img = this.assets.getImage(army2BgPieceUrl(file));
       if (!img) return;
-      const parallax = 0.08 + idx * 0.09;
-      const scale = Math.max(w / img.width, 0.95);
       const dw = img.width * scale;
-      const dh = img.height * scale * 0.72;
+      const dh = img.height * scale;
       const offsetX = -((this.camX * parallax) % dw);
-      const drawY = h - dh + idx * 14;
-
       ctx.save();
-      ctx.globalAlpha = idx === 0 ? 0.45 : idx === 1 ? 0.62 : 0.78;
+      ctx.globalAlpha = alpha;
       for (let x = offsetX - dw; x < w + dw; x += dw) {
-        ctx.drawImage(img, x, drawY, dw + 1, dh);
+        ctx.drawImage(img, x, bottom - dh, dw + 1, dh);
       }
       ctx.restore();
-    });
+    };
+
+    drawLayer(spec.far, 0.125, 2.0, h - 8, 0.8);
+
+    if (spec.ground) {
+      ctx.fillStyle = spec.ground;
+      ctx.fillRect(0, h - 44, w, 44);
+    }
+
+    drawLayer(spec.near, 0.25, 2.3, h + 4, 1);
   }
 
   private drawWaterBack(ctx: CanvasRenderingContext2D): void {
