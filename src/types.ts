@@ -206,7 +206,17 @@ export type UnitKind =
   | 'bomb_minion'
   | 'giant_robot'
   | 'bat_queen'
-  | 'bat_minion';
+  | 'bat_minion'
+  // GD3 (rebuild Army 2): boss goc Army 2 theo gun type trong Boss.java cua client
+  | 'a2_ufo' // gun 16 - dia bay
+  | 'a2_robot' // gun 15 - BigRobot
+  | 'a2_trex' // gun 13 - BugRobot / T-Rex may
+  | 'a2_spider' // gun 22 - Nhen
+  | 'a2_balloon' // gun 17 - Khi cau
+  | 'a2_ghost' // gun 25 - Ma (ma.png)
+  | 'a2_ghost2' // gun 26 - Ma 2 (ma2.png)
+  | 'a2_gift' // gun 23/24 - Boss hop qua trong bong bong
+  | 'a2_snowman'; // Nguoi Tuyet (bo sprite Boss/SnowMan)
 
 export interface StageEnemySpec {
   name: string;

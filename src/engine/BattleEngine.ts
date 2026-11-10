@@ -506,7 +506,12 @@ export class BattleEngine {
             spec.unitKind === 'dragon' ||
             spec.unitKind === 'fortress' ||
             spec.unitKind === 'bat_queen' ||
-            spec.unitKind === 'bat_minion';
+            spec.unitKind === 'bat_minion' ||
+            spec.unitKind === 'a2_ufo' ||
+            spec.unitKind === 'a2_balloon' ||
+            spec.unitKind === 'a2_ghost' ||
+            spec.unitKind === 'a2_ghost2' ||
+            spec.unitKind === 'a2_gift';
           const groundSpawn = this.terrain.findSpawnPoint(this.map.width * spec.spawnXRatio);
           const sx = isFlying ? Math.round(this.map.width * spec.spawnXRatio) : groundSpawn.x;
           const sy = isFlying ? (spec.spawnY ?? 150) : groundSpawn.y;
@@ -718,7 +723,12 @@ export class BattleEngine {
           spec.unitKind === 'dragon' ||
           spec.unitKind === 'fortress' ||
           spec.unitKind === 'bat_queen' ||
-          spec.unitKind === 'bat_minion';
+          spec.unitKind === 'bat_minion' ||
+          spec.unitKind === 'a2_ufo' ||
+          spec.unitKind === 'a2_balloon' ||
+          spec.unitKind === 'a2_ghost' ||
+          spec.unitKind === 'a2_ghost2' ||
+          spec.unitKind === 'a2_gift';
         const groundSpawn = this.terrain.findSpawnPoint(this.map.width * spec.spawnXRatio);
         const sx = isFlying ? Math.round(this.map.width * spec.spawnXRatio) : groundSpawn.x;
         const sy = isFlying ? (spec.spawnY ?? 150) : groundSpawn.y;

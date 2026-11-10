@@ -52,6 +52,18 @@ export class AssetManager {
     urls.add('./assets/bosses/bat.png');
     urls.add('./assets/bosses/bomnguyentu.png');
     urls.add('./assets/bosses/thuocno.png');
+    // GD3: sprite boss goc Army 2 (server res/player + Boss/SnowMan cua client)
+    for (const f of [
+      'UFO.png','UFOFire.png','leg.png','body.png','body_injured.png','arm.png',
+      'bug_leg.png','bug_body.png','bug_gun.png','spider.png','khicau.png',
+      'fan1.png','fan2.png','front_fan.png','back_fan.png','gun.png','ma.png','ma2.png',
+    ]) {
+      urls.add(`./assets/bosses/army2/parts/${f}`);
+    }
+    for (const f of ['fullBody.png','body_injured.png','arm.png']) {
+      urls.add(`./assets/bosses/army2/snowman/${f}`);
+    }
+    urls.add('./assets/backgrounds/army2/pack/web.png');
     urls.add('./assets/effects/mb00.png');
     urls.add('./assets/heroes/small/2Small198_body.png');
     urls.add('./assets/heroes/small/2Small198_legs.png');

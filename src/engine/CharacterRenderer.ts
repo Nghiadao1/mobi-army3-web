@@ -119,6 +119,22 @@ export class CharacterRenderer {
       this.drawBatQueenBoss(ctx, state);
     } else if (state.unitKind === 'bat_minion') {
       this.drawBatMinionUnit(ctx, state);
+    } else if (state.unitKind === 'a2_ufo') {
+      this.drawA2Ufo(ctx, state);
+    } else if (state.unitKind === 'a2_robot') {
+      this.drawA2Robot(ctx, state);
+    } else if (state.unitKind === 'a2_trex') {
+      this.drawA2Trex(ctx, state);
+    } else if (state.unitKind === 'a2_spider') {
+      this.drawA2Spider(ctx, state);
+    } else if (state.unitKind === 'a2_balloon') {
+      this.drawA2Balloon(ctx, state);
+    } else if (state.unitKind === 'a2_ghost' || state.unitKind === 'a2_ghost2') {
+      this.drawA2Ghost(ctx, state, state.unitKind === 'a2_ghost2');
+    } else if (state.unitKind === 'a2_gift') {
+      this.drawA2Gift(ctx, state);
+    } else if (state.unitKind === 'a2_snowman') {
+      this.drawA2Snowman(ctx, state);
     } else {
       // Kiểm tra nếu user đã thay thế bằng PNG nhân vật mới trong heroOverrides
       const override = this.assets.manifest.heroOverrides[state.hero.id];
@@ -514,6 +530,243 @@ export class CharacterRenderer {
       ctx.fill();
     }
 
+    ctx.restore();
+  }
+
+  // ============ GD3: Boss GOC Army 2 - sprite that, cat frame theo Boss.java/CPlayer.java ============
+
+  private a2Part(file: string): HTMLImageElement | undefined {
+    return this.assets.getImage(`./assets/bosses/army2/parts/${file}`);
+  }
+
+  private a2Snow(file: string): HTMLImageElement | undefined {
+    return this.assets.getImage(`./assets/bosses/army2/snowman/${file}`);
+  }
+
+  /** Ve 1 frame cua strip doc (cac frame chong theo chieu cao), neo day tai bottomY, giua tai cx. */
+  private drawStripFrame(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    frame: number,
+    frameW: number,
+    frameH: number,
+    cx: number,
+    bottomY: number,
+    scale: number,
+    flip = false
+  ): void {
+    ctx.save();
+    ctx.translate(cx, bottomY);
+    if (flip) ctx.scale(-1, 1);
+    ctx.drawImage(
+      img,
+      0,
+      frame * frameH,
+      frameW,
+      frameH,
+      (-frameW * scale) / 2,
+      -frameH * scale,
+      frameW * scale,
+      frameH * scale
+    );
+    ctx.restore();
+  }
+
+  /** Gun 16 - Dia bay: UFO.png 3 frame 51x46 (0 thuong, 1 trung don) + lua day UFOFire 16x11 nhap nhay. */
+  private drawA2Ufo(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const S = 2.2;
+    const bob = Math.sin(state.animTick * 0.06) * 3.2;
+    ctx.save();
+    ctx.translate(0, bob);
+    const ufo = this.a2Part('UFO.png');
+    if (ufo) {
+      const frame = state.animMode === 'hurt' ? 1 : 0;
+      this.drawStripFrame(ctx, ufo, frame, 51, 46, 0, 6, S);
+    }
+    const fire = this.a2Part('UFOFire.png');
+    if (fire) {
+      const f = Math.floor(state.animTick / 3) % 2;
+      this.drawStripFrame(ctx, fire, f, 16, 11, 0, 30, S);
+    }
+    ctx.restore();
+  }
+
+  /** Gun 15 - BigRobot: chan leg.png + than body.png (body_injured khi trung don) + tay arm.png cat 35x40 (FrameImage gun 15). */
+  private drawA2Robot(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const S = 2.3;
+    const flip = state.facingLeft;
+    const hurt = state.animMode === 'hurt';
+    const leg = this.a2Part('leg.png');
+    const body = this.a2Part(hurt ? 'body_injured.png' : 'body.png');
+    const arm = this.a2Part('arm.png');
+    if (leg) {
+      ctx.drawImage(leg, (-45 * S) / 2, -16 * S, 45 * S, 16 * S);
+    }
+    if (body) {
+      ctx.drawImage(body, (-body.width * S) / 2 - 1, -16 * S - body.height * S + 4, body.width * S, body.height * S);
+    }
+    if (arm) {
+      const frame =
+        state.animMode === 'walk'
+          ? Math.floor(state.animTick / 4) % 4
+          : state.animMode === 'shoot'
+            ? 2
+            : 1;
+      ctx.save();
+      ctx.translate(flip ? -16 : 16, -16 * S - 30 * S);
+      if (flip) ctx.scale(-1, 1);
+      ctx.drawImage(arm, 0, frame * 40, 35, 40, (-35 * S) / 2, -40 * S, 35 * S, 40 * S);
+      ctx.restore();
+    }
+  }
+
+  /** Gun 13 - BugRobot (T-Rex may): bug_leg 44x25 chay 3 frame, bug_body 42x30 2 frame, sung bug_gun cat 15x15 (FrameImage gun 13). */
+  private drawA2Trex(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const S = 2.3;
+    const flip = state.facingLeft;
+    const leg = this.a2Part('bug_leg.png');
+    const body = this.a2Part('bug_body.png');
+    const gun = this.a2Part('bug_gun.png');
+    if (leg) {
+      const f = state.animMode === 'walk' ? Math.floor(state.animTick / 4) % 3 : 0;
+      this.drawStripFrame(ctx, leg, f, 44, 25, 0, 0, S, flip);
+    }
+    if (body) {
+      const f = Math.floor(state.animTick / 8) % 2;
+      this.drawStripFrame(ctx, body, f, 42, 30, 0, -25 * S + 6, S, flip);
+    }
+    if (gun) {
+      const f =
+        state.animMode === 'shoot' ? 3 : state.aimAngleDeg > 45 ? 0 : state.aimAngleDeg > 10 ? 1 : 2;
+      this.drawStripFrame(ctx, gun, f, 15, 15, flip ? -18 : 18, -25 * S - 16 * S, S, flip);
+    }
+  }
+
+  /** Gun 22 - Nhen: spider.png 41x22 chay 4 frame, 2 doan than (doan tren lat nguoc) + soi to treo tu tren xuong. */
+  private drawA2Spider(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const S = 2.2;
+    const spider = this.a2Part('spider.png');
+    ctx.save();
+    ctx.strokeStyle = 'rgba(226, 232, 240, 0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -44 * S);
+    ctx.lineTo(0, -44 * S - 130);
+    ctx.stroke();
+    const web = this.assets.getImage('./assets/backgrounds/army2/pack/web.png');
+    if (web) {
+      ctx.drawImage(web, -web.width, -44 * S - 130 - web.height * 2, web.width * 2, web.height * 2);
+    }
+    ctx.restore();
+    if (spider) {
+      const f = Math.floor(state.animTick / 5) % 4;
+      this.drawStripFrame(ctx, spider, f, 41, 22, 0, 0, S, state.facingLeft);
+      ctx.save();
+      ctx.translate(0, -22 * S);
+      ctx.scale(1, -1);
+      ctx.drawImage(spider, 0, f * 22, 41, 22, (-41 * S) / 2, 0, 41 * S, 22 * S);
+      ctx.restore();
+    }
+  }
+
+  /** Gun 17 - Khi cau chien: bong khicau.png 143x49 + quat fan1 (4x23, 2 frame) / fan2 / front_fan / back_fan, nhap nhay deltaYKC nhu ban goc. */
+  private drawA2Balloon(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const S = 2.0;
+    const bob = Math.sin(state.animTick * 0.045) * 5;
+    ctx.save();
+    ctx.translate(0, bob);
+    const khicau = this.a2Part('khicau.png');
+    const fan1 = this.a2Part('fan1.png');
+    const fan2 = this.a2Part('fan2.png');
+    const frontFan = this.a2Part('front_fan.png');
+    const backFan = this.a2Part('back_fan.png');
+    if (backFan) {
+      ctx.drawImage(backFan, (-20 * S) / 2, -52 * S, 20 * S, 19 * S);
+    }
+    if (khicau) {
+      ctx.drawImage(khicau, (-143 * S) / 2, -52 * S - 49 * S, 143 * S, 49 * S);
+    }
+    if (fan1) {
+      const f = Math.floor(state.animTick / 2) % 2;
+      this.drawStripFrame(ctx, fan1, f, 4, 23, -30, -30 * S, S);
+      this.drawStripFrame(ctx, fan1, f, 4, 23, 30, -30 * S, S);
+    }
+    if (fan2) {
+      ctx.drawImage(fan2, -40 * S, -58 * S, 18 * S, 3 * S);
+      ctx.drawImage(fan2, 22 * S, -58 * S, 18 * S, 3 * S);
+    }
+    if (frontFan) {
+      ctx.drawImage(frontFan, (-14 * S) / 2, -48 * S, 14 * S, 23 * S);
+    }
+    const gun = this.a2Part('gun.png');
+    if (gun) {
+      ctx.drawImage(gun, state.facingLeft ? -20 : 6, -30 * S, 14 * S, 11 * S);
+    }
+    ctx.restore();
+  }
+
+  /** Gun 25/26 - Ma: ma.png / ma2.png cat 35x32, 4 frame, bay luon + trong suot nhe. */
+  private drawA2Ghost(
+    ctx: CanvasRenderingContext2D,
+    state: CharacterRenderState,
+    isSecond: boolean
+  ): void {
+    const S = 2.2;
+    const img = this.a2Part(isSecond ? 'ma2.png' : 'ma.png');
+    const bob = Math.sin(state.animTick * 0.07) * 4;
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.translate(0, bob);
+    if (img) {
+      const f = Math.floor(state.animTick / 6) % 4;
+      this.drawStripFrame(ctx, img, f, 35, 32, 0, 10, S, state.facingLeft);
+    }
+    ctx.restore();
+  }
+
+  /** Gun 23/24 - Boss hop qua: box2.png nam trong bong bong bongbong.png (35x35, 2 frame) bay luon. */
+  private drawA2Gift(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const bob = Math.sin(state.animTick * 0.05) * 4;
+    const sway = Math.sin(state.animTick * 0.03) * 0.06;
+    ctx.save();
+    ctx.translate(0, bob);
+    ctx.rotate(sway);
+    const box = this.assets.getImage('./assets/bullets/box2.png');
+    if (box) {
+      ctx.drawImage(box, -22, -62, 44, 44);
+    }
+    const bubble = this.assets.getImage('./assets/bullets/bongbong.png');
+    if (bubble) {
+      const f = Math.floor(state.animTick / 8) % 2;
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.drawImage(bubble, 0, f * 35, 35, 35, -46, -86, 92, 92);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  /** Nguoi Tuyet (bo sprite Boss/SnowMan cua client): fullBody.png; trung don doi body_injured; ban -> vung tay arm.png (strip 80x64 x 6 frame). */
+  private drawA2Snowman(ctx: CanvasRenderingContext2D, state: CharacterRenderState): void {
+    const S = 2.2;
+    const bob = Math.sin(state.animTick * 0.05) * 1.6;
+    ctx.save();
+    ctx.translate(0, bob);
+    const hurt = state.animMode === 'hurt';
+    const body = this.a2Snow(hurt ? 'body_injured.png' : 'fullBody.png');
+    if (body) {
+      ctx.drawImage(body, (-body.width * S) / 2, -body.height * S, body.width * S, body.height * S);
+    }
+    if (state.animMode === 'shoot' || state.animMode === 'aim') {
+      const arm = this.a2Snow('arm.png');
+      if (arm) {
+        const f = Math.floor(state.animTick / 3) % 6;
+        ctx.save();
+        if (state.facingLeft) ctx.scale(-1, 1);
+        ctx.drawImage(arm, 0, f * 64, 80, 64, -6, -64 * S * 0.9, 80 * S * 0.9, 64 * S * 0.9);
+        ctx.restore();
+      }
+    }
     ctx.restore();
   }
 

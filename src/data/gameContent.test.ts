@@ -204,3 +204,39 @@ describe('nền Army 2 (GĐ2)', () => {
     expect(byId.get(11)?.bgType).toBe(7);
   });
 });
+
+describe('boss Army 2 (GĐ3)', () => {
+  it('có 10 màn săn boss Army 2 (119-128), unitKind a2_* và đủ sprite gốc trên đĩa', () => {
+    const stages = BOSS_HUNT_STAGES.filter((s) => s.id >= 119 && s.id <= 128);
+    expect(stages.length).toBe(10);
+    const spriteOf: Record<string, string[]> = {
+      a2_ufo: ['parts/UFO.png', 'parts/UFOFire.png'],
+      a2_robot: ['parts/leg.png', 'parts/body.png', 'parts/body_injured.png', 'parts/arm.png'],
+      a2_trex: ['parts/bug_leg.png', 'parts/bug_body.png', 'parts/bug_gun.png'],
+      a2_spider: ['parts/spider.png'],
+      a2_balloon: ['parts/khicau.png', 'parts/fan1.png', 'parts/fan2.png', 'parts/front_fan.png'],
+      a2_ghost: ['parts/ma.png'],
+      a2_ghost2: ['parts/ma2.png'],
+      a2_gift: [],
+      a2_snowman: ['snowman/fullBody.png', 'snowman/body_injured.png', 'snowman/arm.png'],
+    };
+    const kinds = new Set<string>();
+    for (const st of stages) {
+      expect(heroIds.has(st.allyHeroId!), `stage ${st.id}: ally ${st.allyHeroId} không tồn tại`).toBe(true);
+      expect(mapIds.has(st.mapId!), `stage ${st.id}: map ${st.mapId} không tồn tại`).toBe(true);
+      for (const e of st.enemies) {
+        expect(heroIds.has(e.heroId), `stage ${st.id}: heroId ${e.heroId} không tồn tại`).toBe(true);
+        if (e.unitKind.startsWith('a2_')) {
+          kinds.add(e.unitKind);
+          for (const f of spriteOf[e.unitKind] ?? []) {
+            expect(
+              existsSync(`public/assets/bosses/army2/${f}`),
+              `stage ${st.id}: thiếu sprite ${f} cho ${e.unitKind}`
+            ).toBe(true);
+          }
+        }
+      }
+    }
+    expect(kinds.size).toBe(9); // đủ 9 loại boss Army 2
+  });
+});
