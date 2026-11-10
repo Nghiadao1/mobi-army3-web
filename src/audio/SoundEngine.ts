@@ -86,8 +86,13 @@ export class SoundEngine {
     }
   }
 
-  /** Nhạc nền gốc lặp vô hạn: music_0 = sảnh, music_1 = trận đấu (.mp3 dự phòng cho Safari). */
-  public startMusic(track: 'music_0' | 'music_1'): void {
+  /**
+   * Nhạc nền lặp vô hạn.
+   * GD4 (rebuild Army 2): 'music_army2' = nhạc nền gốc Mobi Army 2 (vòng 24s,
+   * chỉ có bản .mp3) dùng cho cả sảnh + trận; music_0/music_1 của Army 3 giữ
+   * lại trong thư mục audio làm phương án dự phòng khi cần.
+   */
+  public startMusic(track: 'music_0' | 'music_1' | 'music_army2'): void {
     if (this.bgmTrack === track && this.bgm && !this.bgm.paused) return;
     if (!this.bgm) {
       this.bgm = new Audio();
@@ -96,7 +101,10 @@ export class SoundEngine {
       this.bgm.preload = 'auto';
     }
     const canOgg = this.bgm.canPlayType('audio/ogg; codecs="vorbis"') !== '';
-    const file = `./assets/audio/${track}.${canOgg ? 'ogg' : 'mp3'}`;
+    const file =
+      track === 'music_army2'
+        ? './assets/audio/music_army2.mp3'
+        : `./assets/audio/${track}.${canOgg ? 'ogg' : 'mp3'}`;
     if (this.bgmTrack !== track || !this.bgm.src.endsWith(file)) {
       this.bgm.src = file;
     }

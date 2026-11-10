@@ -212,3 +212,9 @@ Port boss goc Army 2 theo Boss.java (client) + bang FrameImage trong CPlayer.jav
 - BattleEngine: them a2_ufo/a2_balloon/a2_ghost/a2_ghost2/a2_gift vao danh sach bay (ca 2 cho spawn campaign + coop). AssetManager nap truoc sprite boss Army 2.
 - 10 man San Boss moi (BOSS_HUNT_STAGES 119-128) tren dung map boss 41-50 cua Army 2 (doi chieu file .map trong DB): UFO->map 64 Khu vuc cam, Robot->62 Thanh pho may, T-Rex->63 Khung long may, Nhen may->61 Thanh pho nhen, Khi cau->65 Dinh Hi Ma Lap Son, Ma->2 Nghia trang, Song ma->67 Nghia trang 2, Vua bom->59 Bom 1, Nguoi Tuyet->11 Cay cau bang, Chua Nhen->66 Hang nhen. HP 3100-4600 ngang boss hien co, vu khi theo heroId classic.
 - Boss Army 2 ban bang he vu khi hero nhu boss hien tai (server goc tinh rieng tung loai dan boss - khong co trong source; giu co che chung cua game).
+
+## REBUILD ARMY 2 - GIAI DOAN 4: DON DEP ARMY 3 (2026-11-10)
+- NHAC NEN: chuyen BGM chinh (sanh + tran) sang nhac goc Mobi Army 2 (music0.mp3 vong 24s) - SoundEngine.startMusic them track 'music_army2' (file dat tai public/assets/audio/music_army2.mp3 qua pipeline; music_0/music_1 cua Army 3 giu lai lam du phong, khong con dung mac dinh).
+- XOA FILE CHET: toan bo 96 file public/assets/backgrounds/*.png cua Army 3 (bo b2xx + cl0-2 + sun10 + lop FX b*) - sau GD2 khong con bat ky tham chieu nao trong src (da grep kiem chung 0 hit). Thu muc backgrounds chi con army2/ (204KB). AssetManager: bo preload may/mat troi cu + xoa han pickBackgroundLayers (legacy tu renderer b2xx). Dist giam 62MB -> 15MB.
+- Giu nguyen co chu dich: sprite boss Army 3 (bosses/*.png) + renderer ve thu cong cho 18 man boss 101-118 (noi dung choi duoc, co ca boss Marvel Ultron) - cho user quyet dinh rieng: xoa han / giu ca hai bo / de sau.
+- Cac ton dong da ghi nhan tu GD2/GD3 (khong thuoc GD4): electric.png chua ro frame goc, chuotBull cat frame sai, nuoc kieu wts Army 2, tuyet/set bgType 12, tran da bgType 13, dan rieng cua boss Army 2 (server tinh).

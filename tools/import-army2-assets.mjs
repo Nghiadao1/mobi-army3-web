@@ -112,6 +112,8 @@ copy(join(RES, 'x2/gui'), join(PUB, 'ui/army2/x2gui'), '[ca thu muc]');
 copy(join(RES, 'newGUI'), join(PUB, 'ui/army2/newGUI'), '[ca thu muc]');
 copy(join(RES, 'gui'), join(PUB, 'ui/army2/gui'), '[ca thu muc]');
 copy(join(RES, 'music/0.mp3'), join(PUB, 'audio/army2/music0.mp3'));
+// GD4: ban sao o vi tri "song" de SoundEngine dung lam nhac nen chinh (chi co .mp3)
+copy(join(RES, 'music/0.mp3'), join(PUB, 'audio/music_army2.mp3'), '[BGM chinh GD4]');
 for (const f of ['0.wav','1.wav','2.wav']) copy(join(RES, `sound/${f}`), join(PUB, `audio/army2/sound${f}`));
 
 /* ============ GD2: thay bang ban goc trong FilePack ============ */

@@ -101,12 +101,6 @@ export class AssetManager {
       urls.add(`./assets/hole2/${hf}`);
     }
 
-    // Parallax clouds
-    urls.add('./assets/backgrounds/cl0.png');
-    urls.add('./assets/backgrounds/cl1.png');
-    urls.add('./assets/backgrounds/cl2.png');
-    urls.add('./assets/backgrounds/sun10.png');
-
     const list = Array.from(urls);
     let done = 0;
     await Promise.all(
@@ -142,21 +136,6 @@ export class AssetManager {
     await Promise.all(
       Array.from(urls).map((u) => this.loadImage(u).catch(() => null))
     );
-  }
-
-  public pickBackgroundLayers(bgType: number, mapId: number): string[] {
-    const sets = [
-      ['./assets/backgrounds/b200.png', './assets/backgrounds/b201.png', './assets/backgrounds/b202.png'],
-      ['./assets/backgrounds/b210.png', './assets/backgrounds/b211.png', './assets/backgrounds/b212.png'],
-      ['./assets/backgrounds/b220.png', './assets/backgrounds/b221.png', './assets/backgrounds/b222.png'],
-      ['./assets/backgrounds/b240.png', './assets/backgrounds/b241.png', './assets/backgrounds/b242.png'],
-      ['./assets/backgrounds/b250.png', './assets/backgrounds/b251.png', './assets/backgrounds/b252.png'],
-      ['./assets/backgrounds/b270.png', './assets/backgrounds/b271.png', './assets/backgrounds/b272.png'],
-      ['./assets/backgrounds/b280.png', './assets/backgrounds/b281.png', './assets/backgrounds/b282.png'],
-      ['./assets/backgrounds/b290.png', './assets/backgrounds/b291.png', './assets/backgrounds/b292.png'],
-    ];
-    const idx = Math.abs((bgType || 0) + mapId) % sets.length;
-    return sets[idx];
   }
 
   public getImage(url: string): HTMLImageElement | undefined {
