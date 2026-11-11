@@ -1,4 +1,5 @@
 import net from 'node:net';
+import { pathToFileURL } from 'node:url';
 import { WebSocketServer, WebSocket } from 'ws';
 
 /** The TCP target is operator-controlled; browsers cannot choose arbitrary hosts. */
@@ -23,7 +24,9 @@ export function createRelay({ host='127.0.0.1', port=8081, targetHost='127.0.0.1
   return server;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Convert the entry path to a file URL so this works with Windows backslashes
+// as well as POSIX paths.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const server = createRelay({
     host: process.env.RELAY_HOST || '127.0.0.1', port: Number(process.env.RELAY_PORT || 8081),
     targetHost: process.env.ARMY2_TCP_HOST || '127.0.0.1', targetPort: Number(process.env.ARMY2_TCP_PORT || 8122),

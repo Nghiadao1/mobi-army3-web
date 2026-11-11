@@ -9,6 +9,8 @@ import mobiarmy.server.*;
 import org.mindrot.jbcrypt.BCrypt;
 
 public final class GuestAccess {
+    private static final PlayFabIdentity PLAYFAB = PlayFabIdentity.fromEnvironment();
+
     public static synchronized void enter(Session session, Message message) throws IOException {
         if (session.user != null) return;
         String name=message.reader().readUTF().trim();
@@ -21,9 +23,31 @@ public final class GuestAccess {
         for (int i=0;i<name.length();i++) {
             if (Character.isISOControl(name.charAt(i))) {session.sessionHandler.log("Tên nhân vật không hợp lệ.");return;}
         }
-        String username="guest_"+identity;
+        String username;
+        try {
+            username = PLAYFAB.enabled()
+                    ? PLAYFAB.databaseUsername(PLAYFAB.loginOrCreate(identity, token))
+                    : "guest_" + identity;
+        } catch (IOException error) {
+            System.err.println(error.getMessage());
+            session.sessionHandler.log("Không thể xác thực PlayFab. Vui lòng thử lại.");
+            return;
+        }
         try {
             ArrayList<DBManager.DataRow> rows=Server.dbManager.selectColumnName("SELECT id,password FROM user WHERE username=?",username);
+            // Adopt a profile created before PlayFab was enabled instead of
+            // creating a second Army 2 user with the same character name.
+            if (rows.isEmpty() && PLAYFAB.enabled()) {
+                ArrayList<DBManager.DataRow> legacyRows=Server.dbManager.selectColumnName(
+                        "SELECT id,password FROM user WHERE username=?", "guest_" + identity);
+                if (!legacyRows.isEmpty() && BCrypt.checkpw(token, legacyRows.get(0).getString("password"))) {
+                    if (Server.dbManager.update("UPDATE user SET username=? WHERE id=?", username,
+                            legacyRows.get(0).getInt("id")) != 1) {
+                        throw new SQLException("Could not attach the existing profile to PlayFab");
+                    }
+                    rows=legacyRows;
+                }
+            }
             int id;
             if (rows.isEmpty()) {
                 HashMap<String,Object> values=new HashMap<>(); values.put("username",username);values.put("password",BCrypt.hashpw(token,BCrypt.gensalt()));

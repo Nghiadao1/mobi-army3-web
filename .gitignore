@@ -12,3 +12,7 @@ upstream/**/.gradle/
 upstream/**/build/
 server/.gradle/
 server/build/
+.env
+.env.*
+!.env.example
+!server/.env.example

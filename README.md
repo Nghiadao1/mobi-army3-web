@@ -23,12 +23,18 @@ Các chức năng phòng đấu, shop, kho đồ, nhiệm vụ và chiến đấ
 
 - `ARMY2_JDBC_URL`, `ARMY2_DB_USER`, `ARMY2_DB_PASSWORD`: database.
 - `ARMY2_TCP_PORT`: cổng server, mặc định 8122.
+- `PLAYFAB_TITLE_ID`, `PLAYFAB_SECRET_KEY`: bật PlayFab Identity phía server;
+  secret không bao giờ được đưa xuống client.
 - `npm run relay`: cầu nối WebSocket 8081 tới server TCP 8122.
 - `ARMY2_INTEGRATION_URL=ws://127.0.0.1:8081 npm run test:server`: kiểm thử với server/database đang chạy.
 
 `node scripts/prepare-database.mjs` tạo schema triển khai từ dữ liệu gốc, bỏ tài khoản mẫu. Không sử dụng database chứa dữ liệu thật để chạy kiểm thử.
 
 Client mặc định kết nối relay cùng hostname, cổng 8081. Khi deploy HTTPS, cung cấp relay WSS qua tham số `?relay=wss://...`. GitHub Pages chỉ phục vụ client; server/database/relay cần một tiến trình backend riêng.
+
+PlayFab không cung cấp JDBC và không thay thế trực tiếp schema MySQL quan hệ của
+server gốc. Cấu hình được hỗ trợ dùng PlayFab cho tài khoản, MySQL cho dữ liệu
+gameplay. Xem [hướng dẫn PlayFab](server/PLAYFAB_SETUP.md).
 
 ## Biệt đội Marvel
 
