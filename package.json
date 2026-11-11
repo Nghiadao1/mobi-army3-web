@@ -9,6 +9,7 @@
     "build": "node scripts/build-original.mjs",
     "preview": "node scripts/dev-original.mjs",
     "test": "node --test server/relay.test.mjs",
+    "test:server": "node --test server/guest.integration.test.mjs",
     "relay": "node server/relay.mjs",
     "marvel:sprites": "node scripts/build-marvel-sprites.mjs"
   },

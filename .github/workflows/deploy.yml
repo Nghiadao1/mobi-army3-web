@@ -1,4 +1,4 @@
-name: Deploy Mobi Army 3 Web to GitHub Pages
+name: Deploy original MobiArmy 2 web client
 
 on:
   push:
@@ -27,11 +27,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+
+      - name: Setup Java for the original LibGDX client
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
 
       - name: Install dependencies & Build Web Game
         run: |
-          npm install
+          npm ci
+          npm test
           npm run build
 
       - name: Upload Pages artifact

@@ -12,6 +12,18 @@ source = source.replace('new DBManager("jdbc:mysql://localhost:3306/army", "root
 await writeFile(file, source);
 const handlerFile = join(target, 'mobiarmy/server/ControlHandler.java');
 let handler = await readFile(handlerFile, 'utf8');
+handler = handler.replace('switch (msg.getCommand()) {', 'switch (msg.getCommand()) {\n            case -90 -> army2.server.GuestAccess.enter(this.session, msg);');
 // The client pings before login too; answer in both states to prevent a false disconnect dialog.
 handler = handler.replace(/case 42 -> \{[\s\S]*?(?=            case 49)/, 'case 42 -> {\n                this.session.sessionHandler.pingPaint();\n            }\n');
 await writeFile(handlerFile, handler);
+const sessionsFile = join(target, 'mobiarmy/server/SessionManager.java');
+let sessions = await readFile(sessionsFile, 'utf8');
+sessions = sessions.replace('public static void addUser(User user) {', `public static void renameUser(User user, String name) {
+        synchronized (lock) {
+            users_name.remove(user.name, user);
+            user.name = name;
+            users_name.put(name, user);
+        }
+    }
+    public static void addUser(User user) {`);
+await writeFile(sessionsFile, sessions);

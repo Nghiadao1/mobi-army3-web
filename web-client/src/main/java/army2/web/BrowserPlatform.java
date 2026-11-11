@@ -3,6 +3,8 @@ package army2.web;
 import org.teavm.jso.JSBody;
 
 public final class BrowserPlatform {
+    @JSBody(params={"message"}, script="if(new URLSearchParams(location.search).get('debug')==='1')console.log('[Army2] '+message);")
+    public static native void trace(String message);
     @JSBody(script="return window.ARMY2_SERVER_LIST || 'Army 2 Web:127.0.0.1:8122';")
     private static native String serverList();
     public static void prepareServerList() {

@@ -39,6 +39,16 @@ public class mSocket {
     }
     public DataInputStream getInputStream() { return new DataInputStream(new InputStream() {
         public int read() throws IOException { return readOne(); }
+        public int read(byte[] bytes, int offset, int length) throws IOException {
+            if (offset < 0 || length < 0 || offset > bytes.length - length) throw new IndexOutOfBoundsException();
+            if (length == 0) return 0;
+            int first = readOne();
+            if (first < 0) return -1;
+            bytes[offset] = (byte) first;
+            int count = 1;
+            while (count < length && !incoming.isEmpty()) bytes[offset + count++] = (byte) (int) incoming.removeFirst();
+            return count;
+        }
         public int available() { return incoming.size(); }
     }); }
     public DataOutputStream getOutputStream() { return new DataOutputStream(new OutputStream() {
