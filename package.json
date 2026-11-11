@@ -1,18 +1,22 @@
 {
-  "name": "army2-web-reforged",
+  "name": "mobiarmy2-original-web",
   "private": true,
   "version": "2.0.0",
-  "description": "Bản chuyển đổi MobiArmy2 Client sang TypeScript/Canvas Web, tích hợp biệt đội Marvel và progression offline.",
+  "description": "Source-preserving browser port of the original MobiArmy2 LibGDX client with the existing Marvel extension.",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5173",
-    "build": "tsc && vite build",
-    "preview": "vite preview --port 4173",
-    "test": "vitest run"
+    "dev": "node scripts/dev-original.mjs",
+    "build": "node scripts/build-original.mjs",
+    "preview": "node scripts/dev-original.mjs",
+    "test": "node --test server/relay.test.mjs",
+    "relay": "node server/relay.mjs",
+    "marvel:sprites": "node scripts/build-marvel-sprites.mjs"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
-    "vite": "^5.4.11",
-    "vitest": "^2.1.9"
+    "@napi-rs/canvas": "1.1.0",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "ws": "8.22.2"
   }
 }

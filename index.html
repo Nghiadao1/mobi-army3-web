@@ -8,13 +8,24 @@
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#07111f" />
-    <meta name="description" content="Army 2 Web Reforged — game bắn súng tọa độ Canvas với 10 xạ thủ cổ điển và biệt đội Marvel." />
-    <title>Army 2 Web Reforged — Marvel Squad</title>
-    <link rel="icon" type="image/png" href="./assets/army2/ui/logoGame.png" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="MobiArmy 2 — client LibGDX gốc chạy trên trình duyệt." />
+    <title>MobiArmy 2 — Original Web Client</title>
+    <link rel="icon" type="image/png" href="./assets/res/icon.png" />
+    <style>
+      html,body { margin:0; width:100%; height:100%; overflow:hidden; background:#000; }
+      body { display:grid; place-items:center; }
+      canvas { display:block; width:min(100vw,177.778vh); height:auto; max-height:100vh; touch-action:none; image-rendering:pixelated; }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
+    <canvas id="canvas" tabindex="0" aria-label="MobiArmy 2"></canvas>
+    <script>
+      const config = new URLSearchParams(location.search);
+      window.ARMY2_RELAY_URL = config.get('relay') || undefined;
+      window.ARMY2_SERVER_LIST = config.get('servers') || undefined;
+      window.addEventListener('load', () => main());
+    </script>
+    <script src="./app.js"></script>
   </body>
 </html>

@@ -1,0 +1,19 @@
+plugins { id 'application' }
+repositories { mavenCentral() }
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+dependencies {
+    implementation 'com.zaxxer:HikariCP:5.1.0'
+    implementation 'com.mysql:mysql-connector-j:8.3.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'org.mindrot:jbcrypt:0.4'
+    runtimeOnly 'org.slf4j:slf4j-simple:2.0.12'
+}
+sourceSets.main.java.srcDirs = ['build/generated/source', 'src/main/java']
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+application { mainClass = 'army2.server.HeadlessLauncher' }
+tasks.register('prepareServerSources', Exec) {
+    workingDir rootDir.parentFile
+    commandLine 'node', 'scripts/prepare-original-server.mjs'
+}
+compileJava.dependsOn prepareServerSources
+run { workingDir rootDir.parentFile.toPath().resolve('upstream/MobiArmy2-Server').toFile() }

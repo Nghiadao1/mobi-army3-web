@@ -1,0 +1,28 @@
+* text=auto
+
+*.java text eol=lf
+*.cs text eol=lf
+*.gradle text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+*.properties text eol=lf
+*.plist text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.wav binary
+*.mp3 binary
+*.jar binary
+*.keystore binary
+
+*.unity text eol=lf
+*.prefab text eol=lf
+*.mat text eol=lf
+*.asset text eol=lf
+*.meta text eol=lf
+*.controller text eol=lf
+*.anim text eol=lf
+*.asmdef text eol=lf

@@ -1,0 +1,270 @@
+export interface ImageSlice {
+  id: number;
+  sheet: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface PartFrame {
+  imgId: number;
+  dx: number;
+  dy: number;
+}
+
+export interface PartDef {
+  partId: number;
+  type: number;
+  frames: PartFrame[];
+}
+
+// Each pose has 7 slots: [frameIdx, dx, dy]
+export type PoseSlot = [number, number, number];
+export type PoseDef = PoseSlot[];
+
+export interface MapBrickPlacement {
+  brickId?: number;
+  imageId?: number;
+  x: number;
+  y: number;
+  collide?: boolean;
+}
+
+export interface MapDef {
+  id?: number;
+  index: number;
+  mapId: number;
+  name: string;
+  width: number;
+  height: number;
+  waterY: number;
+  bgType: number;
+  inWater: number;
+  bricks: MapBrickPlacement[];
+}
+
+export interface SpriteStripEntry {
+  url: string;
+  frames: number;
+  /** He so chia kich thuoc ve khi file anh da duoc nang cap len ban x3 (1.5x) de giu nguyen kich thuoc hien thi goc */
+  div?: number;
+}
+
+export interface HeroOverrideSheet {
+  /** Đường dẫn file PNG ngang (idle, walk, aim, hurt) nếu muốn thay thế nhân vật gốc */
+  url: string;
+  frameWidth: number;
+  frameHeight: number;
+  framesPerRow?: number;
+  anchorY?: number;
+}
+
+export interface AssetsManifest {
+  version: number;
+  note: string;
+  heroSheets: string[];
+  smallParts?: number[];
+  heroOverrides: Record<string, HeroOverrideSheet | null>;
+  bullets: Record<string, SpriteStripEntry>;
+  effects: Record<string, SpriteStripEntry>;
+  bosses: Record<string, SpriteStripEntry>;
+  ui: {
+    logo: string;
+    waterTop: SpriteStripEntry;
+    waterDeep: string;
+    itemsStrip: SpriteStripEntry;
+    winBanner: string;
+    loseBanner: string;
+    drawBanner: string;
+    turnArrow: string;
+    targetCross: SpriteStripEntry;
+    angryFlame0: string;
+    angryFlame1: string;
+  };
+}
+
+export type WeaponPattern =
+  | 'cannon'
+  | 'ak'
+  | 'electric'
+  | 'boomerang'
+  | 'banana_cluster'
+  | 'rocket'
+  | 'grenade'
+  | 'chicky'
+  | 'apache'
+  | 'magenta_orb'
+  | 'repulsor'
+  | 'ironman_mark50'
+  | 'vibranium_shield'
+  | 'mjolnir'
+  | 'stormbreaker_axe'
+  | 'hulk_smash'
+  | 'hulk_leap'
+  | 'red_hulk_shockwave'
+  | 'hawkeye_bow'
+  | 'hawkeye_tech'
+  | 'winter_sniper'
+  | 'winter_sniper_mark'
+  | 'ultron_beam'
+  | 'ultron_prime'
+  | 'loki_morph'
+  | 'doctor_strange'
+  | 'ufo_beam'
+  | 'bomber_drop'
+  | 'mech_barrage';
+
+export interface HeroEquipment {
+  hat: number;   // slot 0 ($JZQ)
+  legs: number;  // slot 1 ($NrF)
+  body: number;  // slot 2 ($VUd)
+  gun: number;   // slot 3 ($siL)
+  glass: number; // slot 4 ($gns)
+  back: number;  // slot 5 ($Xlw)
+}
+
+export interface HeroDef {
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  powName: string;
+  color: string;
+  faction?: 'army' | 'marvel';
+  canFly?: boolean;
+  hp: number;
+  attack: number;
+  reloadTime?: number; // Thời gian nạp đạn theo mobiarmy3.me/nhan-vat (chỉ Avenger có)
+  siteSkillName?: string; // Tên kỹ năng nguyên văn trên mobiarmy3.me/nhan-vat
+  siteSkillDesc?: string; // Mô tả kỹ năng nguyên văn trên mobiarmy3.me/nhan-vat
+  siteBonuses?: string[]; // Các dòng chỉ số cộng thêm nguyên văn trên mobiarmy3.me/nhan-vat
+  moveSpeed: number;
+  staminaMax: number;
+  minAngle: number;
+  maxAngle: number;
+  weapon: WeaponPattern;
+  holeMask: string;
+  powHoleMask: string;
+  equipment: HeroEquipment;
+  specialSkillName?: string;
+  specialSkillDesc?: string;
+  passiveName?: string;
+  passiveDesc?: string;
+}
+
+export type BattleItemId =
+  | 'heal'
+  | 'team_heal'
+  | 'teleport'
+  | 'double'
+  | 'airstrike'
+  | 'suicide'
+  | 'vampire'
+  | 'mouse'
+  | 'shield'
+  | 'windstop'
+  | 'digger'
+  | 'web'
+  | 'freeze'
+  | 'poison'
+  | 'nuke'
+  | 'stealth'
+  | 'meteor'
+  | 'tornado'
+  | 'fire_ammo'
+  | 'laser'
+  | 'move_x2'
+  | 'pierce'
+  | 'bullet_rain'
+  | 'smoke'
+  | 'timebomb'
+  | 'rocket'
+  | 'drill';
+
+export interface BattleItemDef {
+  id: BattleItemId;
+  name: string;
+  shortDesc: string;
+  /** Chỉ số icon trong dải item.png gốc Army 2 (32x1312, 41 ô 32px, 0..40) — GĐ1 rebuild */
+  stripIndex: number;
+  endsTurnImmediately: boolean;
+  hotkey: string;
+}
+
+export type BotDifficulty = 'easy' | 'normal' | 'hard';
+
+export type UnitKind =
+  | 'hero'
+  | 'bomber'
+  | 'ufo'
+  | 'mech'
+  | 'spider'
+  | 'dragon'
+  | 'fortress'
+  | 'bomb_boss'
+  | 'bomb_minion'
+  | 'giant_robot'
+  | 'bat_queen'
+  | 'bat_minion'
+  // GD3 (rebuild Army 2): boss goc Army 2 theo gun type trong Boss.java cua client
+  | 'a2_ufo' // gun 16 - dia bay
+  | 'a2_robot' // gun 15 - BigRobot
+  | 'a2_trex' // gun 13 - BugRobot / T-Rex may
+  | 'a2_spider' // gun 22 - Nhen
+  | 'a2_balloon' // gun 17 - Khi cau
+  | 'a2_ghost' // gun 25 - Ma (ma.png)
+  | 'a2_ghost2' // gun 26 - Ma 2 (ma2.png)
+  | 'a2_gift' // gun 23/24 - Boss hop qua trong bong bong
+  | 'a2_snowman'; // Nguoi Tuyet (bo sprite Boss/SnowMan)
+
+export interface StageEnemySpec {
+  name: string;
+  unitKind: UnitKind;
+  heroId: string;
+  hp: number;
+  attack: number;
+  difficulty: BotDifficulty;
+  spawnXRatio: number;
+  spawnY?: number;
+  isBoss?: boolean;
+  scale?: number;
+}
+
+export interface CampaignStage {
+  id: number;
+  name: string;
+  subtitle: string;
+  description: string;
+  mapId: number;
+  allyHeroId?: string;
+  windMax: number;
+  rewardTitle: string;
+  enemies: StageEnemySpec[];
+}
+
+export interface BattleSetup {
+  mode: 'skirmish' | 'campaign' | 'online';
+  playerHeroId: string;
+  allyHeroId?: string | null;
+  teamSize: 1 | 2;
+  mapId: number;
+  difficulty: BotDifficulty;
+  stage?: CampaignStage;
+  onlineRole?: 'host' | 'guest';
+  onlineCoopStage?: CampaignStage;
+  remoteHeroId?: string;
+  remotePeerName?: string;
+  seed?: number;
+  selectedItems?: BattleItemId[];
+}
+
+export interface MatchStats {
+  won: boolean;
+  draw: boolean;
+  turnsTaken: number;
+  damageDealt: number;
+  enemiesDefeated: number;
+  mode: 'skirmish' | 'campaign' | 'online';
+  stageId?: number;
+}

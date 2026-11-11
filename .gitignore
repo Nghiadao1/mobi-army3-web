@@ -6,3 +6,9 @@ extracted/
 tài nguyên/web-game/
 .muse/
 .bridge_backups/
+web-client/.gradle/
+web-client/build/
+upstream/**/.gradle/
+upstream/**/build/
+server/.gradle/
+server/build/

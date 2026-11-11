@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "com.unity.feature.2d": "1.0.0",
+    "com.unity.textmeshpro": "3.0.6"
+  }
+}

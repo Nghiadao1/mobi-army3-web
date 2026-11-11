@@ -1,0 +1,28 @@
+plugins {
+    id 'java'
+    id 'com.github.xpenatan.gdx-teavm' version '1.6.1'
+}
+
+repositories { mavenCentral() }
+dependencies { implementation 'com.badlogicgames.gdx:gdx:1.14.2' }
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+sourceSets.main.java.srcDirs = ['build/generated/source', 'src/main/java']
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
+tasks.register('prepareOriginalSources', Exec) {
+    workingDir rootDir.parentFile
+    commandLine 'node', 'scripts/prepare-original-client.mjs'
+}
+compileJava.dependsOn prepareOriginalSources
+
+gdxTeaVM {
+    assets.from(file('build/generated/assets'))
+    js {
+        mainClass.set('army2.web.WebLauncher')
+        htmlTitle.set('MobiArmy 2 — Original Web Client')
+        htmlWidth.set(960)
+        htmlHeight.set(540)
+        optimization.set(org.teavm.gradle.api.OptimizationLevel.BALANCED)
+        obfuscated.set(false)
+    }
+}
