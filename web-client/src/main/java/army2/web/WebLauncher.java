@@ -14,6 +14,8 @@ public final class WebLauncher {
         new WebApplication(new MainGame() {
             @Override public void create() {
                 BrowserPlatform.prepareServerList();
+
+                MarvelRoster.load();
                 super.create();
             }
         }, config);
