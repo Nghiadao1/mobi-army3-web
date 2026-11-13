@@ -6,6 +6,7 @@ extracted/
 tài nguyên/web-game/
 .muse/
 .bridge_backups/
+.macgate/
 web-client/.gradle/
 web-client/build/
 upstream/**/.gradle/
