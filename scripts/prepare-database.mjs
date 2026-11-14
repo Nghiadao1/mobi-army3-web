@@ -20,5 +20,26 @@ const output = resolve('server/build/schema.sql');
 const database = process.env.ARMY2_DATABASE || 'army';
 if (!/^[a-zA-Z0-9_]+$/.test(database)) throw new Error('Invalid database name');
 await mkdir(resolve('server/build'), {recursive:true});
-await writeFile(output, `CREATE DATABASE IF NOT EXISTS ${database} CHARACTER SET utf8mb4;\nUSE ${database};\n${clean}`);
+const giftcodeTables = `
+CREATE TABLE IF NOT EXISTS giftcode (
+  code VARCHAR(32) NOT NULL PRIMARY KEY,
+  xu INT NOT NULL DEFAULT 0,
+  luong INT NOT NULL DEFAULT 0,
+  exp INT NOT NULL DEFAULT 0,
+  max_uses INT NOT NULL DEFAULT 1,
+  used_count INT NOT NULL DEFAULT 0,
+  expires_at DATETIME NULL,
+  note VARCHAR(255) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS giftcode_redeem (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(32) NOT NULL,
+  user_id INT NOT NULL,
+  user_name VARCHAR(64) NULL,
+  redeemed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY giftcode_user (code, user_id),
+  KEY giftcode_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+await writeFile(output, `CREATE DATABASE IF NOT EXISTS ${database} CHARACTER SET utf8mb4;\nUSE ${database};\n${clean}\n${giftcodeTables}`);
 console.log(output);
