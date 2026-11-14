@@ -12,7 +12,7 @@ source = source.replace('new DBManager("jdbc:mysql://localhost:3306/army", "root
 await writeFile(file, source);
 const handlerFile = join(target, 'mobiarmy/server/ControlHandler.java');
 let handler = await readFile(handlerFile, 'utf8');
-handler = handler.replace('switch (msg.getCommand()) {', 'switch (msg.getCommand()) {\n            case -90 -> army2.server.GuestAccess.enter(this.session, msg);\n            case 122 -> army2.server.GiftCode.chargeInfo(this.session, msg);\n            case 77 -> army2.server.GiftCode.redeem(this.session, msg);\n            case -6 -> army2.server.Training.trainingMap(this.session);\n            case 83 -> army2.server.Training.training(this.session, msg);');
+handler = handler.replace('switch (msg.getCommand()) {', 'switch (msg.getCommand()) {\n            case -90 -> army2.server.GuestAccess.enter(this.session, msg);\n            case 122 -> army2.server.GiftCode.chargeInfo(this.session, msg);\n            case 77 -> army2.server.GiftCode.redeem(this.session, msg);\n            case -6 -> army2.server.Training.trainingMap(this.session);\n            case 83 -> army2.server.Training.training(this.session, msg);\n            case 84 -> army2.server.Training.fire(this.session, msg);');
 // The client pings before login too; answer in both states to prevent a false disconnect dialog.
 handler = handler.replace(/case 42 -> \{[\s\S]*?(?=            case 49)/, 'case 42 -> {\n                this.session.sessionHandler.pingPaint();\n            }\n');
 await writeFile(handlerFile, handler);
@@ -81,3 +81,57 @@ const bossCases = [
 ].join(String.fromCharCode(10));
 mapData = mapData.replace(ufoTail, bossCases);
 await writeFile(mapDataFile, mapData);
+
+// Marvel hero weapons (P4): extra Gun cases for hero bullet types. The
+// classes live in server/src/main/java/mobiarmy/war/Boss/bullet/.
+const gunFile = join(target, 'mobiarmy/war/Gun.java');
+let gun = await readFile(gunFile, 'utf8');
+const gunDefault = '                default -> this.bullets.add(new Bullet(this, bulletId, this.isPow == 1 ? att * 2 : att, bx, by, vx, vy, this.windX * 80 / 100, this.windY * 80 / 100, 100));';
+const heroCases = [
+    '                case 60 -> // Captain America: vibranium shield throw',
+    '                    this.bullets.add(new HeroShieldBullet(this, this.isPow == 1 ? att * 3 / 2 : att, bx, by, vx, vy, this.isPow == 1));',
+    '',
+    '                case 61 -> { // Iron Man: repulsor burst, Jericho storm on pow',
+    '                    int count = this.isPow == 1 ? 8 : 4;',
+    '                    int spread = this.isPow == 1 ? 4 : 2;',
+    '                    int dmg = this.isPow == 1 ? att / 3 : att / 2;',
+    '                    for (int i = 0; i < count; i++) {',
+    '                        int a2 = this.ang - spread * (count - 1) / 2 + i * spread;',
+    '                        int bx2 = this.gunX + ((width - 4) * GameData.cos(a2) >> 10);',
+    '                        int by2 = this.gunY - (height / 2) - ((height - 4) * GameData.sin(a2) >> 10);',
+    '                        int vx2 = force * GameData.cos(a2) >> 10;',
+    '                        int vy2 = -(force * GameData.sin(a2) >> 10);',
+    '                        this.bullets.add(new Bullet(this, 61, dmg, bx2, by2, vx2, vy2, this.windX * 80 / 100, this.windY * 80 / 100, 100));',
+    '                    }',
+    '                }',
+    '',
+    '                case 63 -> // Red Hulk: clap shockwave',
+    '                    this.bullets.add(new HeroShockwaveBullet(this, att * 3 / 2, bx, by, vx, vy));',
+    '',
+    '                case 64, 65 -> { // Thor / Stormbreaker: lightning at impact on skill shots',
+    '                    if (this.isPow == 1) {',
+    '                        this.bullets.add(new HeroStormCarrierBullet(this, bulletId, att, bx, by, vx, vy, bulletId == 65 ? 4 : 3));',
+    '                    } else {',
+    '                        this.bullets.add(new Bullet(this, bulletId, att, bx, by, vx, vy, this.windX * 80 / 100, this.windY * 80 / 100, 100));',
+    '                    }',
+    '                }',
+    '',
+    '                case 68 -> // Hulk: leap attack',
+    '                    this.bullets.add(new HeroLeapBullet(this, this.isPow == 1 ? att * 3 / 2 : att, bx, by, vx, vy, this.isPow == 1));',
+    '',
+    '                case 72 -> { // Hawkeye: lock-on volley, 4 arrows at 50% damage',
+    '                    for (int i = 0; i < 4; i++) {',
+    '                        int a2 = this.ang - 3 + i * 2;',
+    '                        int bx2 = this.gunX + ((width - 4) * GameData.cos(a2) >> 10);',
+    '                        int by2 = this.gunY - (height / 2) - ((height - 4) * GameData.sin(a2) >> 10);',
+    '                        int vx2 = force * GameData.cos(a2) >> 10;',
+    '                        int vy2 = -(force * GameData.sin(a2) >> 10);',
+    '                        this.bullets.add(new Bullet(this, 72, att / 2, bx2, by2, vx2, vy2, this.windX * 80 / 100, this.windY * 80 / 100, 100));',
+    '                    }',
+    '                }',
+    '',
+].join(String.fromCharCode(10));
+if (!gun.includes('HeroShieldBullet')) {
+    gun = gun.replace(gunDefault, heroCases + gunDefault);
+}
+await writeFile(gunFile, gun);

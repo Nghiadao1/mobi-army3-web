@@ -64,3 +64,63 @@ test('training map request, practice start layout and leave acknowledgement', { 
   await leavePromise;
   client.close();
 });
+
+test('training fire request returns a computed trajectory, twice', { skip: !url }, async () => {
+  const client = new Army2ProtocolClient(url);
+  await client.ready();
+  await enterGuest(client, 'TrainFire');
+
+  const mapReplyPromise = client.wait(-6);
+  client.send(-6);
+  await mapReplyPromise;
+
+  const startPromise = client.wait(20);
+  client.send(83, Buffer.from([0]));
+  const start = await startPromise;
+  const offset = 10 + 1 + 1 + 2; // equips, map, turn seconds, team bits
+  const sx = start.readInt16BE(offset);
+  const sy = start.readInt16BE(offset + 2);
+  assert.ok(sx >= 0 && sy >= 0, 'shooter spawn parsed');
+
+  const fireOnce = async () => {
+    const replyPromise = client.wait(22);
+    const turnPromise = client.wait(24);
+    const body = Buffer.alloc(1 + 2 + 2 + 2 + 1 + 1);
+    let o = 0;
+    body.writeInt8(0, o); o += 1; // bullet type (default gun)
+    body.writeInt16BE(sx, o); o += 2;
+    body.writeInt16BE(sy, o); o += 2;
+    body.writeInt16BE(45, o); o += 2; // angle
+    body.writeInt8(20, o); o += 1; // force
+    body.writeInt8(1, o); o += 1; // nshoot
+    client.send(84, body);
+    const reply = await replyPromise;
+    let p = 0;
+    const typeShoot = reply.readInt8(p); p += 1;
+    p += 1; // isPow (critical slot)
+    const whoFire = reply.readInt8(p); p += 1;
+    const bulletId = reply.readInt8(p); p += 1;
+    p += 4; // gun x/y
+    p += 2; // angle
+    assert.equal(typeShoot, 0, 'delta-encoded trajectory');
+    assert.equal(whoFire, 0, 'shooter index');
+    assert.equal(bulletId, 0, 'bullet type echoed');
+    p += 1; // nshoot
+    const nBullet = reply.readInt8(p); p += 1;
+    assert.ok(nBullet >= 1, `bullets in reply: ${nBullet}`);
+    const frames = reply.readInt16BE(p);
+    assert.ok(frames > 5, `trajectory frames: ${frames}`);
+    const turn = await turnPromise;
+    assert.equal(turn.readInt8(0), 0, 'turn returns to the shooter after the shot');
+    return frames;
+  };
+
+  const first = await fireOnce();
+  const second = await fireOnce();
+  assert.ok(second > 5, `second shot frames: ${second}`);
+
+  const leavePromise = client.wait(83);
+  client.send(83, Buffer.from([1]));
+  await leavePromise;
+  client.close();
+});

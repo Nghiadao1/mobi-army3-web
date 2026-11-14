@@ -267,6 +267,57 @@ for (const path of await walk(source)) {
         }
         GameScr.sm.update();`);
   }
+  if (name === 'item/BM.java') {
+    // Marvel P4: BM's per-type switches predate hero bullet types 60-75:
+    // createBullet() created NO Bullet object for them and nBull stayed
+    // 0, so hero shots arrived from the server but never appeared.
+    text = text.replace('      this.createBullet(this.type);\n      boolean isFocusCAM = true;\n      int camIndex = 0;\n      switch(this.type) {',
+      `      this.createBullet(this.type);
+      boolean isFocusCAM = true;
+      int camIndex = 0;
+      switch(this.type) {
+      case 60:
+      case 63:
+      case 64:
+      case 65:
+      case 66:
+      case 67:
+      case 68:
+      case 71:
+      case 75:
+         this.nBull = 1;
+         break;
+      case 61:
+      case 72:
+      case 74:
+         this.nBull = BM.nOrbit;
+         break;`);
+    text = text.replace('   private void createBullet(byte Type) {\n      int var10000 = this.nBull * (this.nWasShoot - 1);\n      int i;\n      switch(Type) {',
+      `   private void createBullet(byte Type) {
+      int var10000 = this.nBull * (this.nWasShoot - 1);
+      int i;
+      switch(Type) {
+      case 60:
+      case 63:
+      case 64:
+      case 65:
+      case 66:
+      case 67:
+      case 68:
+      case 71:
+      case 75:
+         this.bullets.addElement(new Bullet(Type, this.xPaint[this.bIndex], this.yPaint[this.bIndex], this.whoShot, this.idBullet));
+         ++this.bIndex;
+         break;
+      case 61:
+      case 72:
+      case 74:
+         for(i = 0; i < BM.nOrbit; ++i) {
+            this.bullets.addElement(new Bullet(Type, this.xPaint[i + this.bIndex], this.yPaint[i + this.bIndex], this.whoShot, this.idBullet));
+         }
+         this.bIndex += BM.nOrbit;
+         break;`);
+  }
   if (name === 'network/GameService.java') {
     // addPoint must carry short deltas: bulk steps exceed a byte.
     text = text.replace('public void addPoint(byte[] point) {', 'public void addPoint(short[] point) {');
@@ -340,6 +391,9 @@ for (const path of await walk(source)) {
                 if (!kbLeft && !kbRight && this.kbMoved) {
                     this.kbMoved = false;
                     GameService.gI().move((short) kbPlayer.x, (short) kbPlayer.y);
+                    if (kbPlayer.getState() == 1) {
+                        kbPlayer.setState((byte) 0);
+                    }
                 }
 
                 if (Gdx.input.isKeyPressed(Input.Keys.SPACE)) {
@@ -475,6 +529,82 @@ for (const path of await walk(source)) {
                     }
                 }
                 if (Gdx.input.isKeyPressed(Input.Keys.SPACE)) {`);
+  }
+  if (name === 'screen/MenuScr.java') {
+    // P2: the training entry opens the Marvel hero picker first; the
+    // picker stores the choice in MarvelRoster and then runs the stock
+    // training flow itself.
+    text = text.replace(`               GameScr.trainingMode = true;
+               isTraining = true;
+               GameService.gI().trainingMap();
+               CCanvas.startOKDlg(Language.pleaseWait());`, '               MarvelPickScr.open();');
+  }
+  if (name === 'player/CPlayer.java') {
+    // P2: in training battles the local player is drawn from the Marvel
+    // spritesheet when a hero is selected (player.MarvelRender); every
+    // other case keeps the stock body.
+    text = text.replace(`                                        if (this.equip != null) {
+                                            this.equip.paint(g, Look, this.curFrame, this.x, this.y);
+                                        } else {
+                                            this.pFrameImg.drawFrame(this.curFrame, this.x, this.y, Look, 33, g);
+                                        }`, `                                        if (!MarvelRender.paintPlayer(g, this, Look)) {
+                                            if (this.equip != null) {
+                                                this.equip.paint(g, Look, this.curFrame, this.x, this.y);
+                                            } else {
+                                                this.pFrameImg.drawFrame(this.curFrame, this.x, this.y, Look, 33, g);
+                                            }
+                                        }`);
+  }
+  if (name === 'network/GameService.java') {
+    // Marvel P4: in training, a picked hero fires its own weapon bullet
+    // type and appends its attack value for the server's skill logic.
+    text = text.replace('    public void waitForFIRETraining(byte type, short x, short y, short angle, byte force, byte force_2, byte numShoot) {\n        Message m = new Message((byte) 84);',
+      '    public void waitForFIRETraining(byte type, short x, short y, short angle, byte force, byte force_2, byte numShoot) {\n        Message m = new Message((byte) 84);\n        if (GameScr.trainingMode && army2.web.MarvelRoster.selectedId != null) {\n            type = (byte) army2.web.MarvelRoster.bulletTypeOf(army2.web.MarvelRoster.selectedId);\n        }');
+    text = text.replace('            m.writer().writeByte(numShoot);\n        } catch (Exception var10) {\n        }\n\n        this.session.sendMessage(m);\n        m.cleanup();\n        CRes.out("SendWait_Fire bull: " + type + " nShoot: " + numShoot + " force2= " + force_2);',
+      '            m.writer().writeByte(numShoot);\n            if (GameScr.trainingMode && army2.web.MarvelRoster.selectedId != null) {\n                m.writer().writeShort(army2.web.MarvelRoster.attackOf(army2.web.MarvelRoster.selectedId));\n            }\n        } catch (Exception var10) {\n        }\n\n        this.session.sendMessage(m);\n        m.cleanup();\n        CRes.out("SendWait_Fire bull: " + type + " nShoot: " + numShoot + " force2= " + force_2);');
+  }
+  if (name === 'item/Bullet.java') {
+    // Marvel P4: projectile sprites for hero bullet types 60-75.
+    text = text.replace('        CRes.err("======> initBulletType = " + type);\n        switch (type) {',
+      `        CRes.err("======> initBulletType = " + type);
+        switch (type) {
+            case 60:
+                if (army2.web.MarvelRoster.shieldImage != null) {
+                    this.dan = army2.web.MarvelRoster.shieldImage;
+                    this.rotate = true;
+                } else {
+                    this.frmImg = new FrameImage(bomb.image, 24, 24);
+                    this.changeFrame = true;
+                }
+                break;
+            case 61:
+            case 74:
+            case 75:
+                this.frmImg = new FrameImage(cannon2.image, 14, 14);
+                this.changeFrame = true;
+                break;
+            case 63:
+                this.frmImg = new FrameImage(bomb_flag.image, 32, 32);
+                this.smoke = true;
+                break;
+            case 64:
+            case 65:
+            case 66:
+            case 67:
+                this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
+                this.frmImg.nFrame = 4;
+                this.changeFrame = true;
+                break;
+            case 68:
+                this.frmImg = new FrameImage(bomb.image, 24, 24);
+                this.changeFrame = true;
+                this.blackSmoke = true;
+                break;
+            case 71:
+            case 72:
+                this.img = PlayerEquip.bullets[1];
+                this.smoke = true;
+                break;`);
   }
   if (name === 'shop/ShopItem.java') {
     // Ask how many to buy instead of always taking the fixed package size;
