@@ -83,6 +83,9 @@ public final class MarvelRender {
         if (p.state == 8) {
             return HURT_SEQ[(tick / 3) % HURT_SEQ.length];
         }
+        if (MarvelRoster.flyMode) {
+            return WALK_SEQ[(tick / 3) % WALK_SEQ.length];
+        }
         if (p.falling) {
             return 9;
         }

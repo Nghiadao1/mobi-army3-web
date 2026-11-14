@@ -277,6 +277,7 @@ for (const path of await walk(source)) {
       int camIndex = 0;
       switch(this.type) {
       case 60:
+      case 61:
       case 63:
       case 64:
       case 65:
@@ -284,12 +285,19 @@ for (const path of await walk(source)) {
       case 67:
       case 68:
       case 71:
-      case 75:
-         this.nBull = 1;
-         break;
-      case 61:
       case 72:
       case 74:
+      case 75:
+      case 76:
+      case 77:
+      case 78:
+      case 79:
+      case 80:
+      case 73:
+      case 81:
+      case 82:
+      case 83:
+      case 84:
          this.nBull = BM.nOrbit;
          break;`);
     text = text.replace('   private void createBullet(byte Type) {\n      int var10000 = this.nBull * (this.nWasShoot - 1);\n      int i;\n      switch(Type) {',
@@ -298,6 +306,7 @@ for (const path of await walk(source)) {
       int i;
       switch(Type) {
       case 60:
+      case 61:
       case 63:
       case 64:
       case 65:
@@ -305,18 +314,42 @@ for (const path of await walk(source)) {
       case 67:
       case 68:
       case 71:
-      case 75:
-         this.bullets.addElement(new Bullet(Type, this.xPaint[this.bIndex], this.yPaint[this.bIndex], this.whoShot, this.idBullet));
-         ++this.bIndex;
-         break;
-      case 61:
       case 72:
       case 74:
+      case 75:
+      case 76:
+      case 77:
+      case 78:
+      case 79:
+      case 80:
+      case 73:
+      case 81:
+      case 82:
+      case 83:
+      case 84:
          for(i = 0; i < BM.nOrbit; ++i) {
             this.bullets.addElement(new Bullet(Type, this.xPaint[i + this.bIndex], this.yPaint[i + this.bIndex], this.whoShot, this.idBullet));
          }
          this.bIndex += BM.nOrbit;
          break;`);
+  }
+  if (name === 'player/CPlayer.java') {
+    // Spec v3 Phase B flight: while flyMode is on (training, flying
+    // hero), gravity/falling is suppressed and walking moves through
+    // the air without snapping to the terrain.
+    text = text.replace('        if (this.activeFallbyEx && !BM.active) {\n            this.falling = true;\n            this.activeFallbyEx = false;\n            this.isActiveFall = true;\n        }\n\n        if (this.falling) {\n            this.fall();\n        }',
+      '        if (this.activeFallbyEx && !BM.active) {\n            this.falling = true;\n            this.activeFallbyEx = false;\n            this.isActiveFall = true;\n        }\n\n        if (this.falling) {\n            if (army2.web.MarvelRoster.flyMode && GameScr.trainingMode && this.index == GameScr.myIndex) {\n                this.falling = false;\n            } else {\n                this.fall();\n            }\n        }');
+    text = text.replace('                if (MM.isHaveWaterOrGlass && GameScr.exs.size() == 0) {\n                    MM.checkWaterBum(this.x, this.y, (byte) 0);\n                }\n\n                byte runRange = this.runSpeed;',
+      '                if (MM.isHaveWaterOrGlass && GameScr.exs.size() == 0) {\n                    MM.checkWaterBum(this.x, this.y, (byte) 0);\n                }\n\n                if (army2.web.MarvelRoster.flyMode && GameScr.trainingMode && this.index == GameScr.myIndex) {\n                    if (this.movePoint > 60) {\n                        return;\n                    }\n                    ++this.movePoint;\n                    this.animMove();\n                    if (directMove == 0) {\n                        this.x -= this.runSpeed;\n                    } else if (directMove == 2) {\n                        this.x += this.runSpeed;\n                    }\n                    this.falling = false;\n                    return;\n                }\n\n                byte runRange = this.runSpeed;');
+  }
+  if (name === 'item/Bullet.java') {
+    // Spec v3 Phase B: Hulk rides his own leap bullet (type 68) like
+    // the stock gun-14 ride: the rider follows the trajectory and
+    // falls the last stretch when the flight ends.
+    text = text.replace('            if (PM.getCurPlayer().isJump) {\n                PM.getCurPlayer().x = this.xPaint[this.paintCount - 1];\n                PM.getCurPlayer().y = this.yPaint[this.paintCount - 1];\n            }\n        }',
+      '            if (PM.getCurPlayer().isJump) {\n                PM.getCurPlayer().x = this.xPaint[this.paintCount - 1];\n                PM.getCurPlayer().y = this.yPaint[this.paintCount - 1];\n            }\n        }\n\n        if (this.type == 68 && GameScr.trainingMode && "hulk".equals(army2.web.MarvelRoster.selectedId)) {\n            CPlayer hulkRider = PM.getCurPlayer();\n            if (hulkRider != null && this.whoShot == GameScr.myIndex) {\n                hulkRider.x = this.x;\n                hulkRider.y = this.y;\n                hulkRider.falling = false;\n            }\n        }');
+    text = text.replace('        if (this.paintCount > this.xPaint.length - 1) {\n            this.paintCount = this.xPaint.length - 1;',
+      '        if (this.type == 68 && this.paintCount > this.xPaint.length - 1 && GameScr.trainingMode && "hulk".equals(army2.web.MarvelRoster.selectedId)) {\n            CPlayer hulkRider = PM.getCurPlayer();\n            if (hulkRider != null && this.whoShot == GameScr.myIndex) {\n                hulkRider.falling = true;\n                hulkRider.isActiveFall = true;\n            }\n        }\n\n        if (this.paintCount > this.xPaint.length - 1) {\n            this.paintCount = this.xPaint.length - 1;');
   }
   if (name === 'network/GameService.java') {
     // addPoint must carry short deltas: bulk steps exceed a byte.
@@ -403,6 +436,15 @@ for (const path of await walk(source)) {
                     this.kbFire = false;
                     kbPlayer.fire();
                 }
+
+                if (GameScr.trainingMode && army2.web.MarvelRoster.selectedId != null && army2.web.MarvelRoster.canFlyOf(army2.web.MarvelRoster.selectedId)) {
+                    boolean kbFlyUp = Gdx.input.isKeyPressed(Input.Keys.R);
+                    boolean kbFlyDown = Gdx.input.isKeyPressed(Input.Keys.F);
+                    if ((kbFlyUp || kbFlyDown) && kbNow - this.kbLast >= 50L) {
+                        this.kbLast = kbNow;
+                        this.flyStep(kbFlyUp ? -3 : 3, 1);
+                    }
+                }
             }
         }`);
   }
@@ -414,6 +456,9 @@ for (const path of await walk(source)) {
     text = text.replace('    public void selectedItemPanelRealeased(int x, int y2, int index) {', `
     public boolean isQuickZone(int x, int y) {
         if (x >= CCanvas.width - 78 && x <= CCanvas.width - 16 && y >= CCanvas.hieght - 88 && y <= CCanvas.hieght - 64) {
+            return true;
+        }
+        if (x >= CCanvas.width - 146 && x <= CCanvas.width - 82 && y >= CCanvas.hieght - 88 && y <= CCanvas.hieght - 64) {
             return true;
         }
         int qx = CCanvas.hw - 96;
@@ -445,11 +490,21 @@ for (const path of await walk(source)) {
                 }
             }
         }
-        g.setColor(13631488);
+        g.setColor(army2.web.MarvelRoster.powArmed ? 3061327 : 13631488);
         g.fillRect(CCanvas.width - 78, CCanvas.hieght - 88, 62, 24, false);
         g.setColor(16777215);
         g.drawRect(CCanvas.width - 78, CCanvas.hieght - 88, 62, 24, false);
         Font.borderFont.drawString(g, "POW", CCanvas.width - 47, CCanvas.hieght - 82, 3);
+        if (trainingMode && army2.web.MarvelRoster.selectedId != null && army2.web.MarvelRoster.canFlyOf(army2.web.MarvelRoster.selectedId)) {
+            g.setColor(10526880);
+            g.fillRect(CCanvas.width - 146, CCanvas.hieght - 88, 30, 24, false);
+            g.fillRect(CCanvas.width - 112, CCanvas.hieght - 88, 30, 24, false);
+            g.setColor(16777215);
+            g.drawRect(CCanvas.width - 146, CCanvas.hieght - 88, 30, 24, false);
+            g.drawRect(CCanvas.width - 112, CCanvas.hieght - 88, 30, 24, false);
+            Font.borderFont.drawString(g, "^", CCanvas.width - 131, CCanvas.hieght - 82, 3);
+            Font.borderFont.drawString(g, "v", CCanvas.width - 97, CCanvas.hieght - 82, 3);
+        }
     }
 
     public void quickUseItem(int slot) {
@@ -480,25 +535,49 @@ for (const path of await walk(source)) {
         }
     }
 
+    public void flyStep(int dy, int cost) {
+        try {
+            if (!trainingMode || army2.web.MarvelRoster.selectedId == null || !army2.web.MarvelRoster.canFlyOf(army2.web.MarvelRoster.selectedId)) {
+                return;
+            }
+            CPlayer p = PM.getMyPlayer();
+            if (p == null || !pm.isYourTurn() || p.getState() == 5 || p.falling) {
+                return;
+            }
+            if (dy < 0) {
+                if (p.movePoint > 60) {
+                    return;
+                }
+                army2.web.MarvelRoster.flyMode = true;
+                p.y += dy;
+                if (p.y < 12) {
+                    p.y = 12;
+                }
+                p.movePoint += cost;
+            } else if (army2.web.MarvelRoster.flyMode) {
+                p.y += dy;
+                p.movePoint += cost;
+                if (GameScr.mm.isLand(p.x, p.y)) {
+                    while (p.y > 0 && GameScr.mm.isLand(p.x, p.y)) {
+                        p.y--;
+                    }
+                    p.y++;
+                    army2.web.MarvelRoster.flyMode = false;
+                }
+            }
+        } catch (Exception e) {
+        }
+    }
+
     public void quickPow() {
         try {
             CPlayer p = PM.getMyPlayer();
             if (p == null || !pm.isYourTurn() || p.getState() == 5 || p.falling) {
                 return;
             }
-            p.holdFire();
-            p.holdFire();
-            if (p.getState() != 3) {
-                return;
-            }
-            if (p.isDoublePower) {
-                p.force = (byte)p.maxforce;
-                p.isSecondPower = true;
-                p.force_2 = (byte)(p.maxforce2 > 1 ? p.maxforce2 - 1 : 1);
-            } else {
-                p.force = (byte)(p.maxforce > 1 ? p.maxforce - 1 : 1);
-            }
-            p.holdFire();
+            // Spec v3: POW is armed, not fired - the next shot (charged
+            // at any force the player picks) carries the POW flag.
+            army2.web.MarvelRoster.powArmed = !army2.web.MarvelRoster.powArmed;
         } catch (Exception e) {
         }
     }
@@ -510,6 +589,14 @@ for (const path of await walk(source)) {
         if (!this.isSelectItem && CCanvas.currentDialog == null && pm != null && pm.isYourTurn()) {
             if (x >= CCanvas.width - 78 && x <= CCanvas.width - 16 && y2 >= CCanvas.hieght - 88 && y2 <= CCanvas.hieght - 64) {
                 this.quickPow();
+                return;
+            }
+            if (x >= CCanvas.width - 146 && x <= CCanvas.width - 116 && y2 >= CCanvas.hieght - 88 && y2 <= CCanvas.hieght - 64) {
+                this.flyStep(-9, 2);
+                return;
+            }
+            if (x >= CCanvas.width - 112 && x <= CCanvas.width - 82 && y2 >= CCanvas.hieght - 88 && y2 <= CCanvas.hieght - 64) {
+                this.flyStep(9, 2);
                 return;
             }
             int qx = CCanvas.hw - 96;
@@ -561,7 +648,7 @@ for (const path of await walk(source)) {
     text = text.replace('    public void waitForFIRETraining(byte type, short x, short y, short angle, byte force, byte force_2, byte numShoot) {\n        Message m = new Message((byte) 84);',
       '    public void waitForFIRETraining(byte type, short x, short y, short angle, byte force, byte force_2, byte numShoot) {\n        Message m = new Message((byte) 84);\n        if (GameScr.trainingMode && army2.web.MarvelRoster.selectedId != null) {\n            type = (byte) army2.web.MarvelRoster.bulletTypeOf(army2.web.MarvelRoster.selectedId);\n        }');
     text = text.replace('            m.writer().writeByte(numShoot);\n        } catch (Exception var10) {\n        }\n\n        this.session.sendMessage(m);\n        m.cleanup();\n        CRes.out("SendWait_Fire bull: " + type + " nShoot: " + numShoot + " force2= " + force_2);',
-      '            m.writer().writeByte(numShoot);\n            if (GameScr.trainingMode && army2.web.MarvelRoster.selectedId != null) {\n                m.writer().writeShort(army2.web.MarvelRoster.attackOf(army2.web.MarvelRoster.selectedId));\n            }\n        } catch (Exception var10) {\n        }\n\n        this.session.sendMessage(m);\n        m.cleanup();\n        CRes.out("SendWait_Fire bull: " + type + " nShoot: " + numShoot + " force2= " + force_2);');
+      '            m.writer().writeByte(numShoot);\n            if (GameScr.trainingMode && army2.web.MarvelRoster.selectedId != null) {\n                m.writer().writeShort(army2.web.MarvelRoster.attackOf(army2.web.MarvelRoster.selectedId));\n                m.writer().writeByte(army2.web.MarvelRoster.consumePowArm() ? 1 : 0);\n            }\n        } catch (Exception var10) {\n        }\n\n        this.session.sendMessage(m);\n        m.cleanup();\n        CRes.out("SendWait_Fire bull: " + type + " nShoot: " + numShoot + " force2= " + force_2);');
   }
   if (name === 'item/Bullet.java') {
     // Marvel P4: projectile sprites for hero bullet types 60-75.
@@ -577,33 +664,141 @@ for (const path of await walk(source)) {
                     this.changeFrame = true;
                 }
                 break;
+            case 81:
+                if (army2.web.MarvelRoster.giantShieldImage != null) {
+                    this.dan = army2.web.MarvelRoster.giantShieldImage;
+                    this.rotate = true;
+                } else if (army2.web.MarvelRoster.shieldImage != null) {
+                    this.dan = army2.web.MarvelRoster.shieldImage;
+                    this.rotate = true;
+                } else {
+                    this.frmImg = new FrameImage(bomb.image, 24, 24);
+                    this.changeFrame = true;
+                }
+                break;
             case 61:
-            case 74:
-            case 75:
-                this.frmImg = new FrameImage(cannon2.image, 14, 14);
-                this.changeFrame = true;
+                if (army2.web.MarvelRoster.plasmaImage != null) {
+                    this.dan = army2.web.MarvelRoster.plasmaImage;
+                } else {
+                    this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
+                    this.frmImg.nFrame = 4;
+                    this.changeFrame = true;
+                }
+                break;
+            case 82:
+                if (army2.web.MarvelRoster.rocketImage != null) {
+                    this.dan = army2.web.MarvelRoster.rocketImage;
+                    this.rotate = true;
+                } else {
+                    this.frmImg = new FrameImage(cannon2.image, 14, 14);
+                    this.changeFrame = true;
+                }
                 break;
             case 63:
-                this.frmImg = new FrameImage(bomb_flag.image, 32, 32);
+                if (army2.web.MarvelRoster.fistImage != null) {
+                    this.dan = army2.web.MarvelRoster.fistImage;
+                } else {
+                    this.frmImg = new FrameImage(bomb_flag.image, 32, 32);
+                    this.changeFrame = true;
+                }
                 this.smoke = true;
                 break;
             case 64:
-            case 65:
-            case 66:
-            case 67:
-                this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
-                this.frmImg.nFrame = 4;
-                this.changeFrame = true;
+                if (army2.web.MarvelRoster.hammerImage != null) {
+                    this.dan = army2.web.MarvelRoster.hammerImage;
+                    this.rotate = true;
+                } else {
+                    this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
+                    this.frmImg.nFrame = 4;
+                    this.changeFrame = true;
+                }
                 break;
-            case 68:
-                this.frmImg = new FrameImage(bomb.image, 24, 24);
-                this.changeFrame = true;
+            case 65:
+                if (army2.web.MarvelRoster.axeImage != null) {
+                    this.dan = army2.web.MarvelRoster.axeImage;
+                    this.rotate = true;
+                } else {
+                    this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
+                    this.frmImg.nFrame = 4;
+                    this.changeFrame = true;
+                }
+                break;
+            case 66:
+                if (army2.web.MarvelRoster.boltImage != null) {
+                    this.dan = army2.web.MarvelRoster.boltImage;
+                } else {
+                    this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
+                    this.frmImg.nFrame = 4;
+                    this.changeFrame = true;
+                }
+                break;
+            case 67:
+                if (army2.web.MarvelRoster.discBlueImage != null) {
+                    this.dan = army2.web.MarvelRoster.discBlueImage;
+                    this.rotate = true;
+                } else {
+                    this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
+                    this.frmImg.nFrame = 4;
+                    this.changeFrame = true;
+                }
+                break;
+            case 83:
+                if (army2.web.MarvelRoster.discYellowImage != null) {
+                    this.dan = army2.web.MarvelRoster.discYellowImage;
+                    this.rotate = true;
+                } else {
+                    this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
+                    this.frmImg.nFrame = 4;
+                    this.changeFrame = true;
+                }
+                break;
+            case 84:\n                if (army2.web.MarvelRoster.boltImage != null) {\n                    this.dan = army2.web.MarvelRoster.boltImage;\n                } else {\n                    this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);\n                    this.frmImg.nFrame = 4;\n                    this.changeFrame = true;\n                }\n                break;\n            case 68:
+                if (army2.web.MarvelRoster.hulkFlyImage != null) {
+                    this.dan = army2.web.MarvelRoster.hulkFlyImage;
+                } else {
+                    this.frmImg = new FrameImage(bomb.image, 24, 24);
+                    this.changeFrame = true;
+                }
                 this.blackSmoke = true;
                 break;
             case 71:
             case 72:
+            case 73:
+                if (army2.web.MarvelRoster.arrowImage != null) {
+                    this.img = army2.web.MarvelRoster.arrowImage;
+                } else {
+                    this.img = PlayerEquip.bullets[1];
+                }
+                this.smoke = true;
+                break;
+            case 77:
+                if (army2.web.MarvelRoster.beamImage != null) {
+                    this.dan = army2.web.MarvelRoster.beamImage;
+                    this.rotate = true;
+                } else {
+                    this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
+                    this.frmImg.nFrame = 4;
+                    this.changeFrame = true;
+                }
+                break;
+            case 74:
+            case 75:
+            case 76:
+                this.frmImg = new FrameImage(cannon2.image, 14, 14);
+                this.changeFrame = true;
+                break;
+            case 78:
+                this.frmImg = new FrameImage(PlayerEquip.bullets[5].image, 20, 20);
+                this.frmImg.nFrame = 4;
+                this.changeFrame = true;
+                break;
+            case 79:
                 this.img = PlayerEquip.bullets[1];
                 this.smoke = true;
+                break;
+            case 80:
+                this.frmImg = new FrameImage(bomb.image, 24, 24);
+                this.changeFrame = true;
                 break;`);
   }
   if (name === 'shop/ShopItem.java') {

@@ -1,40 +1,37 @@
-import { test } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { Army2ProtocolClient, writeUTF } from './protocol-client.mjs';
 
-const url = process.env.ARMY2_INTEGRATION_URL;
+// Hero weapons per SPEC V3 (2026-11-14): shooting follows the user's
+// description, specials follow mobiarmy3.me/nhan-vat. Phase A covers
+// the core shots only. The defining rule: POW is an explicit flag the
+// client appends to command 84 (after the hero attack short) - force
+// no longer implies POW, and a POW shot can be charged at ANY force.
+// Cadence specials arrive in Phase C, flight/Hulk leap in Phase B.
+const url = process.env.ARMY2_INTEGRATION_URL ?? 'ws://127.0.0.1:8081';
 
-async function enterGuest(client, label) {
+async function startPractice(client, name) {
   const identity = randomBytes(16).toString('hex');
   const proof = randomBytes(32).toString('hex');
-  const name = `${label} ${identity.slice(0, 6)}`;
   const entered = client.wait(3);
   client.send(-90, Buffer.concat([
     writeUTF(name), writeUTF(identity), writeUTF(proof), writeUTF('2.4.1'),
   ]));
-  const info = await entered;
-  return { id: info.readInt32BE(0), name };
-}
-
-async function startTraining(client) {
-  const mapReplyPromise = client.wait(-6);
+  await entered;
+  const mapPromise = client.wait(-6);
   client.send(-6);
-  await mapReplyPromise;
+  await mapPromise;
   const startPromise = client.wait(20);
   client.send(83, Buffer.from([0]));
   const start = await startPromise;
-  const offset = 10 + 1 + 1 + 2;
-  return { sx: start.readInt16BE(offset), sy: start.readInt16BE(offset + 2) };
+  return { sx: start.readInt16BE(14), sy: start.readInt16BE(16) };
 }
 
-// Fire one training shot the way the hero-enabled client does: bullet
-// type + hero attack appended after nshoot. Resolves with the parsed
-// trajectory header once the turn comes back (command 24).
-async function fire(client, sx, sy, bulletType, heroAtt, force = 20, angle = 45) {
+async function fire(client, sx, sy, bulletType, heroAtt, force = 20, powFlag = 0, angle = 45) {
   const replyPromise = client.wait(22);
-  const turnPromise = client.wait(24);
-  const body = Buffer.alloc(1 + 2 + 2 + 2 + 1 + 1 + 2);
+  const turnPromise = client.wait(24, 25000);
+  const body = Buffer.alloc(12);
   let o = 0;
   body.writeInt8(bulletType, o); o += 1;
   body.writeInt16BE(sx, o); o += 2;
@@ -43,15 +40,14 @@ async function fire(client, sx, sy, bulletType, heroAtt, force = 20, angle = 45)
   body.writeInt8(force, o); o += 1;
   body.writeInt8(1, o); o += 1;
   body.writeInt16BE(heroAtt, o); o += 2;
+  body.writeInt8(powFlag, o); o += 1;
   client.send(84, body);
   const reply = await replyPromise;
-  let p = 0;
-  const typeShoot = reply.readInt8(p); p += 1;
+  let p = 1;
   const isPow = reply.readInt8(p); p += 1;
-  const whoFire = reply.readInt8(p); p += 1;
+  p += 1; // shooter index
   const bulletId = reply.readInt8(p); p += 1;
-  p += 4; // gun x/y
-  p += 2; // angle
+  p += 4 + 2; // gun position + angle
   if (bulletId === 17 || bulletId === 19) p += 1;
   if (bulletId === 14 || bulletId === 40) p += 2;
   if (bulletId === 44 || bulletId === 45 || bulletId === 47) p += 1;
@@ -60,55 +56,132 @@ async function fire(client, sx, sy, bulletType, heroAtt, force = 20, angle = 45)
   const frames = reply.readInt16BE(p);
   const turn = await turnPromise;
   assert.equal(turn.readInt8(0), 0, 'turn returns to the shooter');
-  return { typeShoot, isPow, whoFire, bulletId, nBullet, frames };
+  return { isPow, bulletId, nBullet, frames };
 }
 
-test('hero weapon skills resolve through the training arena', { skip: !url }, async () => {
+test('hero core shots follow spec v3 phase A in the training arena', async () => {
   const client = new Army2ProtocolClient(url);
   await client.ready();
-  await enterGuest(client, 'Hero');
-  const { sx, sy } = await startTraining(client);
+  try {
+    const { sx, sy } = await startPractice(client, 'Hero ' + randomBytes(3).toString('hex'));
 
-  // Captain America: shield throw, and the giant shield at full force.
-  const shield = await fire(client, sx, sy, 60, 250, 20);
-  assert.equal(shield.bulletId, 60, 'shield bullet type');
-  assert.equal(shield.isPow, 0, 'normal shield is not pow');
-  assert.ok(shield.frames > 10, `shield flight frames: ${shield.frames}`);
-  const bigShield = await fire(client, sx, sy, 60, 250, 30);
-  assert.equal(bigShield.isPow, 1, 'full-force shield is the giant POW shield');
+    // Captain: shield throw. Max force alone is NOT pow anymore...
+    let r = await fire(client, sx, sy, 60, 250, 30, 0);
+    assert.equal(r.bulletId, 60);
+    assert.equal(r.isPow, 0);
+    // ...but the POW flag at LOW force is the giant shield (81).
+    r = await fire(client, sx, sy, 60, 250, 5, 1);
+    assert.equal(r.bulletId, 81);
+    assert.equal(r.isPow, 1);
+    // Plain throw again.
+    r = await fire(client, sx, sy, 60, 250, 20, 0);
+    assert.equal(r.bulletId, 60);
 
-  // Iron Man Mark 50: two normal shots, third is the energy beam.
-  const m1 = await fire(client, sx, sy, 62, 350, 15);
-  const m2 = await fire(client, sx, sy, 62, 350, 15);
-  const m3 = await fire(client, sx, sy, 62, 350, 15);
-  assert.deepEqual([m1.bulletId, m2.bulletId, m3.bulletId], [0, 0, 14], 'mark 50 cadence');
+    // Iron Man: 2 plasma bolts; POW = 2 rockets (82) at any force.
+    r = await fire(client, sx, sy, 61, 350, 15, 0);
+    assert.equal(r.bulletId, 61);
+    assert.equal(r.nBullet, 2);
+    r = await fire(client, sx, sy, 61, 350, 12, 1);
+    assert.equal(r.bulletId, 82);
+    assert.equal(r.nBullet, 2);
 
-  // Winter Soldier: shots pierce terrain (stock type 25 on the wire).
-  const ws = await fire(client, sx, sy, 69, 350, 20);
-  assert.equal(ws.bulletId, 25, 'winter soldier pierces terrain');
+    // Mark 50 shares the Iron Man core in Phase A (beam is Phase C).
+    r = await fire(client, sx, sy, 62, 350, 15, 0);
+    assert.equal(r.bulletId, 61);
+    assert.equal(r.nBullet, 2);
+    r = await fire(client, sx, sy, 62, 350, 12, 1);
+    assert.equal(r.bulletId, 82);
 
-  // Hawkeye: three arrows, fourth shot is the 4-arrow lock-on volley.
-  await fire(client, sx, sy, 71, 508, 15);
-  await fire(client, sx, sy, 71, 508, 15);
-  await fire(client, sx, sy, 71, 508, 15);
-  const volley = await fire(client, sx, sy, 71, 508, 15);
-  assert.equal(volley.bulletId, 72, 'lock-on volley type');
-  assert.equal(volley.nBullet, 4, 'four arrows');
+    // Red Hulk: one punch shockwave.
+    r = await fire(client, sx, sy, 63, 450, 15, 0);
+    assert.equal(r.bulletId, 63);
+    assert.equal(r.nBullet, 1);
 
-  // Thor: third shot is powered (lightning carrier).
-  await fire(client, sx, sy, 64, 400, 15);
-  await fire(client, sx, sy, 64, 400, 15);
-  const thor = await fire(client, sx, sy, 64, 400, 15);
-  assert.equal(thor.bulletId, 64, 'thor keeps his bullet type');
-  assert.equal(thor.isPow, 1, 'third thor shot is the lightning skill shot');
+    // Thor: one hammer; POW does not triple it in Phase A.
+    r = await fire(client, sx, sy, 64, 400, 15, 0);
+    assert.equal(r.bulletId, 64);
+    assert.equal(r.nBullet, 1);
+    r = await fire(client, sx, sy, 64, 400, 15, 1);
+    assert.equal(r.bulletId, 64);
+    assert.equal(r.nBullet, 1);
+    // Stormbreaker: one axe.
+    r = await fire(client, sx, sy, 65, 400, 15, 0);
+    assert.equal(r.bulletId, 65);
 
-  // Hulk: leap attack bullet.
-  const hulk = await fire(client, sx, sy, 68, 450, 18);
-  assert.equal(hulk.bulletId, 68, 'hulk leap type');
-  assert.equal(hulk.nBullet, 1, 'one leap');
 
-  const leavePromise = client.wait(83);
-  client.send(83, Buffer.from([1]));
-  await leavePromise;
-  client.close();
+    // Loki: one scepter bolt (no combo anymore).
+    r = await fire(client, sx, sy, 66, 400, 15, 0);
+    assert.equal(r.bulletId, 66);
+    assert.equal(r.nBullet, 1);
+
+    // Doctor Strange: discs alternate blue (67), yellow (83), blue.
+    assert.equal((await fire(client, sx, sy, 67, 400, 15, 0)).bulletId, 67);
+    assert.equal((await fire(client, sx, sy, 67, 400, 15, 0)).bulletId, 83);
+    assert.equal((await fire(client, sx, sy, 67, 400, 15, 0)).bulletId, 67);
+
+    // Winter Soldier: one terrain-piercing AK round (stock 25).
+    r = await fire(client, sx, sy, 69, 350, 20, 0);
+    assert.equal(r.bulletId, 25);
+    assert.equal(r.nBullet, 1);
+    // Winter: same piercing round (mark applies on hit, Phase C aura).
+    r = await fire(client, sx, sy, 70, 350, 20, 0);
+    assert.equal(r.bulletId, 25);
+    assert.equal(r.nBullet, 1);
+    r = await fire(client, sx, sy, 70, 350, 20, 1);
+    assert.equal(r.bulletId, 25);
+    assert.equal(r.nBullet, 1);
+
+    // Hawkeye: three single arrows, then the Phase C lock-on
+    // volley on the 4th shot (4 homing arrows at 50% each).
+    for (let i = 0; i < 3; i++) {
+      r = await fire(client, sx, sy, 71, 508, 15, 0);
+      assert.equal(r.bulletId, 71);
+      assert.equal(r.nBullet, 1);
+    }
+    r = await fire(client, sx, sy, 71, 508, 15, 0);
+    assert.equal(r.bulletId, 72);
+    assert.equal(r.nBullet, 4);
+    // Hawkeye Tech: single tech arrow (airstrike cadence is
+    // covered by heroes-cadence.integration.test.mjs).
+    r = await fire(client, sx, sy, 73, 510, 15, 0);
+    assert.equal(r.bulletId, 73);
+    assert.equal(r.nBullet, 1);
+
+    // Ultron / Ultron Prime: one plasma beam (77).
+    r = await fire(client, sx, sy, 74, 300, 15, 0);
+    assert.equal(r.bulletId, 77);
+    assert.equal(r.nBullet, 1);
+    r = await fire(client, sx, sy, 75, 350, 15, 0);
+    assert.equal(r.bulletId, 77);
+    assert.equal(r.nBullet, 1);
+
+    // Hulk (Phase B): the leap bullet IS Hulk. A normal leap replies
+    // with the leap trajectory...
+    r = await fire(client, sx, sy, 68, 450, 15, 0);
+    assert.equal(r.bulletId, 68);
+    // ...and a max-force leap from the spawn flies off the island:
+    // Hulk dies (the water case) and the server reports shooter HP 0
+    // via command 51 before handing the turn back.
+    const hpEvents = [];
+    const collector = (m) => {
+      if (m.command === 51) {
+        hpEvents.push({ who: m.data.readInt8(0), hp: m.data.readUInt16BE(1) });
+      }
+    };
+    client.on('packet', collector);
+    r = await fire(client, sx, sy, 68, 450, 30, 0);
+    assert.equal(r.bulletId, 68);
+    await new Promise((res) => setTimeout(res, 400));
+    client.off('packet', collector);
+    assert.ok(
+      hpEvents.some((e) => e.who === 0 && e.hp === 0),
+      'shooter death reported via command 51, got ' + JSON.stringify(hpEvents),
+    );
+
+    const leavePromise = client.wait(83);
+    client.send(83, Buffer.from([1]));
+    await leavePromise;
+  } finally {
+    client.close();
+  }
 });

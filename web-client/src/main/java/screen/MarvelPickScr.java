@@ -86,8 +86,10 @@ public class MarvelPickScr extends CScreen {
     private void confirm() {
         if (this.heroes == null || this.selected <= 0 || this.selected > this.heroes.size()) {
             MarvelRoster.selectedId = null;
+            army2.web.MarvelRoster.flyMode = false;
         } else {
             MarvelRoster.selectedId = this.heroes.get(this.selected - 1).id;
+            army2.web.MarvelRoster.flyMode = false;
         }
         BrowserPlatform.trace("Marvel hero selected: " + MarvelRoster.selectedId);
         GameScr.trainingMode = true;

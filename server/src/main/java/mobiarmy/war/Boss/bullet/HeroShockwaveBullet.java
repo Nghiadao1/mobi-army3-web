@@ -8,8 +8,8 @@ import mobiarmy.war.Player;
 public class HeroShockwaveBullet extends Bullet {
 
     public HeroShockwaveBullet(Gun gun, int att, int x, int y, int vx, int vy) {
-        super(gun, 63, att, x, y, vx, vy, 0, 0, 10);
-        this.radius = 110;
+        super(gun, 63, att, x, y, vx, vy, 0, 0, 100);
+        this.radius = 65;
     }
 
     @Override

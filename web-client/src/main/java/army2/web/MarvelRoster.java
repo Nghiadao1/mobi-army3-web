@@ -53,6 +53,50 @@ public final class MarvelRoster {
     /** Captain's shield projectile sprite, preloaded with the roster. */
     public static mImage shieldImage;
 
+    /** Hero projectile sprites (spec v3), loaded with the roster. */
+    public static mImage giantShieldImage;
+    public static mImage plasmaImage;
+    public static mImage rocketImage;
+    public static mImage arrowImage;
+    public static mImage hammerImage;
+    public static mImage axeImage;
+    public static mImage discBlueImage;
+    public static mImage discYellowImage;
+    public static mImage boltImage;
+    public static mImage fistImage;
+    public static mImage beamImage;
+    public static mImage hulkFlyImage;
+
+    /** Flight mode (spec v3 Phase B): on while a flying hero is airborne. */
+    public static volatile boolean flyMode;
+
+    /** Whether the hero can fly (heroes.json canFly flag). */
+    public static boolean canFlyOf(String id) {
+        Hero hero = byId(id);
+        return hero != null && hero.canFly;
+    }
+
+    /**
+     * POW arming (spec v3): the battle POW button toggles this flag; the
+     * next hero shot sends it as the POW flag in command 84 and clears
+     * it. Force stays fully manual - a POW shot charges like any other.
+     */
+    public static volatile boolean powArmed;
+
+    public static boolean consumePowArm() {
+        boolean armed = powArmed;
+        powArmed = false;
+        return armed;
+    }
+
+    private static mImage loadProj(String name) {
+        try {
+            return mImage.createImage("/marvel/" + name);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     /**
      * Spritesheet for a hero: the full 96px-cell sheet for previews, or the
      * half-size 48px-cell sheet (id_b.png) for in-battle rendering. Loaded
@@ -123,6 +167,18 @@ public final class MarvelRoster {
             } catch (Throwable t) {
                 BrowserPlatform.trace("Marvel shield load failed: " + t);
             }
+            giantShieldImage = loadProj("giant_shield.png");
+            plasmaImage = loadProj("plasma.png");
+            rocketImage = loadProj("rocket.png");
+            arrowImage = loadProj("arrow.png");
+            hammerImage = loadProj("hammer.png");
+            axeImage = loadProj("axe.png");
+            discBlueImage = loadProj("disc_blue.png");
+            discYellowImage = loadProj("disc_yellow.png");
+            boltImage = loadProj("bolt.png");
+            fistImage = loadProj("fist.png");
+            beamImage = loadProj("beam.png");
+            hulkFlyImage = loadProj("hulk_fly.png");
             BrowserPlatform.trace("Marvel roster loaded: " + HEROES.size() + " heroes");
         } catch (Throwable t) {
             BrowserPlatform.trace("Marvel roster load failed: " + t);
