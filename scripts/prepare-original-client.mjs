@@ -168,11 +168,138 @@ for (const path of await walk(source)) {
 
         GameScr.sm.update();`);
   }
+  if (name === 'screen/LevelScreen.java') {
+    // Closing this screen silently discarded unconfirmed point allocations
+    // (restartPoint), which reads as a reset. Auto-commit pending deltas on
+    // close instead; "Lam lai" stays the explicit discard path.
+    text = text.replace('LevelScreen.this.restartPoint();\n            LevelScreen.this.doClose();', 'LevelScreen.this.commitPoint();\n            LevelScreen.this.doClose();');
+    text = text.replace('   public void doUp() {', `   public void commitPoint() {
+      boolean any = false;
+      for (int i = 0; i < 5; ++i) {
+         if (this.deltaA[i] != 0) {
+            any = true;
+         }
+      }
+      if (any) {
+         GameService.gI().addPoint(this.deltaA);
+         for (int i = 0; i < 5; ++i) {
+            this.deltaA[i] = 0;
+         }
+      }
+   }
+
+   public void doUp() {`);
+  }
+  if (name === 'screen/LevelScreen.java') {
+    // Bulk allocation: a step selector (x1/x10/x50/x100) so hundreds of
+    // points do not need hundreds of taps. Tap the "Cong: xN" label on the
+    // Point line or press Tab / 1-4 to change the step; the +/- taps and
+    // arrow keys then apply the whole step, clamped to what is available.
+    // deltaA becomes short[] because a byte overflows past +127.
+    text = text.replace('import network.GameService;', 'import network.GameService;\nimport com.badlogic.gdx.Gdx;\nimport com.badlogic.gdx.Input;');
+    text = text.replace('byte[] deltaA = new byte[5];', 'short[] deltaA = new short[5];\n   int stepIdx = 0;\n   static final int[] STEPS = new int[]{1, 10, 50, 100};');
+    text = text.replace('this.deltaA = new byte[5];', 'this.deltaA = new short[5];');
+    text = replaceMethod(text, 'public void doUp()', `
+        if (TerrainMidlet.myInfo.point > 0) {
+            int n = LevelScreen.STEPS[this.stepIdx];
+            if (n > TerrainMidlet.myInfo.point) {
+                n = TerrainMidlet.myInfo.point;
+            }
+            this.deltaA[this.select] += n;
+            TerrainMidlet.myInfo.point -= n;
+            this.currAbility[this.select] += n;
+            this.canDown[this.select] = 1;
+        }
+
+        if (TerrainMidlet.myInfo.point == 0) {
+            for (int i = 0; i < 5; ++i) {
+                this.canUp[i] = 0;
+            }
+        }
+    `);
+    text = replaceMethod(text, 'public void doDown()', `
+        int ability = TerrainMidlet.myInfo.ability[this.select];
+        if (this.currAbility[this.select] > ability) {
+            int n = LevelScreen.STEPS[this.stepIdx];
+            if (n > this.deltaA[this.select]) {
+                n = this.deltaA[this.select];
+            }
+            if (n > 0) {
+                this.deltaA[this.select] -= n;
+                TerrainMidlet.myInfo.point += n;
+                this.currAbility[this.select] -= n;
+                this.canUp[this.select] = 1;
+            }
+        }
+
+        if (this.currAbility[this.select] == ability) {
+            this.canDown[this.select] = 0;
+        }
+
+        if (TerrainMidlet.myInfo.point > 0) {
+            for (int i = 0; i < 5; ++i) {
+                this.canUp[i] = 1;
+            }
+        }
+    `);
+    text = text.replace('Font.borderFont.drawString(g, "Point: " + m.point, this.xPaint + W / 2 - i, this.yPaint + 57 + 90 + 2 + i, 3);', 'Font.borderFont.drawString(g, "Point: " + m.point, this.xPaint + W / 2 - i, this.yPaint + 57 + 90 + 2 + i, 3);\n      Font.borderFont.drawString(g, "Cong: x" + LevelScreen.STEPS[this.stepIdx], this.xPaint + 150, this.yPaint + 57 + 90 + 2 + i, 3);');
+    text = text.replace('int row = (yReleased - (this.yPaint + 17)) / 30;', `
+        if (xReleased >= this.xPaint + 100 && yReleased >= this.yPaint + 156 && yReleased <= this.yPaint + 184) {
+            this.stepIdx = (this.stepIdx + 1) % LevelScreen.STEPS.length;
+            return;
+        }
+        int row = (yReleased - (this.yPaint + 17)) / 30;`);
+    text = text.replace('        GameScr.sm.update();', `
+        if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
+            this.stepIdx = (this.stepIdx + 1) % LevelScreen.STEPS.length;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
+            this.stepIdx = 0;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
+            this.stepIdx = 1;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) {
+            this.stepIdx = 2;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) {
+            this.stepIdx = 3;
+        }
+        GameScr.sm.update();`);
+  }
+  if (name === 'network/GameService.java') {
+    // addPoint must carry short deltas: bulk steps exceed a byte.
+    text = text.replace('public void addPoint(byte[] point) {', 'public void addPoint(short[] point) {');
+  }
+  if (name === 'screen/EquipScreen.java') {
+    // Same trap as LevelScreen: closing asked "save?" and discarded on No,
+    // and other exits restored the previous set. Auto-commit changes on
+    // close instead; wearing gear is freely reversible, so no prompt.
+    text = text.replace(/if \(EquipScreen\.this\.dbKeyChange\[i\] != EquipScreen\.this\.lastDb\[i\]\) \{\s*CCanvas\.startYesNoDlg\(Language\.saveEquip\(\), new IAction\(\) \{\s*public void perform\(\) \{\s*EquipScreen\.this\.doAgree\(\);\s*\}\s*\}, new IAction\(\) \{\s*public void perform\(\) \{\s*EquipScreen\.this\.doClose\(\);\s*\}\s*\}\);\s*return;/, 'if (EquipScreen.this.dbKeyChange[i] != EquipScreen.this.lastDb[i]) {\n                  EquipScreen.this.doAgree();\n                  return;');
+    text = replaceMethod(text, 'public void doClose()', `
+        for (int i = 0; i < this.lastDb.length; ++i) {
+            if (this.dbKeyChange[i] != this.lastDb[i]) {
+                this.doAgree();
+                return;
+            }
+        }
+        this.isClose = true;
+        CCanvas.endDlg();
+        this.resetEquip();
+    `);
+    // Reopening the screen rebuilds the worn set from templates
+    // (PlayerInfo.getMyEquip): template equips carry dbKey 0 and zero
+    // rolled stats, so the stock match against the inventory instance's
+    // dbKey never succeeds and the worn bonuses silently vanish from the
+    // totals. myInfo.dbKey is filled from the same cmd 101 trailer with
+    // the same raw dbKey the inventory instances carry - match on it.
+    text = text.replace('if (info.myEquip.equips[tam.type] != null && info.myEquip.equips[tam.type].dbKey == tam.dbKey) {', 'if (info.myEquip.equips[tam.type] != null && info.dbKey[tam.type] == tam.dbKey) {');
+  }
   if (name === 'screen/PrepareScr.java') {
     // Boss rooms (type 5) are exempt from the ready/team checks on the
     // server, but this client gate also demanded a ready teammate, so a
     // solo boss run could never start. Allow boss rooms to start solo.
-    text = text.replace('if (readyCount != 0 && unReadyCount <= 0) {', 'if ((readyCount != 0 || isBossRoom) && unReadyCount <= 0) {');
+    text = text.replace('if (readyCount != 0 && unReadyCount <= 0) {', 'if ((readyCount != 0 || isBossRoom || currLevel == 5) && unReadyCount <= 0) {');
   }
   if (name === 'screen/GameScr.java') {
     text = text.replace('import com.teamobi.mobiarmy2.MainGame;', 'import com.teamobi.mobiarmy2.MainGame;\nimport com.badlogic.gdx.Gdx;\nimport com.badlogic.gdx.Input;');
@@ -224,6 +351,130 @@ for (const path of await walk(source)) {
                 }
             }
         }`);
+  }
+  if (name === 'screen/GameScr.java') {
+    // Quick item bar + POW button on the battle screen: using an item used
+    // to mean pause menu -> item panel -> double-tap, and max force was a
+    // text dialog buried in the same menu. The bar mirrors the panel's
+    // slots; one tap uses the item. POW fires one shot at full force.
+    text = text.replace('    public void selectedItemPanelRealeased(int x, int y2, int index) {', `
+    public boolean isQuickZone(int x, int y) {
+        if (x >= CCanvas.width - 78 && x <= CCanvas.width - 16 && y >= CCanvas.hieght - 88 && y <= CCanvas.hieght - 64) {
+            return true;
+        }
+        int qx = CCanvas.hw - 96;
+        int qy = CCanvas.hieght - 54;
+        return x >= qx && x < qx + 192 && y >= qy && y < qy + 24;
+    }
+
+    public void paintQuickBar(mGraphics g) {
+        CPlayer me = PM.getMyPlayer();
+        if (me == null || me.item == null) {
+            return;
+        }
+        int qx = CCanvas.hw - 96;
+        int qy = CCanvas.hieght - 54;
+        g.setColor(0, 0.45F);
+        g.fillRect(qx - 3, qy - 3, 198, 30, false);
+        for (int qi = 0; qi < me.item.length && qi < 8; ++qi) {
+            int sx = qx + qi * 24;
+            g.setColor(10526880);
+            g.drawRect(sx, qy, 23, 23, false);
+            int itemId = me.item[qi];
+            if (itemId >= 0) {
+                try {
+                    g.drawRegion(s_imgITEM, 0, (itemId + 2) * 16, 16, 16, 0, sx + 4, qy + 4, 0, false);
+                } catch (Exception e) {
+                }
+                if (PrepareScr.currLevel == 7 && num != null && num[qi] != 100) {
+                    Font.smallFontYellow.drawString(g, String.valueOf(num[qi]), sx + 12, qy + 12, 0);
+                }
+            }
+        }
+        g.setColor(13631488);
+        g.fillRect(CCanvas.width - 78, CCanvas.hieght - 88, 62, 24, false);
+        g.setColor(16777215);
+        g.drawRect(CCanvas.width - 78, CCanvas.hieght - 88, 62, 24, false);
+        Font.borderFont.drawString(g, "POW", CCanvas.width - 47, CCanvas.hieght - 82, 3);
+    }
+
+    public void quickUseItem(int slot) {
+        try {
+            CPlayer me = PM.getMyPlayer();
+            if (me == null || me.item == null || slot < 0 || slot >= me.item.length) {
+                return;
+            }
+            int itemId = me.item[slot];
+            if (trainingMode) {
+                me.UseItem(itemId, true, slot);
+                if (itemId == 0) {
+                    PM.p[0].hp += 30;
+                }
+                return;
+            }
+            if (me.itemUsed != -1 || itemId == -2 || itemId == -1) {
+                return;
+            }
+            if (!pm.isYourTurn()) {
+                return;
+            }
+            if (PrepareScr.currLevel == 7 && GameScr.num[slot] == 0) {
+                return;
+            }
+            me.UseItem(itemId, false, slot);
+        } catch (Exception e) {
+        }
+    }
+
+    public void quickPow() {
+        try {
+            CPlayer p = PM.getMyPlayer();
+            if (p == null || !pm.isYourTurn() || p.getState() == 5 || p.falling) {
+                return;
+            }
+            p.holdFire();
+            p.holdFire();
+            if (p.getState() != 3) {
+                return;
+            }
+            if (p.isDoublePower) {
+                p.force = (byte)p.maxforce;
+                p.isSecondPower = true;
+                p.force_2 = (byte)(p.maxforce2 > 1 ? p.maxforce2 - 1 : 1);
+            } else {
+                p.force = (byte)(p.maxforce > 1 ? p.maxforce - 1 : 1);
+            }
+            p.holdFire();
+        } catch (Exception e) {
+        }
+    }
+
+    public void selectedItemPanelRealeased(int x, int y2, int index) {`);
+    text = text.replace('                this.paintTouch(g);', '                this.paintTouch(g);\n                this.paintQuickBar(g);');
+    text = text.replace('            pm.onPointerPressed(xScreen, yScreen, index);', '            if (!(pm != null && pm.isYourTurn() && this.isQuickZone(xScreen, yScreen))) {\n                pm.onPointerPressed(xScreen, yScreen, index);\n            }');
+    text = text.replace('        this.isPressXL = this.isPressXR = this.isPressXF = false;\n        if (Camera.mode == 1 && !this.isSelectItem) {', `        this.isPressXL = this.isPressXR = this.isPressXF = false;
+        if (!this.isSelectItem && CCanvas.currentDialog == null && pm != null && pm.isYourTurn()) {
+            if (x >= CCanvas.width - 78 && x <= CCanvas.width - 16 && y2 >= CCanvas.hieght - 88 && y2 <= CCanvas.hieght - 64) {
+                this.quickPow();
+                return;
+            }
+            int qx = CCanvas.hw - 96;
+            int qy = CCanvas.hieght - 54;
+            if (x >= qx && x < qx + 192 && y2 >= qy && y2 < qy + 24) {
+                this.quickUseItem((x - qx) / 24);
+                return;
+            }
+        }
+        if (Camera.mode == 1 && !this.isSelectItem) {`);
+    text = text.replace('                if (Gdx.input.isKeyPressed(Input.Keys.SPACE)) {', `                if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
+                    this.quickPow();
+                }
+                for (int qi = 0; qi < 8; ++qi) {
+                    if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1 + qi)) {
+                        this.quickUseItem(qi);
+                    }
+                }
+                if (Gdx.input.isKeyPressed(Input.Keys.SPACE)) {`);
   }
   if (name === 'shop/ShopItem.java') {
     // Ask how many to buy instead of always taking the fixed package size;
