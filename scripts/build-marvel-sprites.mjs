@@ -333,6 +333,47 @@ const hammerBuf = hammerCanvas.toBuffer('image/png');
 writeFileSync(join(outMarvel, 'hammer.png'), hammerBuf);
 writeFileSync(join(outHero, 'hammer.png'), hammerBuf);
 
+// 5. Iron Man plasma / rocket / energy beam, Hulk shockwave fist, and fallback projectile sprites
+const specialBulletFile = join(bulletsSrcDir, 'specialbullet.png');
+if (existsSync(specialBulletFile)) {
+  const spImg = await loadImage(specialBulletFile);
+  const plasmaCanvas = createCanvas(18, 18);
+  const pCtx = plasmaCanvas.getContext('2d');
+  pCtx.imageSmoothingEnabled = false;
+  pCtx.drawImage(spImg, 0, 0, Math.min(spImg.width, 18), Math.min(spImg.height, 18), 0, 0, 18, 18);
+  writeFileSync(join(outMarvel, 'plasma.png'), plasmaCanvas.toBuffer('image/png'));
+}
+const rocket2File = join(bulletsSrcDir, 'rocket2.png');
+if (existsSync(rocket2File)) {
+  copyFileSync(rocket2File, join(outMarvel, 'rocket.png'));
+}
+const laserFile = join(bulletsSrcDir, 'laser.png');
+if (existsSync(laserFile)) {
+  const lImg = await loadImage(laserFile);
+  const beamCanvas = createCanvas(20, 20);
+  const lCtx = beamCanvas.getContext('2d');
+  lCtx.imageSmoothingEnabled = false;
+  lCtx.drawImage(lImg, 0, 0, Math.min(lImg.width, 20), Math.min(lImg.height, 20), 0, 0, 20, 20);
+  writeFileSync(join(outMarvel, 'beam.png'), beamCanvas.toBuffer('image/png'));
+}
+const sbFile = join(bulletsSrcDir, 'stormbreaker.png');
+if (existsSync(sbFile)) {
+  copyFileSync(sbFile, join(outMarvel, 'axe.png'));
+}
+const noFile = join(effectsSrcDir, 'no.png');
+if (existsSync(noFile)) {
+  const noImg = await loadImage(noFile);
+  const fistCanvas = createCanvas(24, 24);
+  const fCtx = fistCanvas.getContext('2d');
+  fCtx.imageSmoothingEnabled = false;
+  fCtx.drawImage(noImg, 0, 0, Math.min(noImg.width, 32), Math.min(noImg.height, 32), 0, 0, 24, 24);
+  writeFileSync(join(outMarvel, 'fist.png'), fistCanvas.toBuffer('image/png'));
+}
+if (existsSync(join(outMarvel, 'bolt.png'))) {
+  copyFileSync(join(outMarvel, 'bolt.png'), join(outMarvel, 'disc_blue.png'));
+  copyFileSync(join(outMarvel, 'bolt.png'), join(outMarvel, 'disc_yellow.png'));
+}
+
 // Write heroes.json with the 8 LoCheo3 Avengers
 const heroesJson = JSON.stringify(HEROES, null, 2);
 writeFileSync(join(outMarvel, 'heroes.json'), heroesJson);

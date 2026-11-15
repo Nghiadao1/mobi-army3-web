@@ -91,6 +91,10 @@ public final class MarvelRoster {
 
     private static mImage loadProj(String name) {
         try {
+            FileHandle fh = Gdx.files.internal("res/marvel/" + name);
+            if (fh == null || !fh.exists()) {
+                return null;
+            }
             return mImage.createImage("/marvel/" + name);
         } catch (Throwable t) {
             return null;
