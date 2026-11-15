@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, rmSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
@@ -7,10 +7,11 @@ const dataDir = join(root, 'extensions/marvel/original/public/assets/data');
 const smallDir = join(root, 'extensions/marvel/original/public/assets/heroes/small');
 const bulletsSrcDir = join(root, 'extensions/marvel/original/public/assets/bullets');
 const effectsSrcDir = join(root, 'extensions/marvel/original/public/assets/effects');
-const outMarvel = join(root, 'web-client/src/main/webapp/assets/res/marvel');
-const outHero = join(root, 'web-client/src/main/webapp/assets/res/hero');
-const outBig = join(root, 'web-client/src/main/webapp/assets/res/bigHero');
+const outMarvel = join(root, 'web-client/build/generated/assets/res/marvel');
+const outHero = join(root, 'web-client/build/generated/assets/res/hero');
+const outBig = join(root, 'web-client/build/generated/assets/res/bigHero');
 
+rmSync(outMarvel, { recursive: true, force: true });
 mkdirSync(outMarvel, { recursive: true });
 mkdirSync(outHero, { recursive: true });
 mkdirSync(outBig, { recursive: true });
