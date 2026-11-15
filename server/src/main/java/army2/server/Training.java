@@ -314,7 +314,12 @@ public final class Training {
             Gun gun = new Gun(arena.mapData, 0, gunPow);
             gun.shootBullet(effBullet, x, y, shooter.width, shooter.height,
                     ang, force, force2, effNshoot, effAtt, -1);
-            gun.fillXY();
+            if (bulletId >= 60) {
+                LoCheoFlight.apply(gun);
+                LoCheoFlight.fillXY(gun);
+            } else {
+                gun.fillXY();
+            }
             session.sessionHandler.shoot(gun);
             int dummyHpAfter = arena.dummy.hp;
             if (dummyHpAfter < dummyHpBefore) {
@@ -363,22 +368,26 @@ public final class Training {
                 extraGun = new Gun(arena.mapData, 0, false);
                 extraGun.shootBullet(84, main.lastX, Math.max(40, main.lastY - 320),
                         shooter.width, shooter.height, 270, 8, 0, 1, baseAtt * 3 / 2, -1);
-                extraGun.fillXY();
+                LoCheoFlight.apply(extraGun);
+                LoCheoFlight.fillXY(extraGun);
             } else if (cadenceKind == 2) {
                 extraGun = new Gun(arena.mapData, 0, false);
                 extraGun.shootBullet(63, x, y, shooter.width, shooter.height,
                         (ang + 180) % 360, force, 0, 1, baseAtt * 3 / 2, -1);
-                extraGun.fillXY();
+                LoCheoFlight.apply(extraGun);
+                LoCheoFlight.fillXY(extraGun);
             } else if (cadenceKind == 3) {
                 extraGun = new Gun(arena.mapData, 0, false);
                 extraGun.shootBullet(77, x - 24, y, shooter.width, shooter.height,
                         ang, force, 0, 1, baseAtt * 33 / 100, -1);
-                extraGun.fillXY();
+                LoCheoFlight.apply(extraGun);
+                LoCheoFlight.fillXY(extraGun);
             } else if (cadenceKind == 4 && !shooterDied) {
                 extraGun = new Gun(arena.mapData, 0, false);
                 extraGun.shootBullet(63, shooter.x, shooter.y, shooter.width, shooter.height,
                         ang, force, 0, 1, baseAtt * 3 / 2, -1);
-                extraGun.fillXY();
+                LoCheoFlight.apply(extraGun);
+                LoCheoFlight.fillXY(extraGun);
             }
             if (extraGun != null) {
                 for (Bullet b : extraGun.bullets) {

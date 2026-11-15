@@ -556,7 +556,7 @@ for (const path of await walk(source)) {
                 return;
             }
             if (dy < 0) {
-                if (p.movePoint > 60) {
+                if (p.movePoint > army2.web.MarvelRoster.moveCapForSlot(GameScr.myIndex)) {
                     return;
                 }
                 army2.web.MarvelRoster.flyMode = true;
@@ -656,6 +656,18 @@ for (const path of await walk(source)) {
                                                 this.pFrameImg.drawFrame(this.curFrame, this.x, this.y, Look, 33, g);
                                             }
                                         }`);
+  }
+  if (name === 'player/CPlayer.java') {
+    // LoCheo clone: the hero's movePct (item option 26) scales the
+    // per-turn move budget (stock cap 60) - ground moves and the fly
+    // branch alike. Remote players are isCom-driven, never capped here.
+    text = text.split('if (this.movePoint > 60) {')
+      .join('if (this.movePoint > army2.web.MarvelRoster.moveCapForSlot(this.index)) {');
+  }
+  if (name === 'screen/GameScr.java') {
+    // LoCheo clone: the stamina bar drains against the hero-scaled cap.
+    text = text.replace('(60 - movePoint) * 100 / 60',
+      '(army2.web.MarvelRoster.moveCapForSlot(GameScr.myIndex) - movePoint) * 100 / army2.web.MarvelRoster.moveCapForSlot(GameScr.myIndex)');
   }
   if (name === 'network/GameService.java') {
     // Marvel P4: in training, a picked hero fires its own weapon bullet

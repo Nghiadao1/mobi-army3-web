@@ -310,7 +310,8 @@ public final class HeroBattle {
         Gun gun = new Gun(mapData, index, gunPow);
         gun.shootBullet(effBullet, player.x, player.y, player.width, player.height,
                 ang, force, force2, 1, effAtt, -1);
-        gun.fillXY();
+        LoCheoFlight.apply(gun);
+        LoCheoFlight.fillXY(gun);
         int mainFrames = 0;
         for (Bullet b : gun.bullets) {
             mainFrames = Math.max(mainFrames, b.frames.size());
@@ -371,7 +372,8 @@ public final class HeroBattle {
                     extra.shootBullet(77, sx - 24, sy, player.width, player.height,
                             angFin, forceFin, 0, 1, attFin * 33 / 100, -1);
                 }
-                extra.fillXY();
+                LoCheoFlight.apply(extra);
+                LoCheoFlight.fillXY(extra);
                 for (Bullet b : extra.bullets) {
                     mapData.addTimeUntilAction(50 * b.frames.size());
                 }

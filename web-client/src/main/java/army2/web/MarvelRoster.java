@@ -31,6 +31,7 @@ public final class MarvelRoster {
         public int hp;
         public int attack;
         public int reloadTime;
+        public int movePct;
         public float moveSpeed;
         public int staminaMax;
         public int minAngle;
@@ -154,6 +155,7 @@ public final class MarvelRoster {
                 hero.hp = v.getInt("hp", 0);
                 hero.attack = v.getInt("attack", 0);
                 hero.reloadTime = v.getInt("reloadTime", 0);
+                hero.movePct = v.getInt("movePct", 0);
                 hero.moveSpeed = v.getFloat("moveSpeed", 0f);
                 hero.staminaMax = v.getInt("staminaMax", 0);
                 hero.minAngle = v.getInt("minAngle", 0);
@@ -292,6 +294,28 @@ public final class MarvelRoster {
         return "hulk".equals(battleHeroId(slot));
     }
 
+    /** Per-turn move budget for a slot: stock 60 scaled by the hero's
+     *  LoCheo movePct (item option 26, move distance +%). Training uses
+     *  the local player's picked hero; battles use the cmd -92 table. */
+    public static int moveCapForSlot(int slot) {
+        Hero hero = null;
+        if (screen.GameScr.trainingMode) {
+            if (slot == screen.GameScr.myIndex) {
+                hero = byId(selectedId);
+            }
+        } else {
+            String id = battleHeroId(slot);
+            if (id != null) {
+                hero = byId(id);
+            }
+        }
+        int pct = hero != null ? hero.movePct : 0;
+        return 60 * (100 + pct) / 100;
+    }
+
+    /** Per-turn move budget for a slot: stock 60 scaled by the hero's
+     *  LoCheo movePct (item option 26, move distance +%). Training uses
+     *  the local player's picked hero; battles use the cmd -92 table. */
     public static int count() {
         return HEROES.size();
     }
