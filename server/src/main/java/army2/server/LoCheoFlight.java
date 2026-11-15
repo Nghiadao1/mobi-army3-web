@@ -21,6 +21,28 @@ public final class LoCheoFlight {
     private LoCheoFlight() {
     }
 
+    /**
+     * Bullet types whose flight is a plain ballistic arc, so the global
+     * Gun.fillXY hook routes them through the LoCheo model. Exotic item
+     * rounds keep their own motion: B52 (4), teleports (5, 36), silk
+     * (8, 56), tornado (13), lasers (14, 40, 42), Apache (17), Chicky
+     * (19), Tarzan (21), mouse bomb (22), meteor (23), bullet rain (28),
+     * earth holes (30, 52), muzzle booms (31, 32), add-boom (34),
+     * bicycle (35), big rocket (37), mirror (49), suicide (50), UFO
+     * (53), time bomb (57), plus the sky-fall hero specials (80, 84).
+     */
+    public static boolean isBallistic(int bulletId) {
+        switch (bulletId) {
+            case 4: case 5: case 8: case 13: case 14: case 17: case 19:
+            case 21: case 22: case 23: case 28: case 30: case 31: case 32:
+            case 34: case 35: case 36: case 37: case 40: case 42: case 49:
+            case 50: case 52: case 53: case 56: case 57: case 80: case 84:
+                return false;
+            default:
+                return true;
+        }
+    }
+
     /** Re-aim every bullet of a freshly fired hero gun at LoCheo physics. */
     public static void apply(Gun gun) {
         if (gun.bulletId == 80 || gun.bulletId == 84) {

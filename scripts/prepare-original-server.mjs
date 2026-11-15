@@ -220,6 +220,23 @@ const heroCases = [
 if (!gun.includes('HeroShieldBullet')) {
     gun = gun.replace(gunDefault, heroCases + gunDefault);
 }
+// LoCheo clone (global): ballistic rounds fly the LoCheo3 parabola.
+// Gun.fillXY is the single convergence point of every player shot
+// (MapData.shootBullet); exotic item rounds keep their own motion.
+const fillXYStock = [
+    '    public void fillXY() {',
+    '        boolean hasNext;',
+].join(String.fromCharCode(10));
+const fillXYLoCheo = [
+    '    public void fillXY() {',
+    '        if (army2.server.LoCheoFlight.isBallistic(this.bulletId)) {',
+    '            army2.server.LoCheoFlight.apply(this);',
+    '            army2.server.LoCheoFlight.fillXY(this);',
+    '            return;',
+    '        }',
+    '        boolean hasNext;',
+].join(String.fromCharCode(10));
+gun = gun.replace(fillXYStock, fillXYLoCheo);
 await writeFile(gunFile, gun);
 
 // ===== Spec v3 P3: Marvel heroes in real battles =====
