@@ -77,20 +77,17 @@ test('hero core shots follow spec v3 phase A in the training arena', async () =>
     r = await fire(client, sx, sy, 60, 250, 20, 0);
     assert.equal(r.bulletId, 60);
 
-    // Iron Man: 2 plasma bolts; POW = 2 rockets (82) at any force.
+    // Iron Man: 2 plasma bolts; POW = 2 rockets (82) at any force;
+    // 3rd non-POW shot triggers Pháo năng lượng (77).
     r = await fire(client, sx, sy, 61, 350, 15, 0);
     assert.equal(r.bulletId, 61);
     assert.equal(r.nBullet, 2);
     r = await fire(client, sx, sy, 61, 350, 12, 1);
     assert.equal(r.bulletId, 82);
     assert.equal(r.nBullet, 2);
-
-    // Mark 50 shares the Iron Man core in Phase A (beam is Phase C).
-    r = await fire(client, sx, sy, 62, 350, 15, 0);
-    assert.equal(r.bulletId, 61);
-    assert.equal(r.nBullet, 2);
-    r = await fire(client, sx, sy, 62, 350, 12, 1);
-    assert.equal(r.bulletId, 82);
+    r = await fire(client, sx, sy, 61, 350, 15, 0);
+    assert.equal(r.bulletId, 77);
+    assert.equal(r.nBullet, 1);
 
     // Red Hulk: one punch shockwave.
     r = await fire(client, sx, sy, 63, 450, 15, 0);

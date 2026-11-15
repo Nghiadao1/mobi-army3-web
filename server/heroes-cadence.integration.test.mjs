@@ -86,15 +86,15 @@ test('cadence specials follow spec v3 phase C in the training arena', { skip: !u
     assert.deepEqual(types(r), [65, 84]);
     assert.equal(r[1].nBull, 3);
 
-    // Iron Man Mark 50: shot 3 becomes the 150% energy beam.
-    assert.deepEqual(types(await fireMulti(62, 350)), [61]);
-    assert.deepEqual(types(await fireMulti(62, 350)), [61]);
-    assert.deepEqual(types(await fireMulti(62, 350)), [77]);
+    // Iron Man: shot 3 becomes Pháo năng lượng (150% energy beam).
+    assert.deepEqual(types(await fireMulti(61, 350)), [61]);
+    assert.deepEqual(types(await fireMulti(61, 350)), [61]);
+    assert.deepEqual(types(await fireMulti(61, 350)), [77]);
 
-    // Red Hulk: shot 3 claps both ways (forward + backward shockwave).
-    assert.deepEqual(types(await fireMulti(63, 450)), [63]);
-    assert.deepEqual(types(await fireMulti(63, 450)), [63]);
-    assert.deepEqual(types(await fireMulti(63, 450)), [63, 63]);
+    // Hulk: shot 3 leaps and triggers Xé gió shockwave companion (63).
+    assert.deepEqual(types(await fireMulti(68, 450, 8)), [68]);
+    assert.deepEqual(types(await fireMulti(68, 450, 8)), [68]);
+    assert.deepEqual(types(await fireMulti(68, 450, 8)), [68, 63]);
 
     // Hawkeye: after 3 normal arrows, shot 4 is the lock-on volley.
     assert.deepEqual(types(await fireMulti(71, 508)), [71]);

@@ -221,3 +221,95 @@ if (!gun.includes('HeroShieldBullet')) {
     gun = gun.replace(gunDefault, heroCases + gunDefault);
 }
 await writeFile(gunFile, gun);
+
+// ===== Spec v3 P3: Marvel heroes in real battles =====
+// The hero is an identity on the User (command -91, session scope);
+// HeroBattle applies stats at battle build, drives hero shots from
+// MapData.shoot, and SessionHandler broadcasts the slot -> hero table
+// with command -92. Adapter: server/src/main/java/army2/server/HeroBattle.java.
+const userFile = join(target, 'mobiarmy/server/User.java');
+let userSrc = await readFile(userFile, 'utf8');
+if (!userSrc.includes('heroIndex')) {
+    userSrc = userSrc.replace('public class User {',
+        'public class User {' + String.fromCharCode(10) + '    public int heroIndex = -1;');
+    await writeFile(userFile, userSrc);
+}
+let handlerP3 = await readFile(handlerFile, 'utf8');
+if (!handlerP3.includes('case -91')) {
+    handlerP3 = handlerP3.replace('case -90 -> army2.server.GuestAccess.enter(this.session, msg);',
+        'case -90 -> army2.server.GuestAccess.enter(this.session, msg);' + String.fromCharCode(10)
+        + '            case -91 -> { if (this.session.user != null) { try { this.session.user.heroIndex = msg.reader().readByte(); } catch (Exception ignored) {} } }');
+    await writeFile(handlerFile, handlerP3);
+}
+const sessionHandlerFile = join(target, 'mobiarmy/server/SessionHandler.java');
+let shSrc = await readFile(sessionHandlerFile, 'utf8');
+if (!shSrc.includes('sendHeroBattle')) {
+    const nl = String.fromCharCode(10);
+    const heroMethod = [
+        '    public void sendHeroBattle(MapData mapData) {',
+        '        try {',
+        '            int[][] rows = army2.server.HeroBattle.entries(mapData);',
+        '            Message message = new Message(-92);',
+        '            message.writer().writeByte(rows.length);',
+        '            for (int[] row : rows) {',
+        '                message.writer().writeByte(row[0]);',
+        '                message.writer().writeByte(row[1]);',
+        '                message.writer().writeByte(row[2]);',
+        '            }',
+        '            this.session.sendMessage(message);',
+        '        } catch (IOException ex) {}',
+        '    }',
+        '',
+    ].join(nl);
+    shSrc = shSrc.replace('    public void endTheWar(int typeComplete, int money) {',
+        heroMethod + '    public void endTheWar(int typeComplete, int money) {');
+    await writeFile(sessionHandlerFile, shSrc);
+}
+let mdSrc = await readFile(mapDataFile, 'utf8');
+if (!mdSrc.includes('HeroBattle.setup')) {
+    const nl = String.fromCharCode(10);
+    const loopHead = '        for (Player player : this.players) {' + nl
+        + '            if (player != null && player.user != null && player.user.session != null) {' + nl
+        + '                player.user.session.sessionHandler.loadInfoMap(this);';
+    if (!mdSrc.includes(loopHead)) {
+        throw new Error('P3: loadInfoMap loop anchor not found in MapData.java');
+    }
+    mdSrc = mdSrc.replace(loopHead, '        army2.server.HeroBattle.setup(this);' + nl + loopHead);
+    const bossAnchor = '        }' + nl + '        this.setBoss();';
+    const heroBroadcast = '        }' + nl
+        + '        for (Player player : this.players) {' + nl
+        + '            if (player != null && player.user != null && player.user.session != null) {' + nl
+        + '                player.user.session.sessionHandler.sendHeroBattle(this);' + nl
+        + '            }' + nl
+        + '        }' + nl
+        + '        this.setBoss();';
+    if (!mdSrc.includes(bossAnchor)) {
+        throw new Error('P3: setBoss anchor not found in MapData.java');
+    }
+    mdSrc = mdSrc.replace(bossAnchor, heroBroadcast);
+    const shootHead = '        Player player = this.players[index];' + nl
+        + '        if (player != null && player.index == this.getTurn() && !player.isShoot) {';
+    if (!mdSrc.includes(shootHead)) {
+        throw new Error('P3: shoot anchor not found in MapData.java');
+    }
+    mdSrc = mdSrc.replace(shootHead,
+        '        Player player = this.players[index];' + nl
+        + '        if (army2.server.HeroBattle.handleShoot(this, index, ang, force, force2)) {' + nl
+        + '            return;' + nl
+        + '        }' + nl
+        + '        if (player != null && player.index == this.getTurn() && !player.isShoot) {');
+    mdSrc = mdSrc.replace('            int att = player.att;',
+        '            int att = army2.server.HeroBattle.modifyAtt(this, player, player.att);');
+    await writeFile(mapDataFile, mdSrc);
+}
+const playerFile = join(target, 'mobiarmy/war/Player.java');
+let plSrc = await readFile(playerFile, 'utf8');
+if (!plSrc.includes('HeroBattle.onBulletHit')) {
+    plSrc = plSrc.replace('        if (bullet.bulletId == 51) {',
+        '        army2.server.HeroBattle.onBulletHit(this.mapData, this, bullet);' + String.fromCharCode(10)
+        + '        if (bullet.bulletId == 51) {');
+    plSrc = plSrc.replace('            this.updateHP(-this.attAffect);',
+        '            this.attAffect = army2.server.HeroBattle.modifyDamage(this.mapData, player, this, this.attAffect);' + String.fromCharCode(10)
+        + '            this.updateHP(-this.attAffect);');
+    await writeFile(playerFile, plSrc);
+}

@@ -255,13 +255,18 @@ public final class Training {
             // never trigger cadence. Lightning (Thor/Stormbreaker),
             // the Red Hulk back-blast and the Ultron clone are
             // companion shots resolved after the main shot below.
-            int cadenceKind = 0; // 1 = lightning, 2 = clap back-blast, 3 = clone
+            int cadenceKind = 0; // 1 = lightning, 2 = clap back-blast, 3 = clone, 4 = Hulk Xe gio shockwave
             if (!powShot) {
                 switch (bulletId) {
-                    case 62 -> { // Mark 50: energy beam at 150%
+                    case 61, 62 -> { // Iron Man: Phao nang luong (energy beam at 150%) on every 3rd shot
                         if (heroShots % 3 == 0) {
                             effBullet = 77;
                             effAtt = baseAtt * 3 / 2;
+                        }
+                    }
+                    case 68 -> { // Hulk: Xe gio shockwave companion on every 3rd shot
+                        if (heroShots % 3 == 0) {
+                            cadenceKind = 4;
                         }
                     }
                     case 63 -> { // Red Hulk: Xe gio clap at 150%, both ways
@@ -270,7 +275,7 @@ public final class Training {
                             cadenceKind = 2;
                         }
                     }
-                    case 64, 65 -> { // Thor / Stormbreaker: lightning on landing
+                    case 64, 65 -> { // Thor / Stormbreaker: Bua set lightning on landing
                         if (heroShots % 3 == 0) {
                             cadenceKind = 1;
                         }
@@ -280,7 +285,7 @@ public final class Training {
                             arena.strangeShield = true;
                         }
                     }
-                    case 71 -> { // Hawkeye: lock-on volley (Gun case 72)
+                    case 71 -> { // Hawkeye: Chon muc tieu lock-on volley (Gun case 72)
                         if (heroShots % 4 == 0) {
                             effBullet = 72;
                         }
@@ -290,7 +295,7 @@ public final class Training {
                             effBullet = 80;
                         }
                     }
-                    case 74, 75 -> { // Ultron / Prime: a clone fires along
+                    case 74, 75 -> { // Ultron: Nhan ban clone fires along
                         if (heroShots >= 2) {
                             cadenceKind = 3;
                             arena.cloneCount = Math.min(5, heroShots - 1);
@@ -321,7 +326,7 @@ public final class Training {
                     arena.dummy.nextFreeze = true;
                     arena.dummy.countFreeze = 1;
                 }
-                if (bulletId == 70) {
+                if (bulletId == 70 || bulletId == 69) {
                     arena.marked = true;
                 }
             }
@@ -368,6 +373,11 @@ public final class Training {
                 extraGun = new Gun(arena.mapData, 0, false);
                 extraGun.shootBullet(77, x - 24, y, shooter.width, shooter.height,
                         ang, force, 0, 1, baseAtt * 33 / 100, -1);
+                extraGun.fillXY();
+            } else if (cadenceKind == 4 && !shooterDied) {
+                extraGun = new Gun(arena.mapData, 0, false);
+                extraGun.shootBullet(63, shooter.x, shooter.y, shooter.width, shooter.height,
+                        ang, force, 0, 1, baseAtt * 3 / 2, -1);
                 extraGun.fillXY();
             }
             if (extraGun != null) {

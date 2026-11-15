@@ -278,37 +278,30 @@ export class CharacterRenderer {
       ctx.save();
       ctx.filter = 'sepia(0.85) saturate(2.8) hue-rotate(15deg) brightness(1.1)';
     }
-    // Các bộ giáp Marvel / Tướng đặc biệt dùng pose 0/1 để khớp hoàn hảo đầu-thân-chân
-    let effectivePoseIdx = poseIdx;
-    if ((eq.body >= 220 || eq.hat === 204 || eq.hat === 294 || eq.hat === 220 || eq.hat === 198) && poseIdx >= 11) {
-      effectivePoseIdx = poseIdx >= 23 ? 1 : 0;
-    }
-
-    const pose = this.assets.poses[effectivePoseIdx] ?? this.assets.poses[0];
+    const pose = this.assets.poses[poseIdx] ?? this.assets.poses[0];
     if (!pose) return;
 
-    // Thứ tự ghép lớp tối ưu: Cánh/Balo (5) -> Chân (1) -> Thân (2) -> Mũ/Đầu (0/4) -> Súng/Vũ khí (3)
+    // Thứ tự ghép lớp chuẩn LoCheo3 ($GdA trong GameLogic.Full.utf8.cs):
+    // Súng (3) -> Cánh/Balo (5) -> Đầu (0/4) -> Chân (1) -> Thân (2)
+    if (eq.gun !== -1) {
+      this.drawPartSlot(ctx, eq.gun, pose[3], facingLeft);
+    }
     if (eq.back !== -1) {
       this.drawPartSlot(ctx, eq.back, pose[5], facingLeft);
+    }
+    if (eq.hat !== -1) {
+      this.drawPartSlot(ctx, eq.hat, pose[0], facingLeft);
+    } else if (eq.glass !== -1) {
+      if (eq.glass !== 179) {
+        this.drawPartSlot(ctx, 59, pose[0], facingLeft);
+      }
+      this.drawPartSlot(ctx, eq.glass, pose[4], facingLeft);
     }
     if (eq.legs !== -1) {
       this.drawPartSlot(ctx, eq.legs, pose[1], facingLeft);
     }
     if (eq.body !== -1) {
       this.drawPartSlot(ctx, eq.body, pose[2], facingLeft);
-    }
-    if (eq.hat !== -1) {
-      this.drawPartSlot(ctx, eq.hat, pose[0], facingLeft);
-    } else if (eq.glass !== -1) {
-      // Tướng đeo mặt nạ/mũ đặc biệt (Granos, Chicky, Apache) dùng đầu nền part 59 + slot 4.
-      // Riêng King Kong (glass = 179) là đầu Khỉ nguyên khối nên không vẽ đầu người 59 bên dưới.
-      if (eq.glass !== 179) {
-        this.drawPartSlot(ctx, 59, pose[0], facingLeft);
-      }
-      this.drawPartSlot(ctx, eq.glass, pose[4], facingLeft);
-    }
-    if (eq.gun !== -1) {
-      this.drawPartSlot(ctx, eq.gun, pose[3], facingLeft);
     }
     if (hasFilter) {
       ctx.restore();

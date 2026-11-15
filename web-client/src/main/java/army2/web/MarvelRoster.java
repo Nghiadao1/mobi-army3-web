@@ -193,55 +193,34 @@ public final class MarvelRoster {
         return id == null ? null : BY_ID.get(id);
     }
 
-    /** Bullet type the hero's weapon fires (P4 skills); 0 = stock gun. */
+    /** Bullet type the hero's weapon fires (LoCheo3 8 Avengers); 0 = stock gun. */
     public static int bulletTypeOf(String id) {
         if (id == null) {
             return 0;
         }
-        if (id.equals("captain") || id.equals("captain_nomad") || id.equals("captain_gold")) {
-            return 60;
-        }
         if (id.equals("ironman")) {
             return 61;
-        }
-        if (id.equals("ironman_mark50")) {
-            return 62;
-        }
-        if (id.equals("red_hulk")) {
-            return 63;
-        }
-        if (id.equals("thor")) {
-            return 64;
-        }
-        if (id.equals("thor_stormbreaker")) {
-            return 65;
-        }
-        if (id.equals("loki")) {
-            return 66;
-        }
-        if (id.equals("doctor_strange")) {
-            return 67;
         }
         if (id.equals("hulk")) {
             return 68;
         }
+        if (id.equals("thor")) {
+            return 64;
+        }
+        if (id.equals("loki")) {
+            return 66;
+        }
+        if (id.equals("captain")) {
+            return 60;
+        }
         if (id.equals("wintersoldier")) {
             return 69;
-        }
-        if (id.equals("wintersoldier_winter")) {
-            return 70;
         }
         if (id.equals("hawkeye")) {
             return 71;
         }
-        if (id.equals("hawkeye_tech")) {
-            return 73;
-        }
         if (id.equals("ultron")) {
             return 74;
-        }
-        if (id.equals("ultron_prime")) {
-            return 75;
         }
         return 0;
     }
@@ -250,6 +229,63 @@ public final class MarvelRoster {
     public static int attackOf(String id) {
         Hero hero = byId(id);
         return hero == null ? 0 : hero.attack;
+    }
+
+    /** Battle hero table (spec v3 P3): slot -> heroes.json index, plus
+     *  Loki morph overrides, filled by command -92 from the server. */
+    private static final Map<Integer, Integer> BATTLE_HEROES = new HashMap<Integer, Integer>();
+    private static final Map<Integer, Integer> BATTLE_MORPH = new HashMap<Integer, Integer>();
+
+    public static void setBattleHero(int slot, int hero, int morph) {
+        if (hero < 0) {
+            BATTLE_HEROES.remove(slot);
+            BATTLE_MORPH.remove(slot);
+            return;
+        }
+        BATTLE_HEROES.put(slot, hero);
+        if (morph >= 0) {
+            BATTLE_MORPH.put(slot, morph);
+        } else {
+            BATTLE_MORPH.remove(slot);
+        }
+    }
+
+    public static void clearBattleHeroes() {
+        BATTLE_HEROES.clear();
+        BATTLE_MORPH.clear();
+    }
+
+    /** Hero id to draw for a battle slot (morph wins), or null. */
+    public static String battleHeroId(int slot) {
+        Integer idx = BATTLE_MORPH.get(slot);
+        if (idx == null) {
+            idx = BATTLE_HEROES.get(slot);
+        }
+        if (idx == null || idx < 0 || idx >= HEROES.size()) {
+            return null;
+        }
+        return HEROES.get(idx).id;
+    }
+
+    /** heroes.json index of a hero id, or -1. */
+    public static int indexOf(String id) {
+        if (id == null) {
+            return -1;
+        }
+        for (int i = 0; i < HEROES.size(); ++i) {
+            if (HEROES.get(i).id.equals(id)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** True when the given slot is Hulk (the leap rider). */
+    public static boolean isHulkSlot(int slot) {
+        if (screen.GameScr.trainingMode) {
+            return slot == screen.GameScr.myIndex && "hulk".equals(selectedId);
+        }
+        return "hulk".equals(battleHeroId(slot));
     }
 
     public static int count() {

@@ -25,10 +25,19 @@ public final class MarvelRender {
 
     public static boolean paintPlayer(mGraphics g, CPlayer p, int look) {
         try {
-            if (!GameScr.trainingMode || p.index != GameScr.myIndex || MarvelRoster.selectedId == null) {
+            String heroId;
+            if (GameScr.trainingMode) {
+                if (p.index != GameScr.myIndex) {
+                    return false;
+                }
+                heroId = MarvelRoster.selectedId;
+            } else {
+                heroId = MarvelRoster.battleHeroId(p.index);
+            }
+            if (heroId == null) {
                 return false;
             }
-            mImage sheet = MarvelRoster.sheet(MarvelRoster.selectedId, true);
+            mImage sheet = MarvelRoster.sheet(heroId, true);
             if (sheet == null) {
                 return false;
             }
@@ -83,7 +92,7 @@ public final class MarvelRender {
         if (p.state == 8) {
             return HURT_SEQ[(tick / 3) % HURT_SEQ.length];
         }
-        if (MarvelRoster.flyMode) {
+        if (MarvelRoster.flyMode && p.index == GameScr.myIndex) {
             return WALK_SEQ[(tick / 3) % WALK_SEQ.length];
         }
         if (p.falling) {

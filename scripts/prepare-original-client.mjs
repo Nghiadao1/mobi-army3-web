@@ -338,18 +338,18 @@ for (const path of await walk(source)) {
     // hero), gravity/falling is suppressed and walking moves through
     // the air without snapping to the terrain.
     text = text.replace('        if (this.activeFallbyEx && !BM.active) {\n            this.falling = true;\n            this.activeFallbyEx = false;\n            this.isActiveFall = true;\n        }\n\n        if (this.falling) {\n            this.fall();\n        }',
-      '        if (this.activeFallbyEx && !BM.active) {\n            this.falling = true;\n            this.activeFallbyEx = false;\n            this.isActiveFall = true;\n        }\n\n        if (this.falling) {\n            if (army2.web.MarvelRoster.flyMode && GameScr.trainingMode && this.index == GameScr.myIndex) {\n                this.falling = false;\n            } else {\n                this.fall();\n            }\n        }');
+      '        if (this.activeFallbyEx && !BM.active) {\n            this.falling = true;\n            this.activeFallbyEx = false;\n            this.isActiveFall = true;\n        }\n\n        if (this.falling) {\n            if (army2.web.MarvelRoster.flyMode && this.index == GameScr.myIndex) {\n                this.falling = false;\n            } else {\n                this.fall();\n            }\n        }');
     text = text.replace('                if (MM.isHaveWaterOrGlass && GameScr.exs.size() == 0) {\n                    MM.checkWaterBum(this.x, this.y, (byte) 0);\n                }\n\n                byte runRange = this.runSpeed;',
-      '                if (MM.isHaveWaterOrGlass && GameScr.exs.size() == 0) {\n                    MM.checkWaterBum(this.x, this.y, (byte) 0);\n                }\n\n                if (army2.web.MarvelRoster.flyMode && GameScr.trainingMode && this.index == GameScr.myIndex) {\n                    if (this.movePoint > 60) {\n                        return;\n                    }\n                    ++this.movePoint;\n                    this.animMove();\n                    if (directMove == 0) {\n                        this.x -= this.runSpeed;\n                    } else if (directMove == 2) {\n                        this.x += this.runSpeed;\n                    }\n                    this.falling = false;\n                    return;\n                }\n\n                byte runRange = this.runSpeed;');
+      '                if (MM.isHaveWaterOrGlass && GameScr.exs.size() == 0) {\n                    MM.checkWaterBum(this.x, this.y, (byte) 0);\n                }\n\n                if (army2.web.MarvelRoster.flyMode && this.index == GameScr.myIndex) {\n                    if (this.movePoint > 60) {\n                        return;\n                    }\n                    ++this.movePoint;\n                    this.animMove();\n                    if (directMove == 0) {\n                        this.x -= this.runSpeed;\n                    } else if (directMove == 2) {\n                        this.x += this.runSpeed;\n                    }\n                    this.falling = false;\n                    return;\n                }\n\n                byte runRange = this.runSpeed;');
   }
   if (name === 'item/Bullet.java') {
     // Spec v3 Phase B: Hulk rides his own leap bullet (type 68) like
     // the stock gun-14 ride: the rider follows the trajectory and
     // falls the last stretch when the flight ends.
     text = text.replace('            if (PM.getCurPlayer().isJump) {\n                PM.getCurPlayer().x = this.xPaint[this.paintCount - 1];\n                PM.getCurPlayer().y = this.yPaint[this.paintCount - 1];\n            }\n        }',
-      '            if (PM.getCurPlayer().isJump) {\n                PM.getCurPlayer().x = this.xPaint[this.paintCount - 1];\n                PM.getCurPlayer().y = this.yPaint[this.paintCount - 1];\n            }\n        }\n\n        if (this.type == 68 && GameScr.trainingMode && "hulk".equals(army2.web.MarvelRoster.selectedId)) {\n            CPlayer hulkRider = PM.getCurPlayer();\n            if (hulkRider != null && this.whoShot == GameScr.myIndex) {\n                hulkRider.x = this.x;\n                hulkRider.y = this.y;\n                hulkRider.falling = false;\n            }\n        }');
+      '            if (PM.getCurPlayer().isJump) {\n                PM.getCurPlayer().x = this.xPaint[this.paintCount - 1];\n                PM.getCurPlayer().y = this.yPaint[this.paintCount - 1];\n            }\n        }\n\n        if (this.type == 68 && army2.web.MarvelRoster.isHulkSlot(this.whoShot)) {\n            CPlayer hulkRider = PM.getCurPlayer();\n            if (hulkRider != null && this.whoShot == GameScr.myIndex) {\n                hulkRider.x = this.x;\n                hulkRider.y = this.y;\n                hulkRider.falling = false;\n            }\n        }');
     text = text.replace('        if (this.paintCount > this.xPaint.length - 1) {\n            this.paintCount = this.xPaint.length - 1;',
-      '        if (this.type == 68 && this.paintCount > this.xPaint.length - 1 && GameScr.trainingMode && "hulk".equals(army2.web.MarvelRoster.selectedId)) {\n            CPlayer hulkRider = PM.getCurPlayer();\n            if (hulkRider != null && this.whoShot == GameScr.myIndex) {\n                hulkRider.falling = true;\n                hulkRider.isActiveFall = true;\n            }\n        }\n\n        if (this.paintCount > this.xPaint.length - 1) {\n            this.paintCount = this.xPaint.length - 1;');
+      '        if (this.type == 68 && this.paintCount > this.xPaint.length - 1 && army2.web.MarvelRoster.isHulkSlot(this.whoShot)) {\n            CPlayer hulkRider = PM.getCurPlayer();\n            if (hulkRider != null && this.whoShot == GameScr.myIndex) {\n                hulkRider.falling = true;\n                hulkRider.isActiveFall = true;\n            }\n        }\n\n        if (this.paintCount > this.xPaint.length - 1) {\n            this.paintCount = this.xPaint.length - 1;');
   }
   if (name === 'network/GameService.java') {
     // addPoint must carry short deltas: bulk steps exceed a byte.
@@ -437,7 +437,7 @@ for (const path of await walk(source)) {
                     kbPlayer.fire();
                 }
 
-                if (GameScr.trainingMode && army2.web.MarvelRoster.selectedId != null && army2.web.MarvelRoster.canFlyOf(army2.web.MarvelRoster.selectedId)) {
+                if (army2.web.MarvelRoster.selectedId != null && army2.web.MarvelRoster.canFlyOf(army2.web.MarvelRoster.selectedId)) {
                     boolean kbFlyUp = Gdx.input.isKeyPressed(Input.Keys.R);
                     boolean kbFlyDown = Gdx.input.isKeyPressed(Input.Keys.F);
                     if ((kbFlyUp || kbFlyDown) && kbNow - this.kbLast >= 50L) {
@@ -490,12 +490,12 @@ for (const path of await walk(source)) {
                 }
             }
         }
-        g.setColor(army2.web.MarvelRoster.powArmed ? 3061327 : 13631488);
+        g.setColor((army2.web.MarvelRoster.powArmed || (!trainingMode && PM.getMyPlayer() != null && PM.getMyPlayer().currAngry >= 100)) ? 3061327 : 13631488);
         g.fillRect(CCanvas.width - 78, CCanvas.hieght - 88, 62, 24, false);
         g.setColor(16777215);
         g.drawRect(CCanvas.width - 78, CCanvas.hieght - 88, 62, 24, false);
         Font.borderFont.drawString(g, "POW", CCanvas.width - 47, CCanvas.hieght - 82, 3);
-        if (trainingMode && army2.web.MarvelRoster.selectedId != null && army2.web.MarvelRoster.canFlyOf(army2.web.MarvelRoster.selectedId)) {
+        if (army2.web.MarvelRoster.selectedId != null && army2.web.MarvelRoster.canFlyOf(army2.web.MarvelRoster.selectedId)) {
             g.setColor(10526880);
             g.fillRect(CCanvas.width - 146, CCanvas.hieght - 88, 30, 24, false);
             g.fillRect(CCanvas.width - 112, CCanvas.hieght - 88, 30, 24, false);
@@ -537,7 +537,18 @@ for (const path of await walk(source)) {
 
     public void flyStep(int dy, int cost) {
         try {
-            if (!trainingMode || army2.web.MarvelRoster.selectedId == null || !army2.web.MarvelRoster.canFlyOf(army2.web.MarvelRoster.selectedId)) {
+            this.flyStepInner(dy, cost);
+            CPlayer fp = PM.getMyPlayer();
+            if (fp != null) {
+                GameService.gI().move((short) fp.x, (short) fp.y);
+            }
+        } catch (Exception e) {
+        }
+    }
+
+    public void flyStepInner(int dy, int cost) {
+        try {
+            if (army2.web.MarvelRoster.selectedId == null || !army2.web.MarvelRoster.canFlyOf(army2.web.MarvelRoster.selectedId)) {
                 return;
             }
             CPlayer p = PM.getMyPlayer();
@@ -577,6 +588,10 @@ for (const path of await walk(source)) {
             }
             // Spec v3: POW is armed, not fired - the next shot (charged
             // at any force the player picks) carries the POW flag.
+            if (!trainingMode) {
+                GameService.gI().useItem((byte) 100);
+                return;
+            }
             army2.web.MarvelRoster.powArmed = !army2.web.MarvelRoster.powArmed;
         } catch (Exception e) {
         }
@@ -960,6 +975,28 @@ for (const path of await walk(source)) {
     text = text.split(label).join('(this.isBoss && PrepareScr.bossNameForMap(curMapIndex + tem).length() > 0 ? "Boss: " + PrepareScr.bossNameForMap(curMapIndex + tem) : MM.mapName[curMapIndex + tem])');
   }
 
+  if (name === 'network/GameService.java') {
+    // Spec v3 P3: tell the server which hero this session carries
+    // (command -91, heroes.json index; -1 = none).
+    text = text.replace('    public void waitForFIRETraining(byte type, short x, short y, short angle, byte force, byte force_2, byte numShoot) {',
+      '    public void sendHeroPick(int heroIndex) {\n        Message m = new Message((byte) -91);\n        try {\n            m.writer().writeByte(heroIndex);\n        } catch (Exception var3) {\n        }\n        this.session.sendMessage(m);\n        m.cleanup();\n    }\n\n    public void waitForFIRETraining(byte type, short x, short y, short angle, byte force, byte force_2, byte numShoot) {');
+  }
+  if (name === 'network/MessageHandler.java') {
+    // Spec v3 P3: command -92 carries the battle slot -> hero table
+    // (the stock case is an empty break). The table is cleared when a
+    // battle layout arrives (20) and when the war ends (50).
+    text = text.replace('                    case -92: {\n                        break;\n                    }',
+      '                    case -92: {\n                        try {\n                            int heroCount = msg.reader().readByte();\n                            for (int hi = 0; hi < heroCount; ++hi) {\n                                int hSlot = msg.reader().readByte();\n                                int hHero = msg.reader().readByte();\n                                int hMorph = msg.reader().readByte();\n                                army2.web.MarvelRoster.setBattleHero(hSlot, hHero, hMorph);\n                            }\n                        } catch (Exception e) {\n                        }\n                        break;\n                    }');
+    text = text.replace('                    case 20: {\n                        CCanvas.isInGameRunTime = true;',
+      '                    case 20: {\n                        army2.web.MarvelRoster.clearBattleHeroes();\n                        CCanvas.isInGameRunTime = true;');
+    text = text.replace('                    case 50: {\n                        byte whoWin = msg.reader().readByte();',
+      '                    case 50: {\n                        army2.web.MarvelRoster.clearBattleHeroes();\n                        army2.web.MarvelRoster.flyMode = false;\n                        byte whoWin = msg.reader().readByte();');
+  }
+  if (name === 'screen/PrepareScr.java') {
+    // Spec v3 P3: hero picker entry in the waiting-room menu.
+    text = text.replace('        menu.addElement(this.findRoom);',
+      '        menu.addElement(this.findRoom);\n        menu.addElement(new Command("Hero Marvel", new IAction() {\n            public void perform() {\n                MarvelPickScr.openPickOnly();\n            }\n        }));');
+  }
   const output = join(generated, 'source', name);
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, text);

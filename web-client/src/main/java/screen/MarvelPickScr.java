@@ -35,12 +35,27 @@ public class MarvelPickScr extends CScreen {
     private int pa;
     private boolean trans;
 
+    private boolean pickOnly;
+
     public static void open() {
         if (instance == null) {
             instance = new MarvelPickScr();
         }
+        instance.pickOnly = false;
         instance.refresh();
         instance.show(CCanvas.menuScr);
+    }
+
+    /** Pick a hero for real battles (spec v3 P3): opened from the
+     *  waiting-room menu; confirming only stores the pick and tells
+     *  the server (command -91), then returns to the room. */
+    public static void openPickOnly() {
+        if (instance == null) {
+            instance = new MarvelPickScr();
+        }
+        instance.pickOnly = true;
+        instance.refresh();
+        instance.show(CCanvas.prepareScr);
     }
 
     private void refresh() {
@@ -92,6 +107,12 @@ public class MarvelPickScr extends CScreen {
             army2.web.MarvelRoster.flyMode = false;
         }
         BrowserPlatform.trace("Marvel hero selected: " + MarvelRoster.selectedId);
+        GameService.gI().sendHeroPick(MarvelRoster.indexOf(MarvelRoster.selectedId));
+        if (this.pickOnly) {
+            this.pickOnly = false;
+            this.back();
+            return;
+        }
         GameScr.trainingMode = true;
         MenuScr.isTraining = true;
         GameService.gI().trainingMap();

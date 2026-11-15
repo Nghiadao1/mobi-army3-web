@@ -216,7 +216,7 @@ export const HEROES: HeroDef[] = [
     weapon: 'repulsor',
     holeMask: 'h40x35.png',
     powHoleMask: 'h55x50.png',
-    equipment: { hat: 204, legs: 296, body: 295, gun: -1, glass: -1, back: -1 },
+    equipment: { hat: 204, legs: 206, body: 205, gun: -1, glass: -1, back: -1 },
     specialSkillName: 'Bay Lượn Tự Do',
     specialSkillDesc: 'Bay lơ lửng không bị chặn bởi địa hình, cự ly di chuyển +90%, nạp đạn 295.',
   },
